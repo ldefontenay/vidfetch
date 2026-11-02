@@ -1,0 +1,14 @@
+# Build output
+target/
+
+# Downloaded videos and sound are never committed
+*.mp4
+*.m4a
+*.mp3
+*.webm
+*.mkv
+*.part
+*.vtt
+
+# yt-dlp is fetched at run time, never committed
+*.exe

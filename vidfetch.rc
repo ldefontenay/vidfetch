@@ -1,0 +1,225 @@
+// VidFetch's windows, as dialog templates compiled by rc.exe.
+//
+// THREE RULES, ALL LOAD-BEARING. Tidying the layout can silently break them.
+//
+// 1. Every label comes IMMEDIATELY BEFORE the control it names, in this file.
+//    Template order is tab order, and a screen reader takes a control's name
+//    from the static text just before it. oleacc only looks backwards: a label
+//    placed after its control leaves that control unnamed.
+// 2. Every mnemonic (&x) is unique within a window. In the main window the
+//    menu bar titles answer Alt+letter too, so they count (a unit test in
+//    ui.rs checks this). Main window, in use:
+//      Menus:     f File, d Download, o Options, h Help
+//      Controls:  w Downloads, p Open, n New download, u Update the playlist,
+//                 r Rename, x Show in File Explorer, l Delete, t Status
+// 3. Every control reads correctly on its own. JAWS does not announce group
+//    headings, so no label may depend on one, or on any other control.
+
+#include <windows.h>
+
+1 RT_MANIFEST "vidfetch.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION    0,1,0,0
+PRODUCTVERSION 0,1,0,0
+FILEFLAGSMASK  VS_FFI_FILEFLAGSMASK
+FILEFLAGS      0
+FILEOS         VOS_NT_WINDOWS32
+FILETYPE       VFT_APP
+FILESUBTYPE    VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "Laurent Cadet de Fontenay"
+            VALUE "FileDescription",  "Downloads videos and playlists"
+            VALUE "FileVersion",      "0.1.0.0"
+            VALUE "InternalName",     "vidfetch"
+            VALUE "LegalCopyright",   "MIT licensed"
+            VALUE "OriginalFilename", "vidfetch.exe"
+            VALUE "ProductName",      "VidFetch"
+            VALUE "ProductVersion",   "0.1.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+#define IDD_MAIN            100
+#define IDD_MESSAGE         101
+#define IDD_ASK             102
+#define IDD_NAME            106
+#define IDD_ADD             108
+
+#define IDC_STATUS          1004
+#define IDC_LIST            1005
+#define IDC_OPEN            1006
+#define IDC_ADD             1009
+#define IDC_RENAME          1010
+#define IDC_SHOW            1011
+#define IDC_DELETE          1012
+#define IDC_UPDATE          1013
+#define IDC_MESSAGE         1017
+#define IDC_MESSAGE_LABEL   1018
+#define IDC_ASK_TEXT        1020
+#define IDC_N_NAME          1070
+#define IDC_N_LABEL         1071
+#define IDC_A_SOURCE        1090
+#define IDC_A_PLAN          1092
+#define IDC_A_FORMAT        1093
+#define IDC_A_QUALITY       1094
+
+#define IDR_MENU            200
+
+// Menu commands, in step with ui.rs. The lists of choices are filled in as
+// they open, from the numbers in ui.rs.
+#define IDM_FOLDER          2002
+#define IDM_EXPLORER        2003
+#define IDM_EXIT            2004
+#define IDM_UPDATE_YTDLP    2005
+#define IDM_STOP            2011
+#define IDM_NUMBER          2012
+#define IDM_ADD             2023
+#define IDM_RENAME          2024
+#define IDM_DELETE          2025
+#define IDM_SHOW            2026
+#define IDM_OPEN            2027
+#define IDM_UPDATE          2028
+#define IDM_HELP            2030
+#define IDM_ABOUT           2031
+
+// What has been downloaded, and what can be done to the one chosen. Enter
+// opens it; F2 renames and Delete deletes, from the list, which also has a
+// context menu (Shift+F10 or the Applications key). Every command is in the
+// menus too. Delete is the last button, before the Status box, so
+// overshooting by one stop cannot reach it.
+IDD_MAIN DIALOGEX 0, 0, 400, 226
+STYLE DS_SETFONT | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "VidFetch"
+MENU IDR_MENU
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "Do&wnloads, most recent first:", -1, 7, 7, 386, 8
+    LISTBOX    IDC_LIST, 7, 17, 386, 120,
+               LBS_NOTIFY | LBS_WANTKEYBOARDINPUT | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_HSCROLL | WS_BORDER | WS_GROUP | WS_TABSTOP
+
+    DEFPUSHBUTTON "O&pen  Enter", IDC_OPEN, 7, 144, 190, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "&New download...  Ctrl+N", IDC_ADD, 203, 144, 190, 14, WS_TABSTOP
+    PUSHBUTTON "&Update the playlist  Ctrl+U", IDC_UPDATE, 7, 164, 190, 14, WS_TABSTOP
+    PUSHBUTTON "&Rename...  F2", IDC_RENAME, 203, 164, 190, 14, WS_TABSTOP
+    PUSHBUTTON "Show in File E&xplorer", IDC_SHOW, 7, 184, 190, 14, WS_TABSTOP
+    PUSHBUTTON "De&lete...  Delete", IDC_DELETE, 203, 184, 190, 14, WS_TABSTOP
+
+    LTEXT      "S&tatus:", -1, 7, 208, 30, 8
+    EDITTEXT   IDC_STATUS, 40, 206, 353, 12, ES_AUTOHSCROLL | ES_READONLY | WS_GROUP | WS_TABSTOP
+END
+
+// Every command, with its shortcut, so that commands can be found without the
+// help. Within each menu, every item's letter is unique.
+IDR_MENU MENU
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&New download...\tCtrl+N", IDM_ADD
+        MENUITEM "Choose the &output folder...", IDM_FOLDER
+        MENUITEM "Show the output folder in File &Explorer", IDM_EXPLORER
+        MENUITEM "&Update yt-dlp, the web video downloader", IDM_UPDATE_YTDLP
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit\tAlt+F4", IDM_EXIT
+    END
+    // For the download chosen in the list.
+    POPUP "&Download"
+    BEGIN
+        MENUITEM "&Open\tEnter", IDM_OPEN
+        MENUITEM "&Update the playlist, fetching its new videos\tCtrl+U", IDM_UPDATE
+        MENUITEM "S&top\tEscape", IDM_STOP
+        MENUITEM SEPARATOR
+        MENUITEM "&Rename...\tF2", IDM_RENAME
+        MENUITEM "Show in File E&xplorer", IDM_SHOW
+        MENUITEM "&Delete...\tDelete", IDM_DELETE
+    END
+    // The lists are filled in as they open; their items have no mnemonics,
+    // so typing a letter moves to the first item starting with it.
+    POPUP "&Options"
+    BEGIN
+        POPUP "&Download as"
+        BEGIN
+            MENUITEM "-", 2100
+        END
+        POPUP "Picture &quality"
+        BEGIN
+            MENUITEM "-", 2200
+        END
+        MENUITEM "&Number the files of a playlist in its order", IDM_NUMBER
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&Help\tF1", IDM_HELP
+        MENUITEM "&About VidFetch", IDM_ABOUT
+    END
+END
+
+IDD_MESSAGE DIALOGEX 0, 0, 304, 244
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "VidFetch"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "&What happened:", IDC_MESSAGE_LABEL, 7, 7, 290, 8
+    EDITTEXT   IDC_MESSAGE, 7, 19, 290, 198,
+               ES_MULTILINE | ES_READONLY | WS_VSCROLL | WS_GROUP | WS_TABSTOP
+    DEFPUSHBUTTON "OK", IDOK, 247, 223, 50, 14, WS_GROUP
+END
+
+// A question with two answers. The answers' wording, and which is the default
+// for Enter, are set at run time: the safe answer is the default, and when it
+// is "no" the buttons swap so that it comes first (message.rs).
+IDD_ASK DIALOGEX 0, 0, 304, 180
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "VidFetch"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "&Question:", -1, 7, 7, 290, 8
+    EDITTEXT   IDC_ASK_TEXT, 7, 19, 290, 134,
+               ES_MULTILINE | ES_READONLY | WS_VSCROLL | WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "Yes", IDOK, 7, 159, 143, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "No", IDCANCEL, 154, 159, 143, 14, WS_TABSTOP
+END
+
+IDD_NAME DIALOGEX 0, 0, 260, 62
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Rename - VidFetch"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "&New name:", IDC_N_LABEL, 7, 7, 246, 8
+    EDITTEXT   IDC_N_NAME, 7, 18, 246, 12, ES_AUTOHSCROLL | WS_TABSTOP
+    DEFPUSHBUTTON "OK", IDOK, 149, 40, 50, 14, WS_TABSTOP
+    PUSHBUTTON "Cancel", IDCANCEL, 203, 40, 50, 14, WS_TABSTOP
+END
+
+// A new download (addvideo.rs): a web address, how to download it, and what
+// will happen. Letters: w, a, q, h, s; Cancel is Escape. Enter starts.
+IDD_ADD DIALOGEX 0, 0, 400, 200
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "New download - VidFetch"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "&Web address of a video or a playlist:", -1, 7, 7, 386, 8
+    EDITTEXT   IDC_A_SOURCE, 7, 17, 386, 12, ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP
+
+    LTEXT      "Download &as:", -1, 7, 38, 60, 8
+    COMBOBOX   IDC_A_FORMAT, 70, 36, 323, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_GROUP | WS_TABSTOP
+
+    LTEXT      "Picture &quality:", -1, 7, 56, 60, 8
+    COMBOBOX   IDC_A_QUALITY, 70, 54, 323, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_GROUP | WS_TABSTOP
+
+    LTEXT      "W&hat will happen:", -1, 7, 74, 386, 8
+    EDITTEXT   IDC_A_PLAN, 7, 84, 386, 86,
+               ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_VSCROLL | WS_GROUP | WS_TABSTOP
+
+    DEFPUSHBUTTON "&Start downloading", IDOK, 239, 178, 100, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "Cancel", IDCANCEL, 343, 178, 50, 14, WS_TABSTOP
+END

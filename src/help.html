@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>VidFetch help</title>
+<style>
+body { font-family: "Segoe UI", sans-serif; max-width: 44em; margin: 2em auto; padding: 0 1em; line-height: 1.5; }
+kbd { font-family: inherit; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>VidFetch help</h1>
+<p>Version {{VERSION}}, a test version.</p>
+
+<h2>What it does</h2>
+<p>VidFetch downloads videos, and whole playlists, from YouTube and many other sites, as video
+or as sound only. Each download is saved in the output folder, named after its title. A playlist
+gets a folder of its own, and fetching it again later brings only its new videos.</p>
+
+<h2>Downloading a video or a playlist</h2>
+<ol>
+<li>In the browser, open the video or the playlist, and copy its address with <kbd>Alt+D</kbd>
+then <kbd>Ctrl+C</kbd>.</li>
+<li>In VidFetch, press <kbd>Ctrl+N</kbd>, New download. The address on the clipboard is already
+in the web address box, chosen, so pasting or typing another replaces it.</li>
+<li>Press <kbd>Enter</kbd> to start. Tab first if you want to check how it will be saved: the
+next two boxes are <strong>Download as</strong> (<kbd>Alt+A</kbd>) and <strong>Picture
+quality</strong> (<kbd>Alt+Q</kbd>), changed with the arrow keys, and the
+<strong>What will happen</strong> box (<kbd>Alt+H</kbd>) says what this address is and where the
+download goes.</li>
+</ol>
+<p>A YouTube video that is part of a playlist, such as one opened from the playlist's page, has
+both in its address. VidFetch then asks whether to download the whole playlist or just this video;
+Enter, or Escape, downloads just the video. A YouTube mix, the endless list YouTube makes for a
+video, is never taken as a playlist.</p>
+<p>The Status box says how far the download has got. <kbd>Escape</kbd> stops it. When it is done,
+VidFetch says so, and the download is chosen in the list: <kbd>Enter</kbd> plays it.</p>
+
+<h2>Playlists and channels</h2>
+<p>A playlist's videos are downloaded one after the other into a folder named after the playlist.
+Their files start with their place in the playlist, such as <em>03 - Title.mp4</em>, so they sort in
+its order; Number the files of a playlist, in the Options menu, turns that off. A channel's
+address, such as its Videos page, works the same way.</p>
+<p>A video that cannot be downloaded, because it is private or was removed, does not stop the rest.
+The report at the end lists each one with the reason.</p>
+<p>Stopping keeps every video already saved. To carry on, or to fetch videos added to the playlist
+since, choose the playlist in the list and press <kbd>Ctrl+U</kbd>, Update the playlist: only the
+videos not yet in its folder are downloaded. The folder holds a small file,
+<em>VidFetch.json</em>, which records which videos are there. You can rename the folder as you
+like, in VidFetch or in File Explorer, but keep that file in it.</p>
+
+<h2>Video or sound only</h2>
+<p>Download as, in the Options menu and in the New download window:</p>
+<ul>
+<li><strong>Video</strong>: an MP4 with picture and sound, which every player plays. YouTube sends
+the picture and the sound separately; VidFetch puts them together with Windows' own Media
+Foundation, copying both as they are, so nothing is lost.</li>
+<li><strong>Sound only, M4A</strong>: the sound exactly as the site sends it, nothing lost and
+nothing converted. Most players, phones and Windows itself play it.</li>
+<li><strong>Sound only, MP3</strong>: for a player that takes nothing else, such as an older car
+stereo or a talking book player. It is converted, so it takes a little longer.</li>
+</ul>
+<p>Picture quality is how many lines high the picture is at most: 360, 480, 720 or 1080. Higher is
+sharper and larger. YouTube offers the kind of picture an MP4 holds up to 1080 lines; a video that
+is only in higher quality comes down at the best it has up to that.</p>
+<p>Each file is tagged with its title, the channel that put it online, the year, and the address it
+came from; a playlist's videos also with the playlist's name as the album and their place as the
+track number. Media players and File Explorer show these.</p>
+
+<h2>The main window</h2>
+<p>The list of downloads, most recent first, shows each file and playlist in the output folder,
+with what it is and when it was saved. Tab moves from the list to the buttons, then to the Status
+box:</p>
+<ul>
+<li><strong>Downloads</strong> (<kbd>Alt+W</kbd>): the list. <kbd>Enter</kbd> opens the chosen
+download, <kbd>F2</kbd> renames it, <kbd>Delete</kbd> deletes it, and <kbd>Shift+F10</kbd> or the
+Applications key opens its context menu.</li>
+<li><strong>Open</strong> (<kbd>Alt+P</kbd> or <kbd>Enter</kbd>): plays a file in the program
+Windows plays it with, or opens a playlist's folder in File Explorer.</li>
+<li><strong>New download</strong> (<kbd>Alt+N</kbd> or <kbd>Ctrl+N</kbd>).</li>
+<li><strong>Update the playlist</strong> (<kbd>Alt+U</kbd> or <kbd>Ctrl+U</kbd>): fetches the
+chosen playlist's videos that are not in its folder yet.</li>
+<li><strong>Rename</strong> (<kbd>Alt+R</kbd> or <kbd>F2</kbd>): a new name for the file, keeping
+its ending, or for the playlist's folder.</li>
+<li><strong>Show in File Explorer</strong> (<kbd>Alt+X</kbd>): opens the output folder with the
+download chosen in it.</li>
+<li><strong>Delete</strong> (<kbd>Alt+L</kbd> or <kbd>Delete</kbd> in the list): asks, with
+"Keep it" the default, then moves the file, or the playlist's folder, to the Recycle Bin.</li>
+<li><strong>Status</strong> (<kbd>Alt+T</kbd>): what is happening now.</li>
+</ul>
+
+<h2>The menus</h2>
+<ul>
+<li><strong>File</strong>: New download; Choose the output folder; Show the output folder in File
+Explorer; Update yt-dlp; Exit.</li>
+<li><strong>Download</strong>: what can be done to the download chosen in the list, and Stop
+(<kbd>Escape</kbd>).</li>
+<li><strong>Options</strong>: Download as; Picture quality; Number the files of a playlist. Each
+choice is saved at once and said.</li>
+<li><strong>Help</strong>: this page (<kbd>F1</kbd>), and About VidFetch.</li>
+</ul>
+
+<h2>yt-dlp</h2>
+<p>VidFetch downloads with yt-dlp, a free program that knows YouTube and well over a thousand other
+sites. The first time, VidFetch asks to download it from its official page on GitHub, checks it
+against its published checksum, and keeps it in its own folder, in
+<em>%LOCALAPPDATA%\VidFetch\tools</em>. If yt-dlp is already on the computer's path, that one is
+used instead.</p>
+<p>Video sites change often, and an old yt-dlp is the usual reason a download fails. VidFetch
+updates its copy every two weeks by itself; Update yt-dlp, in the File menu, does it now.</p>
+
+<h2>What VidFetch cannot download</h2>
+<ul>
+<li>Private, age-restricted or members-only videos, which need signing in.</li>
+<li>Videos a site offers only as a stream in pieces, which would need FFmpeg to put together.
+VidFetch says so when that is the reason.</li>
+<li>Live streams while they are live.</li>
+</ul>
+<p>Only download what you have the right to: your own videos, freely licensed ones, or for your
+own use where the law and the site allow it.</p>
+
+<h2>Where things are kept</h2>
+<ul>
+<li>Downloads: <em>Videos\VidFetch</em> in your user folder, unless you choose another in the File
+menu.</li>
+<li>Settings: <em>%APPDATA%\VidFetch\settings.txt</em>, plain text, safe to edit while VidFetch is
+closed.</li>
+<li>yt-dlp, and downloads in progress: <em>%LOCALAPPDATA%\VidFetch</em>. A stopped download is
+kept there for a day, so starting it again carries on where it was.</li>
+</ul>
+</body>
+</html>
