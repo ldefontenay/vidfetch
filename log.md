@@ -72,7 +72,7 @@ https://www.technetexperts.com/fix-yt-dlp-cloud-signin-error/ (cookies and accou
 - **GitHub (your Q6).** Not done yet: see "For you to do" below. The release is for after your test, and
   will need a licence file, which the repository does not have yet.
 
-The program is now 499 KB (it was 460).
+The program is now 502 KB (it was 460).
 
 ### Tried by me
 
@@ -80,6 +80,7 @@ All with temporary settings and folders, so your own are untouched and you still
 welcome. The automated checks and 29 unit tests pass. The accessibility probe found no problems in the
 main window, New download or the Queue window.
 
+- **Video:** "Me at the zoo" as an MP4 at 360 lines, on the final code.
 - **Captions:** "Me at the zoo" (a person's captions, correct); the first Blender film (automatic captions
   in English, no repeated lines); the Steve Jobs speech's automatic captions (no repeated lines).
 - **Two bugs found that way and fixed.** The Blender film has dubbed sound, so it offers an "original"
