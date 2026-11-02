@@ -428,6 +428,148 @@ pub fn download(
     Err(explain(&errors, &site(url)))
 }
 
+/// Which captions to save: the track's name and whether they are automatic.
+/// A person's come first: in the video's own language, then English. Then the
+/// automatic captions of what is said (`en-orig`), never YouTube's machine
+/// translations; a video with dubbed sound has one `-orig` track for each
+/// language, so the video's own is chosen, as `en-US` for an `en-orig`. A
+/// person's in another language come last, as they may be a translation.
+fn choose_captions(
+    language: Option<&str>,
+    made: &[String],
+    automatic: &[String],
+) -> Option<(String, bool)> {
+    let is = |c: &str, l: &str| c == l || c.starts_with(&format!("{l}-"));
+    let own = language.and_then(|l| l.split('-').next());
+    let real: Vec<&String> = made.iter().filter(|c| *c != "live_chat").collect();
+    let person = own
+        .and_then(|l| real.iter().find(|c| is(c, l)))
+        .or_else(|| real.iter().find(|c| is(c, "en")));
+    if let Some(c) = person {
+        return Some((c.to_string(), false));
+    }
+    let orig: Vec<&String> = automatic.iter().filter(|c| c.ends_with("-orig")).collect();
+    let machine = own
+        .and_then(|l| orig.iter().find(|c| is(c, l)))
+        .or_else(|| orig.iter().find(|c| is(c, "en")))
+        .or_else(|| orig.first())
+        .map(|c| c.as_str())
+        .or_else(|| own.and_then(|l| automatic.iter().find(|c| *c == l).map(|c| c.as_str())));
+    if let Some(c) = machine {
+        return Some((c.to_string(), true));
+    }
+    real.first().map(|c| (c.to_string(), false))
+}
+
+/// A captions track's name as it goes in a file name: `en` for YouTube's
+/// `en-orig` and `en-eEY6OEpapPo`, while `pt-BR` and `zh-Hans` stay as they are.
+fn short_lang(track: &str) -> String {
+    let parts: Vec<&str> = track
+        .split('-')
+        .take_while(|p| p.len() <= 4 && *p != "orig")
+        .collect();
+    if parts.is_empty() {
+        track.to_string()
+    } else {
+        parts.join("-")
+    }
+}
+
+/// What yt-dlp's `-J` answer says about a video's captions.
+fn captions_in(v: &serde_json::Value) -> Option<(String, bool)> {
+    let v = v["entries"].get(0).unwrap_or(v);
+    let names = |k: &str| -> Vec<String> {
+        v[k].as_object()
+            .map(|o| o.keys().cloned().collect())
+            .unwrap_or_default()
+    };
+    choose_captions(
+        v["language"].as_str(),
+        &names("subtitles"),
+        &names("automatic_captions"),
+    )
+}
+
+/// Fetches `url`'s captions into `dir`: the file, and its language as it goes
+/// in a file name, such as `en`. None when it has none, or if stopped. Asked
+/// for apart from the download, as YouTube sometimes refuses captions and that
+/// must not cost the video.
+pub fn captions(
+    exe: &Path,
+    url: &str,
+    dir: &Path,
+    stop: &AtomicBool,
+) -> Result<Option<(PathBuf, String)>, String> {
+    let strings = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<String>>();
+    let args = strings(&[
+        "--ignore-config",
+        "--encoding",
+        "utf-8",
+        "--no-playlist",
+        "--playlist-items",
+        "1",
+        "--no-colors",
+        "--skip-download",
+        "-J",
+        "--",
+        url,
+    ]);
+    let mut json = String::new();
+    let Some((ok, errors)) = run(exe, &args, stop, &mut |l| json.push_str(l))? else {
+        return Ok(None);
+    };
+    if !ok {
+        return Err(last_error(&errors));
+    }
+    let v: serde_json::Value = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+    let Some((lang, automatic)) = captions_in(&v) else {
+        return Ok(None);
+    };
+    let name = key(url).unwrap_or_else(|| "video".into());
+    let out = dir.display().to_string();
+    let template = format!("{name}.captions.%(ext)s");
+    let args = strings(&[
+        "--ignore-config",
+        "--encoding",
+        "utf-8",
+        "--no-playlist",
+        "--playlist-items",
+        "1",
+        "--no-colors",
+        "--skip-download",
+        if automatic {
+            "--write-auto-subs"
+        } else {
+            "--write-subs"
+        },
+        "--sub-langs",
+        &lang,
+        "--sub-format",
+        "vtt/srt/best",
+        "-P",
+        &out,
+        "-o",
+        &template,
+        "--",
+        url,
+    ]);
+    let Some((ok, errors)) = run(exe, &args, stop, &mut |_| {})? else {
+        return Ok(None);
+    };
+    let prefix = format!("{name}.captions.");
+    let file = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .find(|e| e.file_name().to_string_lossy().starts_with(&prefix))
+        .map(|e| e.path());
+    match file {
+        Some(f) => Ok(Some((f, short_lang(&lang)))),
+        None if ok => Ok(None),
+        None => Err(last_error(&errors)),
+    }
+}
+
 /// A playlist, or a channel's videos, as yt-dlp lists them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Playlist {
@@ -646,7 +788,8 @@ fn explain(errors: &[String], site: &str) -> String {
         || lower.contains("logged-in")
         || lower.contains("cookies")
     {
-        " The video may be private, age-restricted or need signing in, which VidFetch cannot do."
+        " The video may be private, age-restricted or need signing in, which VidFetch cannot do. \
+         If YouTube asks to confirm you are not a bot, that usually passes: try again later."
     } else if lower.contains("unavailable") || lower.contains("not available") {
         " The video may have been removed, or not be available in this country."
     } else if lower.contains("unable to download") || lower.contains("getaddrinfo") {
@@ -855,6 +998,54 @@ mod tests {
         let unknown = parse_file(&format!("{FILE} C:\\d\\x.mp4\tNA\tNA\tNA\tNA\tA title")).unwrap();
         assert_eq!((unknown.year, unknown.uploader), (None, None));
         assert!(parse_file("[download] x").is_none());
+    }
+
+    #[test]
+    fn the_right_captions_are_chosen() {
+        let v = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let auto = v(&["af", "en", "fr", "fr-orig"]);
+        // A person's, in the video's language, before anything automatic.
+        assert_eq!(
+            choose_captions(Some("fr"), &v(&["en", "fr-CA"]), &auto),
+            Some(("fr-CA".into(), false))
+        );
+        // Then English, then whichever there is.
+        assert_eq!(
+            choose_captions(Some("de"), &v(&["es", "en-GB"]), &[]),
+            Some(("en-GB".into(), false))
+        );
+        assert_eq!(
+            choose_captions(None, &v(&["live_chat", "es"]), &[]),
+            Some(("es".into(), false))
+        );
+        // Automatic: what is said, never a translation.
+        assert_eq!(
+            choose_captions(
+                Some("en-US"),
+                &[],
+                &v(&["ar-orig", "en-orig", "fr-orig", "ar"])
+            ),
+            Some(("en-orig".into(), true))
+        );
+        // A person's translation does not beat the words actually said.
+        assert_eq!(
+            choose_captions(Some("en"), &v(&["ar"]), &v(&["en-orig"])),
+            Some(("en-orig".into(), true))
+        );
+        assert_eq!(
+            choose_captions(Some("en"), &v(&["live_chat"]), &auto),
+            Some(("fr-orig".into(), true))
+        );
+        assert_eq!(
+            choose_captions(Some("en"), &[], &v(&["af", "en"])),
+            Some(("en".into(), true))
+        );
+        assert_eq!(choose_captions(None, &[], &v(&["af", "en"])), None);
+        assert_eq!(choose_captions(Some("en"), &[], &[]), None);
+        assert_eq!(short_lang("en-orig"), "en");
+        assert_eq!(short_lang("en-eEY6OEpapPo"), "en");
+        assert_eq!(short_lang("pt-BR"), "pt-BR");
+        assert_eq!(short_lang("zh-Hans"), "zh-Hans");
     }
 
     #[test]

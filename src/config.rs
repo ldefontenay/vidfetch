@@ -13,6 +13,8 @@ pub struct Config {
     pub lines: u32,
     /// A playlist's files start with their place in it: "03 - Title.mp4".
     pub number: bool,
+    /// Save a video's captions as an SRT file beside it, when it has any.
+    pub captions: bool,
 }
 
 /// What a download is saved as.
@@ -28,13 +30,24 @@ pub enum Format {
 
 /// The choices, as the menus and the New download window say them.
 pub const FORMATS: &[(Format, &str)] = &[
-    (Format::Video, "Video, with picture and sound (MP4)"),
     (
         Format::M4a,
         "Sound only, as the site sends it, nothing lost (M4A)",
     ),
     (Format::Mp3, "Sound only, for any player (MP3)"),
+    (Format::Video, "Video, with picture and sound (MP4)"),
 ];
+
+impl Format {
+    /// The word for it in the settings file and the record of downloads.
+    pub fn word(self) -> &'static str {
+        match self {
+            Format::Video => "video",
+            Format::M4a => "m4a",
+            Format::Mp3 => "mp3",
+        }
+    }
+}
 
 /// YouTube offers H.264, which an MP4 holds, up to 1080 lines.
 pub const QUALITIES: &[(u32, &str)] = &[
@@ -48,9 +61,11 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             output_folder: None,
-            format: Format::Video,
+            // The user's choice (log entry 1, Q1): sound only unless asked.
+            format: Format::M4a,
             lines: 720,
             number: true,
+            captions: false,
         }
     }
 }
@@ -64,6 +79,11 @@ impl Config {
     /// `%APPDATA%\VidFetch`, where settings and the help page live.
     pub fn dir() -> Option<PathBuf> {
         Self::path().and_then(|p| p.parent().map(PathBuf::from))
+    }
+
+    /// The record of single downloads (library.rs, Past).
+    pub fn past_path() -> Option<PathBuf> {
+        Self::dir().map(|d| d.join("downloaded.json"))
     }
 
     /// False the very first time VidFetch runs on this computer.
@@ -107,9 +127,9 @@ impl Config {
                 }
                 "download as" => {
                     cfg.format = match lower.as_str() {
-                        "m4a" => Format::M4a,
+                        "video" => Format::Video,
                         "mp3" => Format::Mp3,
-                        _ => Format::Video,
+                        _ => Format::M4a,
                     }
                 }
                 "lines of picture" => {
@@ -122,6 +142,7 @@ impl Config {
                     }
                 }
                 "number the files of a playlist" => cfg.number = yes,
+                "save captions" => cfg.captions = yes,
                 _ => {}
             }
         }
@@ -135,18 +156,16 @@ impl Config {
              output folder = {}\r\n\
              download as = {}\r\n\
              lines of picture = {}\r\n\
-             number the files of a playlist = {}\r\n",
+             number the files of a playlist = {}\r\n\
+             save captions = {}\r\n",
             self.output_folder
                 .as_ref()
                 .map(|p| p.display().to_string())
                 .unwrap_or_default(),
-            match self.format {
-                Format::Video => "video",
-                Format::M4a => "m4a",
-                Format::Mp3 => "mp3",
-            },
+            self.format.word(),
             self.lines,
             yn(self.number),
+            yn(self.captions),
         )
     }
 
@@ -186,6 +205,7 @@ mod tests {
             format: Format::Mp3,
             lines: 1080,
             number: false,
+            captions: true,
         };
         assert_eq!(Config::parse(&cfg.to_text()), cfg);
     }

@@ -28,6 +28,18 @@ playlists"). One small Win32 program, a screen reader first, no installer.
   succeeds does.
 - **A video in a playlist** (`watch?v=...&list=...`): VidFetch asks, whole playlist or just the video,
   with just the video the default. A YouTube mix (`list=RD...`) is never taken as a playlist.
+- **The queue**: `ui.rs` holds what waits, each with the settings it had when asked for, and starts
+  the next as a job ends. Escape stops the one running, not the queue. Jobs carry on behind any window
+  in front, without moving focus; what they have to show waits for it to close (WM_ENABLE). Not kept
+  when VidFetch closes.
+- **Already downloaded**: `%APPDATA%\VidFetch\downloaded.json` records each single download by
+  `ytdlp::key`, format and lines (none for sound). The same again asks, Open it being the default; a
+  different format or quality just downloads. Rename in VidFetch keeps the record; File Explorer does not.
+- **Captions** (an option, off to begin with): after the file is safely saved, `yt-dlp -J` lists them,
+  then yt-dlp fetches one track, and `captions.rs` writes SRT, as yt-dlp's own conversion needs FFmpeg.
+  A person's in the video's language or English; else the automatic track of the video's language
+  (a dubbed video has one `-orig` track for each language); else a person's in another language. Never
+  a machine translation. A failure is a note, not a lost video. Rename and Delete take the file along.
 - Downloads in progress live in `%LOCALAPPDATA%\VidFetch\downloads`, kept a day so a stopped download
   carries on.
 
@@ -35,18 +47,27 @@ playlists"). One small Win32 program, a screen reader first, no installer.
 
 Video Scribe's main window: the list of downloads (files and playlist folders in the output folder,
 most recent first), Open (Enter: plays a file, opens a playlist's folder), New download (Ctrl+N),
-Update the playlist (Ctrl+U), Rename (F2), Show in File Explorer, Delete (to the Recycle Bin), Status.
-New download takes the address from the clipboard, and has Download as and Picture quality in it.
+Update the playlist (Ctrl+U), Show the queue (Ctrl+Q), Rename (F2), Show in File Explorer, Delete (to
+the Recycle Bin), Status. New download takes the address from the clipboard, and has Download as,
+Picture quality and Save captions in it.
 
 ## 4. Decisions
 
-1. Defaults: video, MP4, 720 lines; playlist files numbered. (Proposed; log entry 1, Q1.)
+1. Defaults: sound only, M4A; 720 lines when video is chosen; playlist files numbered; captions off.
+   The user: "720 is right, but default should be to download sound only when possible." (Log entry 1.)
 2. Settings in `%APPDATA%\VidFetch\settings.txt`, as in Video Scribe; output in `Videos\VidFetch`.
 3. A single video goes into the output folder itself, named after its title; a playlist into a folder.
+4. New videos in a playlist are not announced as they start: the Status box is enough (the user, log
+   entry 1, Q3). Likewise a queued download's steps are shown, not said; each end is said.
+5. Signing in is not built: public videos need none. Waiting on the user (log entry 2, Q1).
 
 ## 5. Milestones
 
 1. **The downloader** (this one): everything above. Built 2 November 2026; tested by Claude on
    YouTube (a video, a playlist stopped and carried on, M4A, MP3), a direct link and archive.org;
    awaiting the user's test, `test-milestone-1.txt`.
-2. To be decided from log entry 1: a queue of several addresses, captions, a release like NoteFetch's.
+2. **The user's answers to log entry 1** (branch `m2-queue-captions`): sound by default, the queue,
+   captions, noticing a repeat. Built 2 November 2026; tried by Claude (log entry 2); awaiting the
+   user's test, `test-milestone-2.txt`, which replaces milestone 1's.
+3. A private GitHub repository (agreed, log entry 1, Q6; not yet made, log entry 2), then a release
+   like NoteFetch's with its guide online. Needs a LICENSE file, which the repository does not have yet.

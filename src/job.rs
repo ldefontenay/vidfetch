@@ -17,8 +17,8 @@ use std::time::{Duration, Instant};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, WM_APP};
 
-use crate::config::Format;
-use crate::{library, media, tags, ytdlp};
+use crate::config::{Config, Format};
+use crate::{captions, library, media, tags, ytdlp};
 
 /// The window hears from the job by this message; its LPARAM is a boxed Event.
 pub const WM_JOB: u32 = WM_APP + 20;
@@ -53,6 +53,8 @@ pub struct Settings {
     pub lines: u32,
     /// Start a playlist's files with their place in it.
     pub number: bool,
+    /// Save each video's captions beside it.
+    pub captions: bool,
     /// The address names a video in a playlist, and the user asked for the
     /// whole playlist.
     pub whole_list: bool,
@@ -385,6 +387,59 @@ fn keep(f: &Fetched, to: &Path, tags: &tags::Tags, work: &Path, url: &str) -> Re
     Ok(())
 }
 
+/// Saves `url`'s captions beside the download at `to`, as an SRT file. What to
+/// tell the user when there are none to save; a video is never lost to its
+/// captions, so a failure here is only that.
+fn save_captions(
+    exe: &Path,
+    work: &Path,
+    url: &str,
+    to: &Path,
+    title: &str,
+    stop: &AtomicBool,
+) -> Option<String> {
+    let saved = ytdlp::captions(exe, url, work, stop);
+    if stop.load(Ordering::Relaxed) {
+        if let Some(key) = ytdlp::key(url) {
+            ytdlp::forget(work, &key);
+        }
+        return None;
+    }
+    let result = match saved {
+        Ok(None) => Some(format!("{title} has no captions, so none were saved.")),
+        Ok(Some((file, lang))) => write_srt(&file, to, &lang)
+            .err()
+            .map(|why| format!("The captions of {title} could not be saved: {why}")),
+        Err(why) => Some(format!(
+            "The captions of {title} could not be fetched, though the download itself is saved. \
+             yt-dlp said: {why}"
+        )),
+    };
+    if let Some(key) = ytdlp::key(url) {
+        ytdlp::forget(work, &key);
+    }
+    result
+}
+
+/// The captions in `from` as `Title.en.srt` beside `to`, under a temporary
+/// name until they are whole.
+fn write_srt(from: &Path, to: &Path, lang: &str) -> Result<(), String> {
+    let text = std::fs::read(from).map_err(|e| e.to_string())?;
+    let cues = captions::parse(&String::from_utf8_lossy(&text));
+    if cues.is_empty() {
+        return Err("they came in a form VidFetch cannot read.".into());
+    }
+    let stem = to.file_stem().unwrap_or_default().to_string_lossy();
+    let srt = to.with_file_name(format!("{stem}.{lang}.srt"));
+    let part = srt.with_extension("srt.part");
+    std::fs::write(&part, captions::to_srt(&cues))
+        .and_then(|_| std::fs::rename(&part, &srt))
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&part);
+            e.to_string()
+        })
+}
+
 fn ext_of(p: &Path) -> String {
     p.extension()
         .map(|e| e.to_string_lossy().to_ascii_lowercase())
@@ -422,6 +477,15 @@ fn single(
         ..Default::default()
     };
     keep(&f, &to, &t, work, &s.url)?;
+    if let (Some(record), Some(key)) = (Config::past_path(), ytdlp::key(&s.url)) {
+        library::remember(
+            &record,
+            &key,
+            &to,
+            s.format.word(),
+            past_lines(s.format, s.lines),
+        );
+    }
     let name = to
         .file_name()
         .unwrap_or_default()
@@ -431,11 +495,26 @@ fn single(
     if let Some(n) = &f.note {
         said = format!("{n} {said}");
     }
+    if s.captions {
+        post(Event::Progress(format!("Fetching the captions of {name}.")));
+        if let Some(n) = save_captions(exe, work, &s.url, &to, &f.title, stop) {
+            said += &format!(" {n}");
+        }
+    }
     Ok(Event::Done {
         said,
         path: to,
         report: None,
     })
+}
+
+/// The lines of picture a download is remembered by: none for sound, where
+/// the setting makes no difference.
+pub fn past_lines(format: Format, lines: u32) -> u32 {
+    match format {
+        Format::Video => lines,
+        Format::M4a | Format::Mp3 => 0,
+    }
 }
 
 /// A playlist file's name: its place, when numbered, then its title.
@@ -550,6 +629,10 @@ fn playlist(
                         notes.push(note);
                     }
                 }
+                if s.captions {
+                    post(Event::Progress(format!("{before}Fetching the captions.")));
+                    notes.extend(save_captions(exe, work, &item.url, &to, title, stop));
+                }
                 saved += 1;
                 in_a_row = 0;
             }
@@ -642,6 +725,7 @@ mod tests {
                 Some("mp3") => Format::Mp3,
                 _ => Format::Video,
             },
+            captions: var("VF_CAPTIONS").is_some(),
             lines: var("VF_LINES").and_then(|l| l.parse().ok()).unwrap_or(720),
             number: true,
             whole_list: var("VF_WHOLE").is_some(),

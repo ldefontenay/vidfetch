@@ -20,24 +20,30 @@ const IDC_A_SOURCE: i32 = 1090;
 const IDC_A_PLAN: i32 = 1092;
 const IDC_A_FORMAT: i32 = 1093;
 const IDC_A_QUALITY: i32 = 1094;
+const IDC_A_CAPTIONS: i32 = 1095;
 
 const EN_SETFOCUS: u32 = 0x0100;
 const EN_CHANGE: u32 = 0x0300;
 const CBN_SELCHANGE: u32 = 1;
 const EM_SETSEL: u32 = 0x00B1;
+const BM_GETCHECK: u32 = 0x00F0;
+const BM_SETCHECK: u32 = 0x00F1;
 const CF_UNICODETEXT: u32 = 13;
 
 struct State<'a> {
     cfg: &'a mut Config,
     /// What the address box starts with.
     text: String,
+    /// A download is running, so this one will wait its turn.
+    busy: bool,
     chosen: Option<String>,
 }
 
 /// Asks for an address, starting with `text`, or with a web address on the
 /// clipboard when `text` is empty. The address to download, or None when
-/// the user cancelled. Choices changed here are kept in `cfg`.
-pub fn show(owner: HWND, cfg: &mut Config, text: &str) -> Option<String> {
+/// the user cancelled. Choices changed here are kept in `cfg`. `busy`: a
+/// download is running, so this one will go in the queue.
+pub fn show(owner: HWND, cfg: &mut Config, text: &str, busy: bool) -> Option<String> {
     let text = if text.is_empty() {
         clipboard()
             .filter(|c| ytdlp::parse_address(c).is_ok() && !c.contains('\n'))
@@ -48,6 +54,7 @@ pub fn show(owner: HWND, cfg: &mut Config, text: &str) -> Option<String> {
     let mut state = State {
         cfg,
         text,
+        busy,
         chosen: None,
     };
     unsafe {
@@ -92,7 +99,7 @@ unsafe fn state<'a>(hwnd: HWND) -> Option<&'a mut State<'a>> {
 }
 
 /// What will happen with this address and these choices.
-pub fn plan(cfg: &Config, address: Option<&str>) -> String {
+pub fn plan(cfg: &Config, address: Option<&str>, busy: bool) -> String {
     let mut lines = Vec::new();
     match address {
         None => lines.push(
@@ -138,15 +145,26 @@ pub fn plan(cfg: &Config, address: Option<&str>) -> String {
         "Saved in {}, named after the title.",
         cfg.output_folder().display()
     ));
-    lines.push(
-        "Only the address goes to the site, through yt-dlp. Press Enter to start.".to_string(),
-    );
+    if cfg.captions {
+        lines.push(
+            "Captions are saved beside it as an SRT file, when it has any: a person's if there \
+             are some, else the site's automatic ones."
+                .to_string(),
+        );
+    }
+    lines.push(if busy {
+        "Only the address goes to the site, through yt-dlp. Another download is running, so \
+         pressing Enter puts this one in the queue, to start when its turn comes."
+            .to_string()
+    } else {
+        "Only the address goes to the site, through yt-dlp. Press Enter to start.".to_string()
+    });
     lines.join("\n\n")
 }
 
-fn update_plan(hwnd: HWND, cfg: &Config) {
+fn update_plan(hwnd: HWND, cfg: &Config, busy: bool) {
     let address = ytdlp::parse_address(&get_text(hwnd, IDC_A_SOURCE)).ok();
-    set_text(hwnd, IDC_A_PLAN, &plan(cfg, address.as_deref()));
+    set_text(hwnd, IDC_A_PLAN, &plan(cfg, address.as_deref(), busy));
 }
 
 unsafe fn fill(hwnd: HWND, id: i32, items: &[&str], at: usize) {
@@ -178,8 +196,18 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
                 let qualities: Vec<&str> = QUALITIES.iter().map(|q| q.1).collect();
                 let at = QUALITIES.iter().position(|q| q.0 == s.cfg.lines);
                 fill(hwnd, IDC_A_QUALITY, &qualities, at.unwrap_or(2));
+                SendDlgItemMessageW(
+                    hwnd,
+                    IDC_A_CAPTIONS,
+                    BM_SETCHECK,
+                    WPARAM(s.cfg.captions as usize),
+                    LPARAM(0),
+                );
+                if s.busy {
+                    set_text(hwnd, IDOK.0, "&Start when its turn comes");
+                }
                 set_text(hwnd, IDC_A_SOURCE, &s.text);
-                update_plan(hwnd, s.cfg);
+                update_plan(hwnd, s.cfg, s.busy);
             }
             focus(hwnd, IDC_A_SOURCE);
             // The whole address chosen, so typing or pasting replaces it.
@@ -191,19 +219,30 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
             let code = ((wparam.0 >> 16) & 0xFFFF) as u32;
             let Some(s) = state(hwnd) else { return 0 };
             match (id, code) {
-                (IDC_A_SOURCE, EN_CHANGE) => update_plan(hwnd, s.cfg),
+                (IDC_A_SOURCE, EN_CHANGE) => update_plan(hwnd, s.cfg, s.busy),
                 (IDC_A_PLAN, EN_SETFOCUS) => caret_to_start(hwnd, IDC_A_PLAN),
                 (IDC_A_FORMAT, CBN_SELCHANGE) => {
                     if let Some(f) = combo_at(hwnd, IDC_A_FORMAT).and_then(|i| FORMATS.get(i)) {
                         s.cfg.format = f.0;
                     }
-                    update_plan(hwnd, s.cfg);
+                    update_plan(hwnd, s.cfg, s.busy);
                 }
                 (IDC_A_QUALITY, CBN_SELCHANGE) => {
                     if let Some(q) = combo_at(hwnd, IDC_A_QUALITY).and_then(|i| QUALITIES.get(i)) {
                         s.cfg.lines = q.0;
                     }
-                    update_plan(hwnd, s.cfg);
+                    update_plan(hwnd, s.cfg, s.busy);
+                }
+                (IDC_A_CAPTIONS, _) => {
+                    s.cfg.captions = SendDlgItemMessageW(
+                        hwnd,
+                        IDC_A_CAPTIONS,
+                        BM_GETCHECK,
+                        WPARAM(0),
+                        LPARAM(0),
+                    )
+                    .0 == 1;
+                    update_plan(hwnd, s.cfg, s.busy);
                 }
                 (id, _) if id == IDOK.0 => {
                     match ytdlp::parse_address(&get_text(hwnd, IDC_A_SOURCE)) {
@@ -235,7 +274,7 @@ mod tests {
     #[test]
     fn the_plan_says_what_the_address_is() {
         let cfg = Config::default();
-        let p = |u: &str| plan(&cfg, Some(u));
+        let p = |u: &str| plan(&cfg, Some(u), false);
         assert!(p("https://youtu.be/_cMxraX_5RE").contains("one video"));
         assert!(p("https://www.youtube.com/watch?v=_cMxraX_5RE&list=PLx").contains("asks whether"));
         // A mix is not a playlist anyone made: the video alone.
@@ -244,7 +283,14 @@ mod tests {
                 .contains("one video")
         );
         assert!(p("https://www.youtube.com/playlist?list=PLx").contains("a playlist"));
-        assert!(plan(&cfg, None).contains("Paste"));
-        assert!(p("https://youtu.be/_cMxraX_5RE").contains("720 lines"));
+        assert!(plan(&cfg, None, false).contains("Paste"));
+        assert!(p("https://youtu.be/_cMxraX_5RE").contains("sound alone"));
+        let video = Config {
+            format: Format::Video,
+            captions: true,
+            ..Config::default()
+        };
+        let said = plan(&video, Some("https://youtu.be/_cMxraX_5RE"), true);
+        assert!(said.contains("720 lines") && said.contains("SRT") && said.contains("queue"));
     }
 }

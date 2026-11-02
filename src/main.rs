@@ -5,6 +5,7 @@
 
 mod addvideo;
 mod announce;
+mod captions;
 mod config;
 mod downloads;
 mod job;
