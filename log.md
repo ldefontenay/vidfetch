@@ -77,33 +77,35 @@ build.
 **Q1.** Defaults for a new user: video, MP4, at 720 lines, and playlist files numbered. Is 720 right,
 or would you rather 1080 (sharper, about twice the size)?
 
-ANSWER:
+ANSWER: 720 is right, but default should be to download sound only when possible.
 
 **Q2.** Downloading the same single video twice now saves a second copy, "Me at the zoo 2.mp4". Should
 VidFetch notice instead, and say "Already downloaded as Me at the zoo.mp4: download it again, or open
 it?" (A playlist already only fetches what is missing.)
 
-ANSWER:
+ANSWER: The latter, unless the quality setting changed.
 
 **Q3.** During a playlist, VidFetch speaks when it starts and when it finishes; each video's progress
 ("Video 3 of 18, title: downloading the sound, 45%") is in the Status box (Alt+T), not spoken. Would you
 like each new video announced as it starts?
 
-ANSWER:
+ANSWER: No, just showing it in the status line is fine.
 
 **Q4.** A queue: should you be able to start a second download while one is running, so it waits its
 turn? At the moment VidFetch says "Already downloading" and you wait.
 
-ANSWER:
+ANSWER: Please implement a queue.
 
 **Q5.** Captions: should VidFetch be able to save a video's captions as a file beside it (SRT, which
 media players show)? Not useful to you directly, perhaps, but to someone you share a video with.
 
-ANSWER:
+ANSWER: Make that an option.
 
 **Q6.** Publishing: should VidFetch become a GitHub repository (private, like Video Scribe), and later a
 release like NoteFetch's, with its guide online? I have pushed nothing.
 
-ANSWER:
+ANSWER: Yes.
+
 
 ---
+Question: What is the impact of not signing in? If that makes most videos available, I'd like that option.
