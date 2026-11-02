@@ -12,6 +12,26 @@ handling and Media Foundation code, plus playlists.
 **`PLAN.md` is the source of truth** for decisions and milestones. `log.md` holds findings and questions,
 newest entry at the top.
 
+## Where things stand
+
+Split off from a Video Scribe session on 2 November 2026; this repository is now worked on on its own.
+
+- Milestone 1, the downloader, is built and committed on `main`. Nothing is pushed: there is no GitHub
+  repository yet (log entry 1, Q6, asks).
+- The user's test is `test-milestone-1.txt`; their answers to it and to log entry 1 are what comes next.
+- Tried by Claude, not yet by the user (see log entry 1): YouTube video as MP4, M4A and MP3; a playlist
+  stopped and carried on with Update; a direct file link; an archive.org film; an accented title. The
+  a11y probe was clean on the main window and New download.
+- `%APPDATA%\VidFetch` and `%LOCALAPPDATA%\VidFetch` were deleted after testing, so the user's first run
+  shows the welcome and the yt-dlp question. If you test, use a scratch output folder and delete both
+  again afterwards, unless the user has started using VidFetch for real (then back up their settings first).
+- Video Scribe's yt-dlp encoding fix (`--encoding utf-8`) came from here and lives in that repository.
+
+## Editing practice
+
+Python edit scripts: write the `.py` with the Write tool, with raw strings (`r'''...'''`). Bash heredocs
+mangle backslashes, and a backslash-newline in a Rust string inside a non-raw Python string is swallowed.
+
 Sibling projects are the reference for house style and code to reuse: `..\videoscribe` (most of this
 app came from there), `..\NoteFetch` (the list and naming), `..\PhotoScribe`. Read them freely; never
 modify them from a VidFetch session.
