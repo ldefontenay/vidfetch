@@ -58,8 +58,9 @@ yt-dlp writes titles in Windows' old code page when its output goes to another p
 an accent, such as "Les Misérables", did not arrive as proper text. In Video Scribe that would stop a
 YouTube download of any video whose title has an accent, which matters now that French films are in
 reach. The fix is one option for yt-dlp (`--encoding utf-8`); VidFetch has it, and accented titles now
-come through: "Retour à la réalité" was saved under that name, tagged with the channel "Café Crème". I will put the same fix into Video Scribe once your
-milestone 11 test is finished, so as not to change the program under you mid-test.
+come through: "Retour à la réalité" was saved under that name, tagged with the channel "Café Crème". The same fix is now in Video Scribe's code, on its m11-languages branch, but I have not rebuilt the
+Video Scribe program you are testing, so nothing changes under you mid-test. It goes in with the next
+build.
 
 ### Not done, and why
 
