@@ -69,5 +69,6 @@ Picture quality and Save captions in it.
 2. **The user's answers to log entry 1** (branch `m2-queue-captions`): sound by default, the queue,
    captions, noticing a repeat. Built 2 November 2026; tried by Claude (log entry 2); awaiting the
    user's test, `test-milestone-2.txt`, which replaces milestone 1's.
-3. A private GitHub repository (agreed, log entry 1, Q6; not yet made, log entry 2), then a release
-   like NoteFetch's with its guide online. Needs a LICENSE file, which the repository does not have yet.
+3. A private GitHub repository: done, https://github.com/ldefontenay/vidfetch (log entry 1, Q6). Next, a
+   release like NoteFetch's with its guide online. Needs a LICENSE file, which the repository does not
+   have yet.

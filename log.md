@@ -69,8 +69,9 @@ https://www.technetexperts.com/fix-yt-dlp-cloud-signin-error/ (cookies and accou
   with. It saves "Title.en.srt" beside the file. A failure to get captions is only a note: the download
   is already safe by then. Rename and Delete in VidFetch take the captions along. Turning it on adds
   a few seconds a video.
-- **GitHub (your Q6).** Not done yet: see "For you to do" below. The release is for after your test, and
-  will need a licence file, which the repository does not have yet.
+- **GitHub (your Q6).** Done, by the command you typed: https://github.com/ldefontenay/vidfetch, private,
+  with both branches. The release is for after your test, and will need a licence file, which the
+  repository does not have yet.
 
 The program is now 502 KB (it was 460).
 
@@ -108,14 +109,6 @@ main window, New download or the Queue window.
 Video Scribe's `captions.rs` has the same one-space-line problem, so it may lose the first line after a
 silence in automatic captions. I read its code and did not test it, and I have not changed it. Would you
 like it looked at in a Video Scribe session?
-
-### For you to do
-
-**Creating the GitHub repository was refused** by the permission check on my commands, even with your
-Yes, so nothing is on GitHub. Your answers and this work are committed on this computer. To create it,
-private, type this at the Claude Code prompt:
-
-`! gh repo create ldefontenay/vidfetch --private --source . --remote origin; git push -u origin main m2-queue-captions`
 
 ### Questions
 

@@ -18,8 +18,8 @@ Split off from a Video Scribe session on 2 November 2026; this repository is now
 
 - Milestone 1, the downloader, is on `main`. Milestone 2, the user's answers to log entry 1 (sound by
   default, a queue, captions, noticing a repeat), is on `m2-queue-captions`, not yet merged.
-- Nothing is pushed. The user agreed to a private GitHub repository (log entry 1, Q6), but creating it
-  was refused by the permission check, so it waits on them (log entry 2).
+- The private repository is https://github.com/ldefontenay/vidfetch, created by the user, as the
+  permission check refused it from Claude. Both branches are on it. Still ask before pushing.
 - The user's test is `test-milestone-2.txt`; their answers to it and to log entry 2 are what comes next.
 - Tried by Claude, not yet by the user (see log entries 1 and 2). The a11y probe was clean on the main
   window, New download and the Queue. Whether JAWS speaks from behind a window in front is untested.
