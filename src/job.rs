@@ -306,9 +306,10 @@ fn fetch(
         },
         Format::M4a => {
             let src = sound.or(both).unwrap_or(first);
-            if ext(&src.path) == "m4a" {
-                src.path.clone()
-            } else if media::sound_is_aac(&src.path) {
+            // Copied even when it is an M4A already: YouTube's is cut up for
+            // streaming, which Windows cannot tag and some players cannot
+            // wind through.
+            if media::sound_is_aac(&src.path) {
                 let out = work.join(format!("{key}.sound.m4a"));
                 if !media::join(
                     None,
@@ -624,6 +625,65 @@ fn title_or(list: &str, video: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A real download, printing what the window would hear. Needs VF_URL
+    /// and VF_OUT; VF_FORMAT is video, m4a or mp3, and VF_WHOLE takes the
+    /// whole playlist a video is in:
+    /// `cargo test end_to_end -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn end_to_end() {
+        let var = |n: &str| std::env::var(n).ok();
+        let s = Settings {
+            url: var("VF_URL").expect("VF_URL"),
+            output_folder: PathBuf::from(var("VF_OUT").expect("VF_OUT")),
+            format: match var("VF_FORMAT").as_deref() {
+                Some("m4a") => Format::M4a,
+                Some("mp3") => Format::Mp3,
+                _ => Format::Video,
+            },
+            lines: var("VF_LINES").and_then(|l| l.parse().ok()).unwrap_or(720),
+            number: true,
+            whole_list: var("VF_WHOLE").is_some(),
+            fetch_ytdlp: true,
+        };
+        let stop = AtomicBool::new(false);
+        // VF_STOP_AT=3 presses Escape as the third video of a playlist starts.
+        let stop_at = var("VF_STOP_AT").map(|n| format!("Video {n} of"));
+        let last = std::cell::RefCell::new(String::new());
+        let post = |e: Event| match e {
+            Event::Step(t) => println!("STEP {t}"),
+            Event::Progress(t) => {
+                if stop_at.as_ref().is_some_and(|s| t.starts_with(s.as_str())) {
+                    stop.store(true, Ordering::Relaxed);
+                }
+                // The first of each kind of line, not every percent.
+                let kind: String = t.chars().take_while(|c| *c != ':').collect();
+                if *last.borrow() != kind {
+                    println!("PROGRESS {t}");
+                    *last.borrow_mut() = kind;
+                }
+            }
+            _ => {}
+        };
+        let started = Instant::now();
+        match run(&s, &stop, &post) {
+            Ok(Event::Done { said, path, report }) => {
+                println!(
+                    "DONE {said}
+{}",
+                    path.display()
+                );
+                if let Some(r) = report {
+                    println!("REPORT {r}");
+                }
+            }
+            Ok(Event::Stopped(t)) => println!("STOPPED {t}"),
+            Ok(_) => println!("OTHER"),
+            Err(why) => panic!("{why}"),
+        }
+        println!("{:.0} s", started.elapsed().as_secs_f64());
+    }
 
     #[test]
     fn playlist_files_are_numbered_to_the_longest_place() {

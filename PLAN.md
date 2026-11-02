@@ -1,0 +1,52 @@
+# VidFetch plan
+
+## 1. What it is
+
+A downloader for videos and playlists, built from Video Scribe's parts (the user's request, 2 November
+2026: "a subset of VideoScribe without the description element, also able to handle Youtube
+playlists"). One small Win32 program, a screen reader first, no installer.
+
+## 2. How it works
+
+- **yt-dlp** does the downloading, as in Video Scribe: found on the PATH or fetched from its GitHub
+  release into `%LOCALAPPDATA%\VidFetch\tools`, checked against `SHA2-256SUMS`, updated with `-U` every
+  two weeks. Only formats over plain HTTP are asked for, as a stream in pieces (HLS) needs FFmpeg.
+  `--encoding utf-8`, or titles with accents arrive in Windows' old code page.
+- **No FFmpeg.** YouTube sends the picture (H.264, up to 1080 lines) and the sound (AAC) as two files.
+  Media Foundation's sink writer copies both, unchanged, into one MP4 (`media::join`). YouTube's picture
+  file has an edit list that stops Media Foundation reading it; the box is renamed in our own copy and
+  the shift kept (`ytdlp::drop_edit_list`, Video Scribe's log entry 13). `[proven]` on "Me at the zoo",
+  2 November 2026.
+- **Sound only**: M4A is the AAC copied, unchanged, into an ordinary M4A (YouTube's own is cut up for
+  streaming, which Windows cannot tag); MP3 is decoded and encoded by Media Foundation, 192 kbps.
+- **Tags** through the Windows property system: title, channel as artist, year, address as comment;
+  for a playlist, its name as album and the place as track number.
+- **Playlists** (and channels): `yt-dlp --flat-playlist -J` lists them; each video is downloaded in
+  turn into a folder named after the playlist, as `03 - Title.mp4`. `VidFetch.json` in the folder records
+  the playlist and each video done, so stopping, or Update the playlist (Ctrl+U) later, fetches only
+  what is missing. A video that fails does not stop the rest; four failing in a row before any
+  succeeds does.
+- **A video in a playlist** (`watch?v=...&list=...`): VidFetch asks, whole playlist or just the video,
+  with just the video the default. A YouTube mix (`list=RD...`) is never taken as a playlist.
+- Downloads in progress live in `%LOCALAPPDATA%\VidFetch\downloads`, kept a day so a stopped download
+  carries on.
+
+## 3. The window
+
+Video Scribe's main window: the list of downloads (files and playlist folders in the output folder,
+most recent first), Open (Enter: plays a file, opens a playlist's folder), New download (Ctrl+N),
+Update the playlist (Ctrl+U), Rename (F2), Show in File Explorer, Delete (to the Recycle Bin), Status.
+New download takes the address from the clipboard, and has Download as and Picture quality in it.
+
+## 4. Decisions
+
+1. Defaults: video, MP4, 720 lines; playlist files numbered. (Proposed; log entry 1, Q1.)
+2. Settings in `%APPDATA%\VidFetch\settings.txt`, as in Video Scribe; output in `Videos\VidFetch`.
+3. A single video goes into the output folder itself, named after its title; a playlist into a folder.
+
+## 5. Milestones
+
+1. **The downloader** (this one): everything above. Built 2 November 2026; tested by Claude on
+   YouTube (a video, a playlist stopped and carried on, M4A, MP3), a direct link and archive.org;
+   awaiting the user's test, `test-milestone-1.txt`.
+2. To be decided from log entry 1: a queue of several addresses, captions, a release like NoteFetch's.

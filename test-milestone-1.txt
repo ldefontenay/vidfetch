@@ -1,0 +1,146 @@
+VidFetch - milestone 1: the downloader
+=====================================
+
+Why: your request for VidFetch, and log.md, entry 1, which says what was built and what I tried.
+
+How to start it: run
+C:\Users\ldefo\dev\VidFetch\target\release\vidfetch.exe
+It is the first run on this computer, so it starts with a welcome. Downloads go to Videos\VidFetch in
+your user folder; you can choose another folder in the File menu. Nothing costs anything. The test
+uses public videos from YouTube; section 4 downloads about 10 minutes of sound, which takes a minute
+or two.
+
+
+Section 1 - first run
+---------------------
+
+1.1  Start VidFetch. Is a welcome shown, and is it clear? Press Enter to close it.
+ANSWER:
+
+1.2  Is focus on the list of downloads, read as "Downloads, most recent first", empty? Is the Status
+     box (Alt+T) saying to press Ctrl+N?
+ANSWER:
+
+1.3  Press Alt+F, Alt+D, Alt+O and Alt+H in turn, and arrow through each menu, then Escape. Is
+     everything there and clear?
+ANSWER:
+
+ANYTHING ODD:
+
+
+Section 2 - one video
+---------------------
+
+2.1  In the browser, open this address and copy it from the address bar with Alt+D then Ctrl+C:
+     https://www.youtube.com/watch?v=jNQXAC9IVRw
+     (Or copy it from this file.) Then in VidFetch press Ctrl+N. Is the New download window shown,
+     with the address already in the box?
+ANSWER:
+
+2.2  Tab through the window: Download as (video), Picture quality (720 lines), What will happen.
+     Does What will happen say "one video", how it is saved and where?
+ANSWER:
+
+2.3  VidFetch asks to download yt-dlp first (about 18 MB). Answer Download, then wait. Is each step
+     said ("Downloading yt-dlp", "Downloading from YouTube"), and at the end "Downloaded: Me at the
+     zoo.mp4. Press Enter to open it"?
+ANSWER:
+
+2.4  Is "Me at the zoo" now in the list, chosen? Press Enter: does it play in your video player?
+ANSWER:
+
+2.5  Back in VidFetch, press the Applications key on it. Is there Open, Rename, Show in File Explorer
+     and Delete? Press Escape.
+ANSWER:
+
+2.6  Press F2 and rename it "Zoo". Is "Renamed to Zoo" said, and the list item now "Zoo: video, MP4"?
+ANSWER:
+
+2.7  Press Show in File Explorer (Alt+X). Does File Explorer open with Zoo.mp4 chosen in it? Close
+     File Explorer.
+ANSWER:
+
+ANYTHING ODD:
+
+
+Section 3 - sound only
+----------------------
+
+3.1  Press Ctrl+N with the same address, then Alt+A, Download as, and choose "Sound only, for any
+     player (MP3)" with the arrow keys. Does What will happen now say the sound alone, an MP3?
+     Press Enter.
+ANSWER:
+
+3.2  Is "Me at the zoo.mp3" downloaded, and does Enter play it?
+ANSWER:
+
+3.3  In File Explorer (Alt+X), or in your player, do you find its title, its artist (jawed) and its
+     year (2005)?
+ANSWER:
+
+3.4  Press Alt+O, Download as. Is the MP3 choice ticked there too, as the New download window changed
+     it? Choose Video again.
+ANSWER:
+
+ANYTHING ODD:
+
+
+Section 4 - a playlist
+----------------------
+
+4.1  Choose Sound only (M4A) in Alt+O, Download as, so that this is quick. Then copy this address and
+     press Ctrl+N, then Enter:
+     https://www.youtube.com/playlist?list=PLav47HAVZMjnTFVZL-aImCQIC0uLZtNCz
+     (Blender's Open Movies: 18 films, mostly 10 to 15 minutes. Its first 2 or 3 take a minute.)
+     Is "Downloading the playlist Blender Open Movies: 18 videos" said?
+ANSWER:
+
+4.2  Press Alt+T now and then. Does the Status box say which video it is on, such as "Video 2 of 18",
+     with its title and how far it has got?
+ANSWER:
+
+4.3  Once the third video has started, press Escape. Is "Stopped. 2 videos were saved in the folder
+     Blender Open Movies" said, or similar?
+ANSWER:
+
+4.4  Is "Blender Open Movies: playlist, 2 files" in the list? Press Enter on it: does File Explorer
+     open the folder, with "01 - OVERGROWN..." and "02 - SINGULARITY..."? Close File Explorer.
+ANSWER:
+
+4.5  Back on the playlist in the list, press Ctrl+U. Does it say "18 videos" is not downloaded again,
+     but "16 new of 18, 2 already there"? Stop it again with Escape after one more.
+ANSWER:
+
+4.6  Play one of the playlist's files in a music player. Is the album "Blender Open Movies", with the
+     track numbers in order?
+ANSWER:
+
+ANYTHING ODD:
+
+
+Section 5 - a video in a playlist
+---------------------------------
+
+5.1  Copy this address and press Ctrl+N:
+     https://www.youtube.com/watch?v=jNQXAC9IVRw&list=PLav47HAVZMjnTFVZL-aImCQIC0uLZtNCz
+     Does What will happen say it is a video in a playlist, and that you will be asked?
+ANSWER:
+
+5.2  Press Enter. Is the question "Download the whole playlist, or just this video?" asked, with
+     "Just this video" first? Press Escape: is just the one video downloaded?
+ANSWER:
+
+ANYTHING ODD:
+
+
+Section 6 - when you are done
+-----------------------------
+
+6.1  Delete whatever you do not want to keep with the Delete key in the list (each goes to the
+     Recycle Bin). Is the question clear, with Keep it as the safe answer?
+ANSWER:
+
+6.2  Anything else you would want a downloader to do?
+ANSWER:
+
+ANYTHING ODD:

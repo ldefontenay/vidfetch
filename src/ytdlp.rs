@@ -183,6 +183,10 @@ fn args(url: &str, out_dir: &Path, no_ffmpeg: &Path, format: Format, lines: u32)
     let media = format!("{name}.f%(format_id)s.%(ext)s");
     [
         "--ignore-config",
+        // Titles in any language: piped, yt-dlp otherwise writes Windows'
+        // old code page, where "Les Misérables" is not UTF-8.
+        "--encoding",
+        "utf-8",
         "--no-playlist",
         "--newline",
         // "--print" below implies quiet mode, which hides progress; this brings it back.
@@ -269,9 +273,6 @@ fn run(
     let job = Job::new();
     let mut child = Command::new(exe)
         .args(args)
-        // Titles in any language: yt-dlp writes UTF-8 when asked.
-        .env("PYTHONIOENCODING", "utf-8")
-        .env("PYTHONUTF8", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -448,6 +449,8 @@ pub struct Item {
 pub fn probe(exe: &Path, url: &str, stop: &AtomicBool) -> Result<Option<Option<Playlist>>, String> {
     let args: Vec<String> = [
         "--ignore-config",
+        "--encoding",
+        "utf-8",
         "--flat-playlist",
         "--yes-playlist",
         "--no-colors",
