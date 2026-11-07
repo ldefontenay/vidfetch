@@ -615,6 +615,53 @@ pub fn probe(exe: &Path, url: &str, stop: &AtomicBool) -> Result<Option<Option<P
     Ok(Some(playlist_of(&v)))
 }
 
+/// The title of what is at `url`: the video's, or with `whole` the playlist
+/// it is in, for the queue (log entry 2, Q2). None if stopped or not known.
+/// A YouTube video's comes from YouTube's oEmbed answer, in a fraction of a
+/// second; yt-dlp takes some 15 seconds for one video.
+pub fn title(exe: &Path, url: &str, whole: bool, stop: &AtomicBool) -> Option<String> {
+    if let Some(id) = video_id(url).filter(|_| is_youtube(url) && !whole) {
+        let path = format!("/oembed?format=json&url=https://www.youtube.com/watch?v={id}");
+        let found = crate::net::download("www.youtube.com", &path, stop, &mut |_, _| {})
+            .ok()
+            .flatten()
+            .and_then(|body| serde_json::from_slice::<serde_json::Value>(&body).ok())
+            .and_then(|v| v["title"].as_str().map(|t| t.trim().to_string()))
+            .filter(|t| !t.is_empty());
+        if found.is_some() {
+            return found;
+        }
+    }
+    let args: Vec<String> = [
+        "--ignore-config",
+        "--encoding",
+        "utf-8",
+        "--flat-playlist",
+        if whole {
+            "--yes-playlist"
+        } else {
+            "--no-playlist"
+        },
+        "--no-colors",
+        "-J",
+        "--",
+        url,
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let mut json = String::new();
+    let (ok, _) = run(exe, &args, stop, &mut |l| json.push_str(l)).ok()??;
+    if !ok {
+        return None;
+    }
+    let v: serde_json::Value = serde_json::from_str(&json).ok()?;
+    v["title"]
+        .as_str()
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+}
+
 /// A list from yt-dlp's `-J --flat-playlist` answer; None for one video.
 fn playlist_of(v: &serde_json::Value) -> Option<Playlist> {
     if v["_type"].as_str() != Some("playlist") {

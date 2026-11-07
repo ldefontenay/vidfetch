@@ -10,7 +10,7 @@
 //    menu bar titles answer Alt+letter too, so they count (a unit test in
 //    ui.rs checks this). Main window, in use:
 //      Menus:     f File, d Download, o Options, h Help
-//      Controls:  w Downloads, p Open, n New download, u Update the playlist,
+//      Controls:  w Downloads, p Play, n New download, u Update the playlist,
 //                 q Queue, r Rename, x Show in File Explorer, l Delete, t Status
 // 3. Every control reads correctly on its own. JAWS does not announce group
 //    headings, so no label may depend on one, or on any other control.
@@ -54,7 +54,9 @@ END
 #define IDD_NAME            106
 #define IDD_ADD             108
 #define IDD_QUEUE           109
+#define IDD_PLAY            110
 
+#define IDC_LIST_LABEL      1003
 #define IDC_STATUS          1004
 #define IDC_LIST            1005
 #define IDC_OPEN            1006
@@ -78,6 +80,10 @@ END
 #define IDC_Q_LIST          1101
 #define IDC_Q_REMOVE        1102
 #define IDC_Q_ALL           1103
+#define IDC_L_WHERE         1060
+#define IDC_L_PLAY          1061
+#define IDC_L_BACK          1062
+#define IDC_L_FORWARD       1063
 
 #define IDR_MENU            200
 
@@ -91,6 +97,9 @@ END
 #define IDM_NUMBER          2012
 #define IDM_CAPTIONS        2013
 #define IDM_QUEUE           2014
+#define IDM_CLEAR_QUEUE     2015
+#define IDM_BACK            2016
+#define IDM_EXTERNAL        2017
 #define IDM_ADD             2023
 #define IDM_RENAME          2024
 #define IDM_DELETE          2025
@@ -101,8 +110,10 @@ END
 #define IDM_ABOUT           2031
 
 // What has been downloaded, and what can be done to the one chosen. Enter
-// opens it; F2 renames and Delete deletes, from the list, which also has a
-// context menu (Shift+F10 or the Applications key). Every command is in the
+// plays it, or shows a playlist's videos in the same list, where Escape goes
+// back; F2 renames and Delete deletes, from the list, which also has a
+// context menu (Shift+F10 or the Applications key). The list's label is set
+// at run time to say which list it is. Every command is in the
 // menus too. Delete is the last button, before the Status box, so
 // overshooting by one stop cannot reach it.
 IDD_MAIN DIALOGEX 0, 0, 400, 246
@@ -112,11 +123,11 @@ CAPTION "VidFetch"
 MENU IDR_MENU
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT      "Do&wnloads, most recent first:", -1, 7, 7, 386, 8
+    LTEXT      "Do&wnloads, most recent first:", IDC_LIST_LABEL, 7, 7, 386, 8
     LISTBOX    IDC_LIST, 7, 17, 386, 120,
                LBS_NOTIFY | LBS_WANTKEYBOARDINPUT | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_HSCROLL | WS_BORDER | WS_GROUP | WS_TABSTOP
 
-    DEFPUSHBUTTON "O&pen  Enter", IDC_OPEN, 7, 144, 190, 14, WS_GROUP | WS_TABSTOP
+    DEFPUSHBUTTON "&Play  Enter", IDC_OPEN, 7, 144, 190, 14, WS_GROUP | WS_TABSTOP
     PUSHBUTTON "&New download...  Ctrl+N", IDC_ADD, 203, 144, 190, 14, WS_TABSTOP
     PUSHBUTTON "&Update the playlist  Ctrl+U", IDC_UPDATE, 7, 164, 190, 14, WS_TABSTOP
     PUSHBUTTON "Show the &queue...  Ctrl+Q", IDC_QUEUE, 203, 164, 190, 14, WS_TABSTOP
@@ -144,9 +155,13 @@ BEGIN
     // For the download chosen in the list.
     POPUP "&Download"
     BEGIN
-        MENUITEM "&Open\tEnter", IDM_OPEN
+        MENUITEM "&Play, or show a playlist's videos\tEnter", IDM_OPEN
+        MENUITEM "&Open in the default player", IDM_EXTERNAL
+        MENUITEM "&Back to all downloads, from a playlist's videos\tEscape", IDM_BACK
         MENUITEM "&Update the playlist, fetching its new videos\tCtrl+U", IDM_UPDATE
+        MENUITEM SEPARATOR
         MENUITEM "Show the &queue...\tCtrl+Q", IDM_QUEUE
+        MENUITEM "&Empty the queue...", IDM_CLEAR_QUEUE
         MENUITEM "S&top the current download\tEscape", IDM_STOP
         MENUITEM SEPARATOR
         MENUITEM "&Rename...\tF2", IDM_RENAME
@@ -255,4 +270,21 @@ BEGIN
     PUSHBUTTON "&Remove  Delete", IDC_Q_REMOVE, 7, 154, 120, 14, WS_GROUP | WS_TABSTOP
     PUSHBUTTON "Remove &all...", IDC_Q_ALL, 133, 154, 120, 14, WS_TABSTOP
     DEFPUSHBUTTON "Close", IDOK, 343, 154, 50, 14, WS_TABSTOP
+END
+
+// The Play window (listen.rs): a download's sound. Its title, set at run
+// time, names what plays. The arrows, Home and T are handled in listen.rs.
+// Letters: p, b, f, w; Close is Escape.
+IDD_PLAY DIALOGEX 0, 0, 260, 104
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Playing - VidFetch"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "Left and Right arrows: 2 seconds back or forward. Home: the start. T: where playing is.", -1, 7, 7, 246, 16
+    DEFPUSHBUTTON "&Play or pause", IDC_L_PLAY, 7, 28, 120, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "&Back 10 seconds", IDC_L_BACK, 7, 48, 120, 14, WS_TABSTOP
+    PUSHBUTTON "&Forward 10 seconds", IDC_L_FORWARD, 133, 48, 120, 14, WS_TABSTOP
+    LTEXT      "&Where playing is:", -1, 7, 70, 70, 8
+    EDITTEXT   IDC_L_WHERE, 79, 68, 174, 12, ES_READONLY | ES_AUTOHSCROLL | WS_TABSTOP
+    PUSHBUTTON "Close", IDCANCEL, 203, 86, 50, 14, WS_TABSTOP
 END
