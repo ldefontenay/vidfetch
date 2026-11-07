@@ -59,7 +59,15 @@ Picture quality and Save captions in it.
 3. A single video goes into the output folder itself, named after its title; a playlist into a folder.
 4. New videos in a playlist are not announced as they start: the Status box is enough (the user, log
    entry 1, Q3). Likewise a queued download's steps are shown, not said; each end is said.
-5. Signing in is not built: public videos need none. Waiting on the user (log entry 2, Q1).
+5. Signing in is not built: public videos need none. The user: "Not for now." (Log entry 2, Q1.)
+6. Enter plays a download in VidFetch's own player (Video Scribe's), sound only; Open in the default
+   player shows the picture. The user: "Could we please have VideoScribe's built-in media player?"
+   (Milestone 2 test, 2.4.)
+7. The repeat question is Download again or Cancel, Cancel the default: "Please take away the "open
+   it" option." (Milestone 2 test, 3.6.)
+8. Enter on a playlist shows its videos in the same list; Escape goes back (milestone 2 test, 5).
+9. The queue shows titles (log entry 2, Q2: "Yes."), and is kept between runs, with a question at the
+   start and Empty the queue in the Download menu (Q3).
 
 ## 5. Milestones
 
@@ -68,7 +76,13 @@ Picture quality and Save captions in it.
    awaiting the user's test, `test-milestone-1.txt`.
 2. **The user's answers to log entry 1** (branch `m2-queue-captions`): sound by default, the queue,
    captions, noticing a repeat. Built 2 November 2026; tried by Claude (log entry 2); awaiting the
-   user's test, `test-milestone-2.txt`, which replaces milestone 1's.
-3. A private GitHub repository: done, https://github.com/ldefontenay/vidfetch (log entry 1, Q6). Next, a
+   user's test, `test-milestone-2.txt`, which replaces milestone 1's. Tested by the user 7 November
+   2026, merged into `main`; the queue's own steps could not be tried, as single videos were too quick.
+3. **The milestone 2 test's answers** (branch `m3-player-and-fixes`): the player, a playlist's videos,
+   the queue with titles kept between runs, Download again or Cancel, Alt+T, "videos" not "files".
+   Built 7 November 2026; tried by Claude (log entry 3); awaiting `test-milestone-3.txt`.
+4. Next, to agree with the user (log entry 3): YouTube search with listening, following channels,
+   categories as in NoteFetch, and the list of further ideas.
+5. A private GitHub repository: done, https://github.com/ldefontenay/vidfetch (log entry 1, Q6). Next, a
    release like NoteFetch's with its guide online. Needs a LICENSE file, which the repository does not
    have yet.

@@ -36,8 +36,8 @@ video, is never taken as a playlist.</p>
 <p>The Status box says how far the download has got. <kbd>Escape</kbd> stops it. When it is done,
 VidFetch says so, and the download is chosen in the list: <kbd>Enter</kbd> plays it.</p>
 <p>If you ask for a video you already have, at the same format and quality, VidFetch asks whether
-to open what you have or download it again; <kbd>Enter</kbd>, or <kbd>Escape</kbd>, opens it. A
-different format or picture quality just downloads. VidFetch remembers a download if you rename it
+to download it again; <kbd>Enter</kbd>, or <kbd>Escape</kbd>, cancels, and the copy you have is
+chosen in the list. A different format or picture quality just downloads. VidFetch remembers a download if you rename it
 in VidFetch, but not if you rename or move it in File Explorer.</p>
 
 <h2>The queue</h2>
@@ -49,8 +49,15 @@ says how far the current one has got and how many more are waiting.</p>
 <strong>Show the queue</strong> (<kbd>Ctrl+Q</kbd>) lists what is running and what is waiting;
 <kbd>Delete</kbd> takes the chosen one out, and Remove all empties the queue. So to stop everything,
 press <kbd>Ctrl+Q</kbd>, remove all, close it, and press <kbd>Escape</kbd>.</p>
-<p>If a download fails, the others carry on, and VidFetch says why once they are all done. The queue
-is not remembered when VidFetch closes; it asks first.</p>
+<p>The queue shows each download's title, once it is known: a few seconds after it is added, or
+longer for a playlist or another site. Until then it shows the address.</p>
+<p>If a download fails, the others carry on, and VidFetch says why once they are all done.</p>
+<p>The queue is kept when VidFetch closes, with the download that was running. VidFetch asks before
+exiting while something runs or waits, and the next time it starts, it lists what had not finished
+and asks whether to carry on downloading or empty the queue. A download that was stopped half way
+starts again from the beginning; a playlist carries on with the videos it does not have yet.
+<strong>Empty the queue</strong>, in the Download menu, takes out everything waiting at any time,
+after asking.</p>
 
 <h2>Playlists and channels</h2>
 <p>A playlist's videos are downloaded one after the other into a folder named after the playlist.
@@ -64,6 +71,32 @@ since, choose the playlist in the list and press <kbd>Ctrl+U</kbd>, Update the p
 videos not yet in its folder are downloaded. The folder holds a small file,
 <em>VidFetch.json</em>, which records which videos are there. You can rename the folder as you
 like, in VidFetch or in File Explorer, but keep that file in it.</p>
+
+<h2>Playing</h2>
+<p><kbd>Enter</kbd> on a download plays it in VidFetch's own Play window, which opens at once and
+starts from the beginning. Its title says what is playing.</p>
+<ul>
+<li><strong>Play or pause</strong> (<kbd>Alt+P</kbd>, or <kbd>Enter</kbd> or the Space bar on it).</li>
+<li><strong>Back 10 seconds</strong> (<kbd>Alt+B</kbd>) and <strong>Forward 10 seconds</strong>
+(<kbd>Alt+F</kbd>).</li>
+<li>The <kbd>Left</kbd> and <kbd>Right</kbd> arrows: 2 seconds back or forward. <kbd>Home</kbd>:
+the start. <kbd>T</kbd>: where playing is, said out loud.</li>
+<li><strong>Where playing is</strong> (<kbd>Alt+W</kbd>): the time, such as "1:23 of 15:04,
+playing", to read with the arrow keys.</li>
+<li><kbd>Escape</kbd> stops and closes it.</li>
+</ul>
+<p>The Play window plays the sound only, of a video too. To see a video's picture, choose
+<strong>Open in the default player</strong> in its context menu or the Download menu, which plays
+it in the program Windows plays it with.</p>
+
+<h2>A playlist's videos</h2>
+<p><kbd>Enter</kbd> on a playlist shows its videos in the list, in the playlist's order, in place
+of all downloads; the list's name says which playlist it is. Everything works on them as on any
+download: <kbd>Enter</kbd> plays, <kbd>F2</kbd> renames, <kbd>Delete</kbd> deletes, and the
+context menu has the rest. <kbd>Escape</kbd>, or <kbd>Backspace</kbd>, goes back to all downloads,
+on that playlist. While the list shows a playlist's videos, <kbd>Escape</kbd> goes back rather than
+stopping a download; press it again to stop.</p>
+<p>A video deleted from a playlist's folder is not downloaded again when you update the playlist.</p>
 
 <h2>Video or sound only</h2>
 <p>Download as, in the Options menu and in the New download window:</p>
@@ -96,11 +129,11 @@ or deleting a download in VidFetch does the same to its captions.</p>
 with what it is and when it was saved. Tab moves from the list to the buttons, then to the Status
 box:</p>
 <ul>
-<li><strong>Downloads</strong> (<kbd>Alt+W</kbd>): the list. <kbd>Enter</kbd> opens the chosen
-download, <kbd>F2</kbd> renames it, <kbd>Delete</kbd> deletes it, and <kbd>Shift+F10</kbd> or the
+<li><strong>Downloads</strong> (<kbd>Alt+W</kbd>): the list. <kbd>Enter</kbd> plays the chosen
+download, or shows a playlist's videos, <kbd>F2</kbd> renames it, <kbd>Delete</kbd> deletes it, and <kbd>Shift+F10</kbd> or the
 Applications key opens its context menu.</li>
-<li><strong>Open</strong> (<kbd>Alt+P</kbd> or <kbd>Enter</kbd>): plays a file in the program
-Windows plays it with, or opens a playlist's folder in File Explorer.</li>
+<li><strong>Play</strong> (<kbd>Alt+P</kbd> or <kbd>Enter</kbd>): plays the download in the Play
+window. On a playlist, it is called Show the playlist's videos.</li>
 <li><strong>New download</strong> (<kbd>Alt+N</kbd> or <kbd>Ctrl+N</kbd>).</li>
 <li><strong>Update the playlist</strong> (<kbd>Alt+U</kbd> or <kbd>Ctrl+U</kbd>): fetches the
 chosen playlist's videos that are not in its folder yet.</li>
@@ -112,15 +145,17 @@ its ending, or for the playlist's folder.</li>
 download chosen in it.</li>
 <li><strong>Delete</strong> (<kbd>Alt+L</kbd> or <kbd>Delete</kbd> in the list): asks, with
 "Keep it" the default, then moves the file, or the playlist's folder, to the Recycle Bin.</li>
-<li><strong>Status</strong> (<kbd>Alt+T</kbd>): what is happening now.</li>
+<li><strong>Status</strong> (<kbd>Alt+T</kbd>): what is happening now. Pressing
+<kbd>Alt+T</kbd> again says it again.</li>
 </ul>
 
 <h2>The menus</h2>
 <ul>
 <li><strong>File</strong>: New download; Choose the output folder; Show the output folder in File
 Explorer; Update yt-dlp; Exit.</li>
-<li><strong>Download</strong>: what can be done to the download chosen in the list, Show the queue
-(<kbd>Ctrl+Q</kbd>), and Stop the current download (<kbd>Escape</kbd>).</li>
+<li><strong>Download</strong>: what can be done to the download chosen in the list, including Open
+in the default player and Back to all downloads; Show the queue (<kbd>Ctrl+Q</kbd>); Empty the
+queue; and Stop the current download (<kbd>Escape</kbd>).</li>
 <li><strong>Options</strong>: Download as; Picture quality; Number the files of a playlist; Save
 captions. Each choice is saved at once and said.</li>
 <li><strong>Help</strong>: this page (<kbd>F1</kbd>), and About VidFetch.</li>
@@ -151,7 +186,7 @@ own use where the law and the site allow it.</p>
 menu.</li>
 <li>Settings: <em>%APPDATA%\VidFetch\settings.txt</em>, plain text, safe to edit while VidFetch is
 closed. Beside it, <em>downloaded.json</em> remembers which single videos you have, to notice one
-asked for again.</li>
+asked for again, and <em>queue.json</em> holds what had not finished when VidFetch closed.</li>
 <li>yt-dlp, and downloads in progress: <em>%LOCALAPPDATA%\VidFetch</em>. A stopped download is
 kept there for a day, so starting it again carries on where it was.</li>
 </ul>

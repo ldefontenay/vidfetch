@@ -2,6 +2,236 @@
 
 Newest entry at the top. Each question is followed by an `ANSWER:` line.
 
+## Entry 3 — Your test answers built, and a plan for your feature requests (2026-11-07)
+
+Thank you for the test. Milestone 2 is merged into `main`. The changes below are on a new branch,
+`m3-player-and-fixes`, and the test is `test-milestone-3.txt`. It uses the playlist to keep the
+queue busy, as you suggested. Your feature requests are further down, with a plan and questions:
+I have not built them yet, because each one has a choice in it that is yours to make.
+
+### What changed
+
+- **Video Scribe's player (2.4).** Enter on a download plays it in a Play window: Play or pause,
+  Back and Forward 10 seconds, the arrows for 2 seconds, Home, and T for where it is, as in Video
+  Scribe. Escape closes it. It plays the sound only, of a video too. "Open in the default player",
+  in the context menu and the Download menu, plays it in your usual player, with the picture.
+- **"Play", not "Open" (1.3 and 2.5).** The button, the menus and what is said all say Play now. On a
+  playlist, the button is "Show the playlist's videos".
+- **The repeat question (3.6 and 6.2):** "Already downloaded as Me at the zoo.m4a, at this quality.
+  Download it again?", with Cancel first. Enter or Escape cancels, says "Nothing downloaded", and
+  chooses the copy you have in the list. Nothing opens.
+- **Alt+T (5.3).** Pressed while you are already on the Status box, it now says the box every time.
+  VidFetch says it itself, as Windows was not doing it after the second press.
+- **"3 videos", not "3 files" (5.5).**
+- **A playlist's videos in the list (section 5).** Enter on a playlist shows its videos in the same
+  list, in the playlist's order, and the list's name says which playlist it is. Enter plays, and the
+  context menu, F2 and Delete work as on any download. Escape or Backspace goes back to all
+  downloads, on that playlist.
+  - A decision of mine: while you are in a playlist, Escape goes back first, and a second Escape
+    stops a download. Otherwise one Escape would have two jobs.
+- **Titles in the queue (your Q2).** A YouTube video's title comes from YouTube itself, in under a
+  second. yt-dlp takes about 15 seconds for one, so it is used only for playlists and other sites,
+  and the address shows until the title comes.
+- **The queue is kept (your Q3).**
+  - Alt+F4 while something runs or waits asks first, with Keep downloading as the safe answer. The
+    queue is kept, with the download that was running.
+  - At the next start, VidFetch lists what had not finished and asks "Carry on downloading now, or
+    empty the queue?", with Carry on first.
+  - "Empty the queue" is in the Download menu, as well as Remove all in the Queue window. Both ask
+    first.
+  - A single video stopped part way starts again from the beginning; a playlist carries on with the
+    films it does not have.
+  - With nothing running or waiting, VidFetch closes without a question, as before.
+
+### Tried by me
+
+I used temporary settings and a temporary folder, so your own settings and downloads were not
+touched. The automated checks and 32 unit tests pass. The accessibility probe found no problems in
+the main window (in a playlist's videos too), the Play window and the Queue window.
+
+- **The player:** a 15-minute M4A played, paused, skipped and played to the end. In the real window,
+  the title said what was playing, and Back and pause did what they should.
+- **Through the real window:**
+  - The offer to carry on a saved queue, then that download running.
+  - Enter on a playlist, then Escape back to it.
+  - Escape with nothing running, which says so.
+  - The repeat question cancelled, leaving the file chosen.
+  - Two downloads queued, both showing titles within 4 seconds.
+  - Alt+F4 asking, then Exit keeping both in `queue.json`.
+- **Found and fixed on the way:** a `queue.json` saved by Notepad, with a byte order mark at the
+  start, was not read. Now it is.
+
+**Not tried:**
+
+- Anything by ear, including whether the Play window is quick enough to start.
+- Alt+T, which needs real key presses.
+- Whether JAWS speaks a finishing download from behind another VidFetch window. Your queue test could
+  not reach this last time. Section 5 of the test reaches the windows involved, but a playlist says
+  nothing as each film starts, so it may need the end of a single video.
+- A video's sound in the player. Only M4A was tried; an MP4's sound should play the same way.
+
+### Two findings
+
+**yt-dlp warns that YouTube without a JavaScript runtime is on its way out.** Every YouTube request
+now prints: "No supported JavaScript runtime could be found ... YouTube extraction without a JS runtime
+has been deprecated, and some formats may be missing." Downloads still work today. But at some point
+yt-dlp may need Deno, a separate program of about 40 to 100 MB (I have not checked the size), to keep
+working with YouTube.
+
+That would mean a second program besides yt-dlp, which goes against one of our rules, although yt-dlp
+would start it, not VidFetch. Getting it the way VidFetch gets yt-dlp, asking first, would be the
+natural way. Nothing needs doing yet; I am telling you so it is no surprise. (Q1)
+
+**yt-dlp is slow to start on this computer**, which matters for searching and listening online:
+
+- 3.7 seconds to start with nothing to do.
+- About 15 seconds for one video's details, or for a search.
+
+Playing straight from YouTube works in VidFetch's player once it has the address: sound started in
+2.5 seconds. But jumping 5 minutes ahead took 17 seconds, as Windows reads the stream from the start
+up to that point.
+
+### Your feature requests: a plan
+
+**One idea that ties them together.** You asked for a playlist's videos to appear in the main list,
+with Escape going back. Search results and new videos from followed channels could work the same
+way. Then there is one list, with one set of keys, whatever it shows:
+
+- Enter plays, or listens online.
+- Ctrl+D downloads with the current settings, into the queue if something is running.
+- The context menu has the rest, and Escape goes back.
+
+I recommend this over separate windows. (Q2)
+
+**1. Searching YouTube.** Ctrl+F, Search YouTube, asks what to search for, then the list shows the
+results: title, channel and length.
+
+- Enter listens to the sound straight from YouTube in the Play window.
+- Ctrl+D adds it to the queue, and the context menu also has "Follow this channel" and "Copy the
+  address".
+- Escape goes back to your downloads.
+- The catch is speed (Q3):
+  - **(a) Through yt-dlp:** about 15 seconds to search, and 15 more before a result starts to play.
+    This is reliable, and yt-dlp keeps up with YouTube's changes for us.
+  - **(b) Asking YouTube directly**, as NewPipe and similar apps do: about a second for both, built
+    into VidFetch. But YouTube changes break it from time to time, and VidFetch would need a new
+    version each time, where yt-dlp updates itself. It is also something YouTube does not invite. I
+    have not tried this way yet.
+  - **(c) Both:** search and titles directly, and the sound through yt-dlp, falling back to yt-dlp
+    for search when the direct way fails. Search would be quick, but listening would still wait about
+    15 seconds.
+
+**2. Following channels**, without an account:
+
+- **Kept in VidFetch:** a list in `%APPDATA%\VidFetch\channels.json`.
+- **Finding what is new:** each YouTube channel has a public feed of its latest 15 videos, which
+  VidFetch can read itself through Windows, in about a second a channel, with no yt-dlp and no
+  sign-in.
+- **Ctrl+L, Followed channels:** the list shows what is new across all of them, newest first, each
+  with its channel. Enter listens, and Ctrl+D downloads.
+- **Choosing a channel:** from the context menu, the list could show one channel's recent videos, or
+  stop following it.
+- **Adding a channel** (Q4):
+  - "Follow this channel" on a search result.
+  - "Follow its channel" on any download in your list, as the file knows where it came from.
+  - A channel's address in Ctrl+N, with a "Follow" button beside "Start downloading".
+- **What counts as new:** anything since you last looked. VidFetch could check when it starts and say
+  "5 new videos from your channels" (Q5).
+
+**3. Categories, as in NoteFetch.** NoteFetch keeps a real folder for each category, and an
+"Uncategorised" folder for the rest, so File Explorer shows the same as the program. In VidFetch:
+
+- The output folder would hold only category folders and Uncategorised. Your downloads so far would
+  move into Uncategorised once.
+- A playlist's folder can go into a category whole.
+- "Move to category", Ctrl+Shift+M, as in NoteFetch, with New, Rename and Delete category in a
+  Category menu.
+- The list could show one category at a time, or all of them, like NoteFetch's Folder box.
+- Questions Q6 and Q7 below.
+
+**4. What else blind users want.** I looked at the accessible YouTube programs others have built,
+mainly A11YTube, "Accessible YouTube Downloader Pro" and "AN Video Downloader". I also looked at what
+comes up most for blind viewers. I found no proper survey, so this list is my reading of those
+programs and articles, not what blind users told me. In my suggested order:
+
+1. **Remember where you stopped.** The Play window picks up where you left off, per file. A11YTube
+   has this. Small to build.
+2. **Playing speed**, from 1.25 to 2 times as fast, without the voice going high. Many blind people
+   listen to speech fast, and Netflix adding speed control was reported as "a big deal for blind
+   fans". Windows can do this; I have not tried it here.
+3. **Play the next one.** At the end of a video in a playlist, or a search result, the next one
+   starts, optionally.
+4. **Volume** in the Play window, with the Up and Down arrows.
+5. **Audio-described sound.** Some YouTube videos have a second, described sound track. VidFetch
+   could choose it when there is one, as an option. I have not yet checked how often YouTube offers
+   them.
+6. **Chapters.** Many YouTube videos have named chapters. The Play window could jump from chapter to
+   chapter, saying each name, with Page Up and Page Down.
+7. **The description, readable.** A video's description, from its page, in a box to read with the
+   arrow keys. Links and timestamps are often there.
+8. **The captions as text.** The captions you already save, shown as plain text to read, or as the
+   video plays.
+9. **Favourites and history.** A11YTube has both: what you played lately, and what you marked.
+10. **Skip silence** at the start and end, which A11YTube does.
+11. **Copy a link and be asked.** When you copy a YouTube address anywhere, VidFetch offers to
+    download it. This would be an option, off to begin with, as it may annoy.
+
+My suggested order overall (Q8):
+
+1. Search with listening.
+2. Following channels.
+3. Remembering where you stopped, speed and volume, which make listening online pleasant.
+4. Categories.
+5. The rest of the list.
+
+Sources: https://github.com/Daoductrung/A11YTube (A11YTube's features);
+https://www.applevis.com/forum/windows/video-downloader-accessible-youtube-downloader-blind-users
+(AN Video Downloader); https://www.listennotes.com/podcasts/seeing-in-the-dark/using-accessible-youtube-F27OykRZNht/
+(Accessible YouTube Downloader Pro); https://www.npr.org/2020/08/12/901317290/netflix-is-letting-some-people-speed-up-playback-thats-a-big-deal-for-blind-fans
+(speed); https://www.ghacks.net/?p=180033 (YouTube's channel feeds).
+
+### Questions
+
+**Q1.** If yt-dlp comes to need Deno for YouTube, should VidFetch fetch it the way it fetches yt-dlp,
+asking first?
+
+ANSWER:
+
+**Q2.** Search results and followed channels in the main list, like a playlist's videos, with Escape
+going back, rather than in windows of their own?
+
+ANSWER:
+
+**Q3.** For search and listening online: (a) through yt-dlp, slow but self-updating; (b) asking
+YouTube directly, quick but breaking now and then until VidFetch is updated; or (c) both, searching
+directly and listening through yt-dlp? My suggestion is (c).
+
+ANSWER:
+
+**Q4.** Which ways of adding a channel do you want: from search, from a download, from an address
+in Ctrl+N? Any other?
+
+ANSWER:
+
+**Q5.** Should VidFetch check your channels when it starts and say how many new videos there are,
+or only when you press Ctrl+L?
+
+ANSWER:
+
+**Q6.** Categories: should the output folder hold only category folders and Uncategorised, as in
+NoteFetch, with your existing downloads moved into Uncategorised once?
+
+ANSWER:
+
+**Q7.** Where should a new download go: into Uncategorised, into the category the list is showing,
+or should the New download window have a Category box?
+
+ANSWER:
+
+**Q8.** Is my order right, and which of the eleven ideas do you want at all?
+
+ANSWER:
+
 ## Entry 2 — Your answers built: sound by default, a queue, captions (2026-11-02)
 
 The test is `test-milestone-2.txt`. It replaces `test-milestone-1.txt`, which you had not started, so

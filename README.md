@@ -9,11 +9,14 @@ No installer, no FFmpeg, no runtime to install.
 - **New download, Ctrl+N**: copy a video's or a playlist's address in the browser, press Ctrl+N, then
   Enter. The address is taken from the clipboard.
 - **Sound only (M4A or MP3) to begin with, or video (MP4)**, with the picture at 360 to 1080 lines.
-- **A queue**: Ctrl+N while one download runs adds the next; Ctrl+Q shows what is waiting.
+- **A built-in player**: Enter on a download plays its sound at once, with pause and skipping.
+- **A queue**: Ctrl+N while one download runs adds the next; Ctrl+Q shows what is waiting, by title.
+  What has not finished is kept when VidFetch closes, and offered again when it starts.
 - **Captions**, as an option, saved beside each download as an SRT file.
-- **Already have it?** Asking for the same video at the same quality offers to open what you have.
+- **Already have it?** Asking for the same video at the same quality asks before a second copy.
 - **Playlists and channels** go into a folder of their own, numbered in the playlist's order.
-  **Update the playlist, Ctrl+U**, fetches only the videos added since.
+  Enter on one shows its videos in the list. **Update the playlist, Ctrl+U**, fetches only the
+  videos added since.
 - Each file is tagged with its title, channel, year and address, and a playlist's with its album and
   track number.
 
