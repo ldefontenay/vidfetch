@@ -40,6 +40,21 @@ pub fn about(owner: HWND, text: &str) {
     show(owner, text, MB_ICONINFORMATION, ABOUT_HEADING);
 }
 
+/// A video's description, to read with the arrow keys (log entry 3, idea 7).
+pub fn description(owner: HWND, text: &str) {
+    show(owner, text, MB_OK, "&Description:");
+}
+
+/// A download's captions as text, to read with the arrow keys.
+pub fn captions(owner: HWND, text: &str) {
+    show(
+        owner,
+        text,
+        MB_OK,
+        "&Captions, with the time each part starts:",
+    );
+}
+
 /// A finished job's report, to read with the arrow keys.
 pub fn report(owner: HWND, text: &str) {
     show(owner, text, MB_ICONINFORMATION, REPORT_HEADING);

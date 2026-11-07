@@ -662,6 +662,100 @@ pub fn title(exe: &Path, url: &str, whole: bool, stop: &AtomicBool) -> Option<St
         .filter(|t| !t.is_empty())
 }
 
+/// The address of a video's sound, to listen without downloading (log
+/// entry 3, Q3): about 5 seconds, most of it yt-dlp starting. M4A, which
+/// Media Foundation plays, over plain HTTP. Good for some hours. None if
+/// stopped.
+pub fn sound_address(exe: &Path, url: &str, stop: &AtomicBool) -> Result<Option<String>, String> {
+    let args: Vec<String> = [
+        "--ignore-config",
+        "--encoding",
+        "utf-8",
+        "--no-playlist",
+        "--no-warnings",
+        "--no-colors",
+        "-f",
+        "bestaudio[ext=m4a][protocol^=http]/bestaudio[acodec^=mp4a][protocol^=http]/best[ext=mp4][protocol^=http]",
+        "-g",
+        "--",
+        url,
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let mut found = None;
+    let Some((ok, errors)) = run(exe, &args, stop, &mut |l| {
+        if found.is_none() && l.starts_with("http") {
+            found = Some(l.trim().to_string());
+        }
+    })?
+    else {
+        return Ok(None);
+    };
+    match found {
+        Some(address) if ok => Ok(Some(address)),
+        _ => Err(explain(&errors, &site(url))),
+    }
+}
+
+/// Searches YouTube through yt-dlp, for when asking YouTube directly fails:
+/// slower, about 15 seconds, but kept up to date by yt-dlp.
+pub fn search(
+    exe: &Path,
+    query: &str,
+    stop: &AtomicBool,
+) -> Result<Option<Vec<crate::youtube::Video>>, String> {
+    let args: Vec<String> = [
+        "--ignore-config",
+        "--encoding",
+        "utf-8",
+        "--flat-playlist",
+        "--no-warnings",
+        "--no-colors",
+        "-J",
+        "--",
+        &format!("ytsearch20:{query}"),
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let mut json = String::new();
+    let Some((ok, errors)) = run(exe, &args, stop, &mut |l| json.push_str(l))? else {
+        return Ok(None);
+    };
+    if !ok {
+        return Err(explain(&errors, "YouTube"));
+    }
+    let v: serde_json::Value = serde_json::from_str(&json)
+        .map_err(|e| format!("yt-dlp's search results could not be read: {e}"))?;
+    Ok(Some(search_results(&v)))
+}
+
+fn search_results(v: &serde_json::Value) -> Vec<crate::youtube::Video> {
+    let text = |x: &serde_json::Value| x.as_str().unwrap_or_default().to_string();
+    v["entries"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|e| {
+            let id = e["id"].as_str().filter(|id| id.len() == 11)?.to_string();
+            let secs = e["duration"].as_f64().unwrap_or(0.0);
+            Some(crate::youtube::Video {
+                id,
+                title: text(&e["title"]),
+                channel: text(&e["channel"]),
+                channel_id: text(&e["channel_id"]),
+                length: if secs > 0.0 {
+                    crate::listen::clock(secs)
+                } else {
+                    String::new()
+                },
+                ..Default::default()
+            })
+        })
+        .collect()
+}
+
 /// A list from yt-dlp's `-J --flat-playlist` answer; None for one video.
 fn playlist_of(v: &serde_json::Value) -> Option<Playlist> {
     if v["_type"].as_str() != Some("playlist") {
@@ -981,6 +1075,18 @@ pub fn drop_edit_list(path: &Path) -> Result<f64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn search_results_from_ytdlp_are_read() {
+        let v: serde_json::Value = serde_json::from_str(
+            r#"{"entries":[{"id":"WhWc3b3KhnY","title":"Spring","channel":"Blender Studio",
+                "channel_id":"UCz75RVbH8q2jdBJ4SnwuZZQ","duration":465.0},{"id":"UCnotavideo00"}]}"#,
+        )
+        .unwrap();
+        let r = search_results(&v);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].line(), "Spring: Blender Studio, 7:45");
+    }
 
     #[test]
     fn progress_lines_parse() {

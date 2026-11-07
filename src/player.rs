@@ -6,8 +6,13 @@
 //!
 //! The player has a thread of its own, as Media Foundation must not start on
 //! the window's thread. The window sends it commands and reads where it is.
+//!
+//! It can play faster or slower without changing the voice (stretch.rs), and
+//! sets its own volume in Windows' volume mixer, which Windows keeps for next
+//! time (log entry 3, ideas 2 and 4).
 
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -16,6 +21,7 @@ use windows::Win32::Media::Audio::*;
 use windows::Win32::Media::{MMTIME, TIME_SAMPLES};
 
 use crate::media;
+use crate::stretch::Stretch;
 
 const RATE: u32 = 48_000;
 const CHANNELS: u32 = 2;
@@ -28,8 +34,16 @@ enum Command {
     Play,
     Pause,
     Seek(f64),
+    Speed(f64),
+    /// Percent.
+    Volume(u32),
     Quit,
 }
+
+/// The slowest and fastest speeds, and the step between them.
+pub const SLOWEST: f64 = 0.5;
+pub const FASTEST: f64 = 3.0;
+pub const SPEED_STEP: f64 = 0.25;
 
 /// What the window can read at any time.
 #[derive(Default)]
@@ -39,6 +53,10 @@ struct Shared {
     playing: AtomicBool,
     /// Played to the end, and not yet told.
     ended: AtomicBool,
+    /// Stopped at the end, so playing again starts from the beginning.
+    at_end: AtomicBool,
+    /// The volume in percent, as Windows has it.
+    volume: AtomicU32,
     /// Why it stopped, if it failed.
     failed: Mutex<Option<String>>,
 }
@@ -55,11 +73,13 @@ pub struct Player {
     shared: Arc<Shared>,
     thread: Option<std::thread::JoinHandle<()>>,
     secs: f64,
+    speed: f64,
 }
 
 impl Player {
-    /// A player for `source`, a file or a web address, paused at the start.
-    pub fn open(source: &str) -> Result<Player, String> {
+    /// A player for `source`, a file or a web address, paused at the start,
+    /// to play at `speed`.
+    pub fn open(source: &str, speed: f64) -> Result<Player, String> {
         let secs = {
             let s = source.to_string();
             std::thread::spawn(move || {
@@ -71,10 +91,12 @@ impl Player {
         };
         let (send, receive) = channel();
         let shared = Arc::new(Shared::default());
+        shared.volume.store(100, Ordering::Relaxed);
         let source = source.to_string();
         let theirs = shared.clone();
+        let speed = speed.clamp(SLOWEST, FASTEST);
         let thread = std::thread::spawn(move || {
-            if let Err(why) = run(&source, receive, &theirs) {
+            if let Err(why) = run(&source, speed, receive, &theirs) {
                 theirs.playing.store(false, Ordering::Relaxed);
                 *theirs.failed.lock().unwrap() = Some(why);
             }
@@ -84,7 +106,33 @@ impl Player {
             shared,
             thread: Some(thread),
             secs,
+            speed,
         })
+    }
+
+    pub fn speed(&self) -> f64 {
+        self.speed
+    }
+
+    /// Plays at `speed`, kept within what sounds right; the speed it now has.
+    /// What is already queued, under a second, plays out at the old speed.
+    pub fn set_speed(&mut self, speed: f64) -> f64 {
+        self.speed = ((speed / SPEED_STEP).round() * SPEED_STEP).clamp(SLOWEST, FASTEST);
+        let _ = self.send.send(Command::Speed(self.speed));
+        self.speed
+    }
+
+    /// The volume in percent.
+    pub fn volume(&self) -> u32 {
+        self.shared.volume.load(Ordering::Relaxed)
+    }
+
+    /// Sets the volume in percent, from 0 to 100; the volume it now has.
+    pub fn set_volume(&self, percent: i32) -> u32 {
+        let v = percent.clamp(0, 100) as u32;
+        self.shared.volume.store(v, Ordering::Relaxed);
+        let _ = self.send.send(Command::Volume(v));
+        v
     }
 
     /// The sound's length in seconds; nought when the source does not say.
@@ -115,13 +163,20 @@ impl Player {
         self.shared.ended.swap(false, Ordering::Relaxed)
     }
 
+    /// Played to the end, and not moved since.
+    pub fn finished(&self) -> bool {
+        self.shared.at_end.load(Ordering::Relaxed)
+    }
+
     pub fn take_failure(&self) -> Option<String> {
         self.shared.failed.lock().unwrap().take()
     }
 
     pub fn play(&self) {
         // From the start again once it has played to the end.
-        if self.secs > 0.0 && self.at() >= self.secs - 0.05 {
+        if self.shared.at_end.load(Ordering::Relaxed)
+            || (self.secs > 0.0 && self.at() >= self.secs - 0.05)
+        {
             self.seek(0.0);
         }
         self.shared.playing.store(true, Ordering::Relaxed);
@@ -137,6 +192,7 @@ impl Player {
     /// Where it lands.
     pub fn seek(&self, secs: f64) -> f64 {
         let to = secs.clamp(0.0, self.end());
+        self.shared.at_end.store(false, Ordering::Relaxed);
         self.shared.set_at(to);
         let _ = self.send.send(Command::Seek(to));
         to
@@ -153,13 +209,24 @@ impl Drop for Player {
 }
 
 /// Puts back this app's volume on the output if it is at nought, as Video
-/// Scribe does: Windows keeps an app's volume for each device.
-fn unmute(device: HWAVEOUT) {
+/// Scribe does: Windows keeps an app's volume for each device. The volume
+/// then, in percent.
+fn unmute(device: HWAVEOUT) -> u32 {
     let mut volume = 0u32;
     unsafe {
         if waveOutGetVolume(Some(device), &mut volume) == 0 && volume == 0 {
             waveOutSetVolume(Some(device), u32::MAX);
+            volume = u32::MAX;
         }
+    }
+    ((volume & 0xFFFF) * 100 + 0x7FFF) / 0xFFFF
+}
+
+/// Sets this app's volume, both sides alike.
+fn set_volume(device: HWAVEOUT, percent: u32) {
+    let v = percent.min(100) * 0xFFFF / 100;
+    unsafe {
+        waveOutSetVolume(Some(device), (v << 16) | v);
     }
 }
 
@@ -167,6 +234,8 @@ fn unmute(device: HWAVEOUT) {
 /// Windows plays from it: each is allocated once and never resized.
 struct Out {
     device: HWAVEOUT,
+    /// The volume it opened with, in percent.
+    volume: u32,
     /// Tests play silence, and so does the app when VF_SILENT is set.
     silent: bool,
     headers: Vec<WAVEHDR>,
@@ -205,9 +274,10 @@ impl Out {
                  headphones are connected."
             ));
         }
-        unmute(device);
+        let volume = unmute(device);
         Ok(Out {
             device,
+            volume,
             silent: cfg!(test) || std::env::var_os("VF_SILENT").is_some(),
             headers: vec![WAVEHDR::default(); BUFFERS],
             data: (0..BUFFERS)
@@ -274,15 +344,15 @@ impl Out {
         self.reap();
     }
 
-    /// Seconds played since the last reset.
-    fn played(&self) -> f64 {
+    /// Frames played since the last reset.
+    fn played(&self) -> u64 {
         let mut t = MMTIME {
             wType: TIME_SAMPLES,
             ..Default::default()
         };
         unsafe {
             waveOutGetPosition(self.device, &mut t, std::mem::size_of::<MMTIME>() as u32);
-            t.u.sample as f64 / RATE as f64
+            t.u.sample as u64
         }
     }
 }
@@ -306,21 +376,86 @@ struct Run<'a> {
     paused: bool,
     /// A command that ends this run: a seek, or quitting.
     next: Option<Command>,
+    stretch: Stretch,
+    /// Output waiting to fill a buffer.
+    pending: Vec<i16>,
+    /// Frames of the sound the output so far stands for, from `base`.
+    used: f64,
+    /// Frames handed to the device since the last reset.
+    written: u64,
+    /// Where in the sound each buffer ends: (frames written, seconds). At a
+    /// speed other than normal, a frame played is not a frame of the sound.
+    marks: VecDeque<(u64, f64)>,
+    /// The last mark already played.
+    anchor: (u64, f64),
 }
 
 impl Run<'_> {
+    /// Starts again from `base`, with nothing queued.
+    fn restart(&mut self) {
+        self.out.reset();
+        self.stretch.clear();
+        self.pending.clear();
+        self.used = 0.0;
+        self.written = 0;
+        self.marks.clear();
+        self.anchor = (0, self.base);
+    }
+
+    /// Where in the sound playing is, in seconds.
+    fn position(&mut self) -> f64 {
+        let played = self.out.played();
+        while let Some(&(frames, secs)) = self.marks.front() {
+            if frames > played {
+                let (f0, s0) = self.anchor;
+                let part = (played - f0.min(played)) as f64 / (frames - f0).max(1) as f64;
+                return s0 + part * (secs - s0);
+            }
+            self.anchor = (frames, secs);
+            self.marks.pop_front();
+        }
+        self.anchor.1
+    }
+
+    /// Sends full buffers of what is pending to the device. False if a
+    /// command ends the run.
+    fn send(&mut self, all: bool) -> bool {
+        let per = CHANNELS as usize;
+        while self.pending.len() >= BLOCK * per || (all && !self.pending.is_empty()) {
+            let n = self.pending.len().min(BLOCK * per);
+            let Some(i) = self.room() else {
+                return false;
+            };
+            self.out.write(i, &self.pending[..n]);
+            self.pending.drain(..n);
+            self.written += (n / per) as u64;
+            // What is still pending stands for the end of what was used.
+            let ahead = (self.pending.len() / per) as f64 * self.stretch.speed();
+            let secs = self.base + (self.used - ahead).max(0.0) / RATE as f64;
+            self.marks.push_back((self.written, secs));
+            // Kept current even when decoding only just keeps up.
+            if !self.paused {
+                let at = self.position();
+                self.shared.set_at(at);
+            }
+        }
+        true
+    }
+
     /// Waits up to 15 ms for a command and acts on it. False once a command
     /// ends the run.
     fn listen(&mut self) -> bool {
         if !self.paused {
-            self.shared.set_at(self.base + self.out.played());
+            let at = self.position();
+            self.shared.set_at(at);
         }
         match self.commands.recv_timeout(Duration::from_millis(15)) {
             Ok(Command::Pause) => {
                 if !self.paused {
                     self.out.pause();
                     self.paused = true;
-                    self.shared.set_at(self.base + self.out.played());
+                    let at = self.position();
+                    self.shared.set_at(at);
                 }
             }
             Ok(Command::Play) => {
@@ -329,6 +464,8 @@ impl Run<'_> {
                     self.paused = false;
                 }
             }
+            Ok(Command::Speed(s)) => self.stretch.set_speed(s),
+            Ok(Command::Volume(v)) => set_volume(self.out.device, v),
             Ok(c) => self.next = Some(c),
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => self.next = Some(Command::Quit),
@@ -356,15 +493,28 @@ const BROKEN_OFF: &str = "\u{1}broken off";
 
 /// The player's thread: paused until told to play, then decoding and queueing
 /// from where it is.
-fn run(source: &str, commands: Receiver<Command>, shared: &Shared) -> Result<(), String> {
+fn run(
+    source: &str,
+    speed: f64,
+    commands: Receiver<Command>,
+    shared: &Shared,
+) -> Result<(), String> {
     let _session = media::Session::start()?;
+    let out = Out::open()?;
+    shared.volume.store(out.volume, Ordering::Relaxed);
     let mut run = Run {
-        out: Out::open()?,
+        out,
         commands: &commands,
         shared,
         base: 0.0,
         paused: false,
         next: None,
+        stretch: Stretch::new(CHANNELS as usize, speed),
+        pending: Vec::with_capacity(BLOCK * CHANNELS as usize * 2),
+        used: 0.0,
+        written: 0,
+        marks: VecDeque::new(),
+        anchor: (0, 0.0),
     };
     let mut playing = false;
     let per = CHANNELS as usize;
@@ -374,56 +524,52 @@ fn run(source: &str, commands: Receiver<Command>, shared: &Shared) -> Result<(),
                 Ok(Command::Play) => playing = true,
                 Ok(Command::Pause) => {}
                 Ok(Command::Seek(to)) => run.base = to,
+                Ok(Command::Speed(s)) => run.stretch.set_speed(s),
+                Ok(Command::Volume(v)) => set_volume(run.out.device, v),
                 Ok(Command::Quit) | Err(_) => return Ok(()),
             }
             continue;
         }
         shared.ended.store(false, Ordering::Relaxed);
-        run.out.reset();
+        shared.at_end.store(false, Ordering::Relaxed);
+        run.restart();
         // A reset device may still be paused from before.
         run.out.resume();
         run.paused = false;
         run.next = None;
         let first = (run.base * RATE as f64).round() as i64;
-        let mut block: Vec<i16> = Vec::with_capacity(BLOCK * per);
         let stop = AtomicBool::new(false);
         let decoded = media::sound_from(source, run.base, RATE, CHANNELS, &stop, &mut |at, s| {
             let start = (at * RATE as f64).round() as i64;
-            for (k, frame) in s.chunks_exact(per).enumerate() {
-                // Seeking lands near the place, not on it.
-                if start + k as i64 >= first {
-                    block.extend_from_slice(frame);
-                }
-                if block.len() == BLOCK * per {
-                    let Some(i) = run.room() else {
-                        return Err(BROKEN_OFF.into());
-                    };
-                    run.out.write(i, &block);
-                    block.clear();
-                }
+            // Seeking lands near the place, not on it.
+            let skip = (first - start).clamp(0, (s.len() / per) as i64) as usize;
+            run.stretch.push(&s[skip * per..]);
+            let before = run.pending.len();
+            run.stretch.pull(&mut run.pending);
+            run.used += ((run.pending.len() - before) / per) as f64 * run.stretch.speed();
+            if run.send(false) {
+                Ok(())
+            } else {
+                Err(BROKEN_OFF.into())
             }
-            Ok(())
         });
         match decoded {
             Err(why) if why != BROKEN_OFF => return Err(why),
             Err(_) => {}
             Ok(_) => {
                 // The last of it, then play out what is queued.
-                if !block.is_empty() {
-                    if let Some(i) = run.room() {
-                        run.out.write(i, &block);
-                    }
-                }
+                run.send(true);
                 while run.next.is_none() && (run.paused || run.out.reap()) {
                     run.listen();
                 }
                 if run.next.is_none() {
-                    let end = run.base + run.out.played();
+                    let end = run.position();
                     run.out.reset();
                     run.base = end;
                     shared.set_at(end);
                     playing = false;
                     shared.playing.store(false, Ordering::Relaxed);
+                    shared.at_end.store(true, Ordering::Relaxed);
                     shared.ended.store(true, Ordering::Relaxed);
                     continue;
                 }
@@ -455,7 +601,7 @@ mod on_a_file {
     #[ignore]
     fn plays_pauses_and_skips() {
         let path = std::env::var("VF_TEST_SOUND").unwrap();
-        let p = Player::open(&path).unwrap();
+        let p = Player::open(&path, 1.0).unwrap();
         assert!(p.secs() > 70.0);
         let wait = |ms| std::thread::sleep(Duration::from_millis(ms));
         p.play();
@@ -489,13 +635,28 @@ mod on_a_file {
         assert!(p.take_failure().is_none());
     }
 
+    /// Twice as fast: the place moves twice as fast too.
+    #[test]
+    #[ignore]
+    fn plays_faster() {
+        let path = std::env::var("VF_TEST_SOUND").unwrap();
+        let mut p = Player::open(&path, 1.0).unwrap();
+        assert_eq!(p.set_speed(2.1), 2.0);
+        p.seek(10.0);
+        p.play();
+        std::thread::sleep(Duration::from_millis(2000));
+        let a = p.at();
+        assert!(a > 12.8 && a < 14.3, "{a}");
+        assert!(p.volume() <= 100);
+    }
+
     /// A web address, such as yt-dlp's `-g` gives: slower to start than a
     /// file. `VF_TEST_STREAM=<address> cargo test streams -- --ignored`.
     #[test]
     #[ignore]
     fn streams_from_a_web_address() {
         let url = std::env::var("VF_TEST_STREAM").unwrap();
-        let p = Player::open(&url).unwrap();
+        let p = Player::open(&url, 1.0).unwrap();
         let wait = |ms| std::thread::sleep(Duration::from_millis(ms));
         p.play();
         let started = std::time::Instant::now();

@@ -7,12 +7,19 @@
 //! A playlist's folder is found by that file, never by its name, so a folder
 //! renamed in File Explorer is still found. `clean` and `shorten` are
 //! NoteFetch's (`naming.rs`, MIT, same author), by way of Video Scribe.
+//!
+//! Categories, as in NoteFetch (log entry 3, Q6): the output folder holds
+//! only folders, one for each category and "Uncategorised", and downloads go
+//! in those. What is found directly in the output folder is moved into
+//! Uncategorised, once, by `tidy`.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 const MARKER: &str = "VidFetch.json";
+/// VidFetch's own category, for downloads in none of the user's.
+pub const UNCATEGORISED: &str = "Uncategorised";
 const UNTITLED: &str = "Untitled";
 /// Longest name made from a title: room is left for a number and for the
 /// output folder itself, under Windows' usual 260.
@@ -157,6 +164,8 @@ pub enum Kind {
 #[derive(Clone, Debug)]
 pub struct Entry {
     pub path: PathBuf,
+    /// The category it is in: the name of the folder holding it.
+    pub category: String,
     /// The file's name without its ending, or the folder's name.
     pub name: String,
     pub kind: Kind,
@@ -199,8 +208,137 @@ fn modified(path: &Path) -> SystemTime {
         .unwrap_or(SystemTime::UNIX_EPOCH)
 }
 
+/// Whether a name is the Uncategorised folder, in any letter case, or the
+/// American spelling: neither can be a category of the user's.
+pub fn means_uncategorised(name: &str) -> bool {
+    let n = name.trim();
+    n.eq_ignore_ascii_case(UNCATEGORISED) || n.eq_ignore_ascii_case("Uncategorized")
+}
+
+/// The user's categories in `output`, sorted: every folder that is not a
+/// playlist's, nor Uncategorised.
+pub fn categories(output: &Path) -> Vec<String> {
+    let mut out: Vec<String> = std::fs::read_dir(output)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+        .filter(|e| read_record(&e.path()).is_none())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| !means_uncategorised(n))
+        .collect();
+    out.sort_by_key(|n| n.to_lowercase());
+    out
+}
+
+/// Everything downloaded, most recent first: in the one category `only`,
+/// or in all of them.
+pub fn list_all(output: &Path, only: Option<&str>) -> Vec<Entry> {
+    let mut out = match only {
+        Some(c) => list(&output.join(c)),
+        None => std::iter::once(UNCATEGORISED.to_string())
+            .chain(categories(output))
+            .flat_map(|c| list(&output.join(c)))
+            .collect(),
+    };
+    out.sort_by_key(|e| std::cmp::Reverse(e.made));
+    out
+}
+
+/// Why a name typed for a category cannot be used, or None.
+pub fn bad_category(output: &Path, name: &str) -> Option<String> {
+    if means_uncategorised(name) {
+        return Some(format!(
+            "{UNCATEGORISED} is VidFetch's own category, for downloads in none of yours. Choose \
+             another name."
+        ));
+    }
+    if let Some(why) = bad_name(name) {
+        return Some(why.replace("Sprite Fright", "Talks"));
+    }
+    if output.join(name.trim()).exists() {
+        return Some(format!(
+            "There is already a category or a folder called {} in the output folder. Choose \
+             another name.",
+            name.trim()
+        ));
+    }
+    None
+}
+
+/// Moves what the list shows directly in the output folder, downloads and
+/// playlists' folders, into Uncategorised, with their captions; VidFetch's
+/// records follow them. Other files and folders are left alone. What was
+/// moved, from and to.
+pub fn tidy(output: &Path, record: Option<&Path>) -> Vec<(PathBuf, PathBuf)> {
+    let loose: Vec<Entry> = list(output);
+    if loose.is_empty() {
+        return Vec::new();
+    }
+    let into = output.join(UNCATEGORISED);
+    if std::fs::create_dir_all(&into).is_err() {
+        return Vec::new();
+    }
+    let mut moved = Vec::new();
+    for e in loose {
+        if let Ok(to) = move_to(&e, &into) {
+            moved.push((e.path.clone(), to));
+        }
+    }
+    if let Some(r) = record {
+        for (from, to) in &moved {
+            moved_folder(r, from, to);
+        }
+    }
+    moved
+}
+
+/// Moves a download, or a playlist's folder, into the folder `into`, with its
+/// captions. The new path.
+pub fn move_to(e: &Entry, into: &Path) -> Result<PathBuf, String> {
+    let name = e.path.file_name().ok_or("That has no name.")?;
+    let target = into.join(name);
+    if target == e.path {
+        return Ok(target);
+    }
+    if target.exists() {
+        return Err(format!(
+            "There is already something called {} in {}. Rename one of them first, with F2.",
+            name.to_string_lossy(),
+            into.file_name().unwrap_or_default().to_string_lossy()
+        ));
+    }
+    let captions = if e.is_playlist() {
+        Vec::new()
+    } else {
+        captions_of(&e.path)
+    };
+    std::fs::create_dir_all(into).map_err(|err| format!("{}: {err}", into.display()))?;
+    std::fs::rename(&e.path, &target).map_err(|err| {
+        if err.raw_os_error() == Some(32) || err.raw_os_error() == Some(5) {
+            format!(
+                "{} could not be moved, because it is open in another program, such as a media \
+                 player. Close it and try again.",
+                e.name
+            )
+        } else {
+            format!("{} could not be moved: {err}", e.name)
+        }
+    })?;
+    for c in captions {
+        if let Some(n) = c.file_name() {
+            let _ = std::fs::rename(&c, into.join(n));
+        }
+    }
+    Ok(target)
+}
+
 /// Everything downloaded into `output`, most recent first.
 pub fn list(output: &Path) -> Vec<Entry> {
+    let category = output
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
     let Ok(dir) = std::fs::read_dir(output) else {
         return Vec::new();
     };
@@ -221,6 +359,7 @@ pub fn list(output: &Path) -> Vec<Entry> {
                 }
                 Some(Entry {
                     name: e.file_name().to_string_lossy().into_owned(),
+                    category: category.clone(),
                     path,
                     kind: Kind::Playlist { videos, url: p.url },
                     made,
@@ -232,6 +371,7 @@ pub fn list(output: &Path) -> Vec<Entry> {
                     .to_string_lossy()
                     .to_ascii_lowercase();
                 Some(Entry {
+                    category: category.clone(),
                     name: path
                         .file_stem()
                         .map(|n| n.to_string_lossy().into_owned())
@@ -371,16 +511,49 @@ pub fn remember(record: &Path, key: &str, file: &Path, format: &str, lines: u32)
     write_past(record, &past);
 }
 
-/// A remembered download was renamed.
-pub fn moved(record: &Path, from: &Path, to: &Path) {
+/// A file or folder was moved or renamed: every remembered download in it,
+/// or it itself, is now under `to`.
+pub fn moved_folder(record: &Path, from: &Path, to: &Path) {
     let mut past = read_past(record);
-    if !past.iter().any(|p| p.file == from) {
-        return;
+    let mut changed = false;
+    for p in past.iter_mut() {
+        if let Ok(rest) = p.file.strip_prefix(from) {
+            p.file = if rest.as_os_str().is_empty() {
+                to.to_path_buf()
+            } else {
+                to.join(rest)
+            };
+            changed = true;
+        }
     }
-    for p in past.iter_mut().filter(|p| p.file == from) {
-        p.file = to.to_path_buf();
+    if changed {
+        write_past(record, &past);
     }
-    write_past(record, &past);
+}
+
+/// The YouTube video a downloaded file came from, by its id: from the record
+/// of single downloads, or from its playlist folder's record.
+pub fn video_of(record: Option<&Path>, file: &Path) -> Option<String> {
+    let youtube = |k: &str| {
+        (k.len() == 11
+            && k.chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'))
+        .then(|| k.to_string())
+    };
+    if let Some(found) = record.and_then(|r| {
+        read_past(r)
+            .into_iter()
+            .find(|p| p.file == file)
+            .and_then(|p| youtube(&p.key))
+    }) {
+        return Some(found);
+    }
+    let name = file.file_name()?.to_string_lossy().into_owned();
+    let r = read_record(file.parent()?)?;
+    r.done
+        .iter()
+        .find(|(_, f)| f.eq_ignore_ascii_case(&name))
+        .and_then(|(id, _)| youtube(id))
 }
 
 /// The captions beside a download: `Title.en.srt` for `Title.mp4`. None are
@@ -434,13 +607,28 @@ pub fn write_record(folder: &Path, r: &Record) -> Result<(), String> {
         .map_err(|e| format!("{}: {e}", folder.display()))
 }
 
+/// The folders a playlist's folder may be in: `output` itself, and the other
+/// categories beside it.
+fn places_for_playlists(output: &Path) -> Vec<PathBuf> {
+    let mut out = vec![output.to_path_buf()];
+    if let Some(root) = output.parent() {
+        for e in std::fs::read_dir(root).into_iter().flatten().flatten() {
+            let p = e.path();
+            if p != output && p.is_dir() && read_record(&p).is_none() {
+                out.push(p);
+            }
+        }
+    }
+    out
+}
+
 /// The folder for the playlist `id`: the one already made for it, whatever
-/// it is called now, else a new one named after `title`.
+/// it is called now and in whichever category, else a new one in `output`
+/// named after `title`.
 pub fn playlist_folder(output: &Path, id: &str, url: &str, title: &str) -> Result<PathBuf, String> {
-    if let Some(found) = std::fs::read_dir(output)
-        .into_iter()
-        .flatten()
-        .flatten()
+    if let Some(found) = places_for_playlists(output)
+        .iter()
+        .flat_map(|d| std::fs::read_dir(d).into_iter().flatten().flatten())
         .map(|e| e.path())
         .find(|p| read_record(p).is_some_and(|r| r.id == id && !id.is_empty()))
     {
@@ -617,7 +805,7 @@ mod tests {
         // Renamed in VidFetch: still known.
         let to = d.join("Zebra.mp4");
         std::fs::rename(&file, &to).unwrap();
-        moved(&record, &file, &to);
+        moved_folder(&record, &file, &to);
         assert_eq!(already(&record, "k", "video", 720), Some(to.clone()));
         // Deleted: free to download again.
         std::fs::remove_file(&to).unwrap();
@@ -639,6 +827,60 @@ mod tests {
         // The sound of the same title shares them, so they stay with it.
         std::fs::write(d.join("Zebra.mp3"), b"x").unwrap();
         assert!(captions_of(&to).is_empty());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn loose_downloads_go_into_uncategorised_once() {
+        let d = scratch("tidy");
+        let record = d.join("downloaded.json");
+        let out = d.join("out");
+        std::fs::create_dir_all(&out).unwrap();
+        std::fs::write(out.join("Zoo.m4a"), b"x").unwrap();
+        std::fs::write(out.join("Zoo.en.srt"), b"x").unwrap();
+        std::fs::write(out.join("notes.txt"), b"x").unwrap();
+        let f = playlist_folder(&out, "PLx", "u", "Films").unwrap();
+        std::fs::write(f.join("01 - One.m4a"), b"x").unwrap();
+        remember(&record, "k", &out.join("Zoo.m4a"), "m4a", 0);
+        std::fs::create_dir_all(out.join("Talks")).unwrap();
+        let moved = tidy(&out, Some(&record));
+        assert_eq!(moved.len(), 2);
+        let un = out.join(UNCATEGORISED);
+        assert!(un.join("Zoo.m4a").exists() && un.join("Zoo.en.srt").exists());
+        assert!(un.join("Films").join("01 - One.m4a").exists());
+        assert!(out.join("notes.txt").exists(), "not ours: left alone");
+        assert_eq!(already(&record, "k", "m4a", 0), Some(un.join("Zoo.m4a")));
+        assert!(tidy(&out, Some(&record)).is_empty(), "once");
+        assert_eq!(categories(&out), ["Talks"]);
+        // The playlist is found again from another category.
+        assert_eq!(
+            playlist_folder(&out.join("Talks"), "PLx", "u", "Films").unwrap(),
+            un.join("Films")
+        );
+        // Moved into a category, and listed there and in all of them.
+        let zoo = list(&un).into_iter().find(|e| e.name == "Zoo").unwrap();
+        assert_eq!(zoo.category, UNCATEGORISED);
+        move_to(&zoo, &out.join("Talks")).unwrap();
+        assert!(out.join("Talks").join("Zoo.en.srt").exists());
+        assert_eq!(list_all(&out, Some("Talks")).len(), 1);
+        assert_eq!(list_all(&out, None).len(), 2);
+        assert!(bad_category(&out, "uncategorized").is_some());
+        assert!(bad_category(&out, "talks").is_some());
+        assert!(bad_category(&out, "Music").is_none());
+        // Where each came from.
+        let mut r = read_record(&un.join("Films")).unwrap();
+        r.done.insert("abcdefghijk".into(), "01 - One.m4a".into());
+        write_record(&un.join("Films"), &r).unwrap();
+        assert_eq!(
+            video_of(Some(&record), &un.join("Films").join("01 - One.m4a")).as_deref(),
+            Some("abcdefghijk")
+        );
+        std::fs::write(un.join("Other.m4a"), b"x").unwrap();
+        remember(&record, "jNQXAC9IVRw", &un.join("Other.m4a"), "m4a", 0);
+        assert_eq!(
+            video_of(Some(&record), &un.join("Other.m4a")).as_deref(),
+            Some("jNQXAC9IVRw")
+        );
         let _ = std::fs::remove_dir_all(&d);
     }
 

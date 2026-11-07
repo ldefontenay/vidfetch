@@ -15,6 +15,13 @@ pub struct Config {
     pub number: bool,
     /// Save a video's captions as an SRT file beside it, when it has any.
     pub captions: bool,
+    /// How fast the Play window plays: 1.0 is normal.
+    pub speed: f64,
+    /// At the end of one, the Play window goes on to the next in the list.
+    pub play_next: bool,
+    /// The category the list shows, and new downloads go into: None for all
+    /// of them, with new downloads in Uncategorised.
+    pub category: Option<String>,
 }
 
 /// What a download is saved as.
@@ -75,6 +82,9 @@ impl Default for Config {
             lines: 720,
             number: true,
             captions: false,
+            speed: 1.0,
+            play_next: false,
+            category: None,
         }
     }
 }
@@ -90,11 +100,12 @@ impl Config {
         Self::path().and_then(|p| p.parent().map(PathBuf::from))
     }
 
-    /// The record of single downloads (library.rs, Past).
+    /// What waits in the queue (queue.rs).
     pub fn queue_path() -> Option<PathBuf> {
         Some(Self::dir()?.join("queue.json"))
     }
 
+    /// The record of single downloads (library.rs, Past).
     pub fn past_path() -> Option<PathBuf> {
         Self::dir().map(|d| d.join("downloaded.json"))
     }
@@ -150,6 +161,13 @@ impl Config {
                 }
                 "number the files of a playlist" => cfg.number = yes,
                 "save captions" => cfg.captions = yes,
+                "playing speed" => {
+                    if let Ok(x) = value.parse::<f64>() {
+                        cfg.speed = x.clamp(crate::player::SLOWEST, crate::player::FASTEST);
+                    }
+                }
+                "play the next one at the end" => cfg.play_next = yes,
+                "category shown" if !value.is_empty() => cfg.category = Some(value.to_string()),
                 _ => {}
             }
         }
@@ -164,7 +182,10 @@ impl Config {
              download as = {}\r\n\
              lines of picture = {}\r\n\
              number the files of a playlist = {}\r\n\
-             save captions = {}\r\n",
+             save captions = {}\r\n\
+             playing speed = {}\r\n\
+             play the next one at the end = {}\r\n\
+             category shown = {}\r\n",
             self.output_folder
                 .as_ref()
                 .map(|p| p.display().to_string())
@@ -173,6 +194,9 @@ impl Config {
             self.lines,
             yn(self.number),
             yn(self.captions),
+            self.speed,
+            yn(self.play_next),
+            self.category.as_deref().unwrap_or_default(),
         )
     }
 
@@ -190,6 +214,15 @@ impl Config {
             .iter()
             .find(|f| f.0 == self.format)
             .map_or("", |f| f.1)
+    }
+
+    /// Where new downloads go: the category shown, else Uncategorised.
+    pub fn download_folder(&self) -> PathBuf {
+        let category = self
+            .category
+            .clone()
+            .unwrap_or_else(|| crate::library::UNCATEGORISED.to_string());
+        self.output_folder().join(category)
     }
 
     /// The picture quality chosen, as said.
@@ -213,6 +246,9 @@ mod tests {
             lines: 1080,
             number: false,
             captions: true,
+            speed: 1.75,
+            play_next: true,
+            category: Some("Talks".into()),
         };
         assert_eq!(Config::parse(&cfg.to_text()), cfg);
     }
