@@ -195,42 +195,42 @@ https://www.applevis.com/forum/windows/video-downloader-accessible-youtube-downl
 **Q1.** If yt-dlp comes to need Deno for YouTube, should VidFetch fetch it the way it fetches yt-dlp,
 asking first?
 
-ANSWER:
+ANSWER: Yes
 
 **Q2.** Search results and followed channels in the main list, like a playlist's videos, with Escape
 going back, rather than in windows of their own?
 
-ANSWER:
+ANSWER: Yes. Also great that you thought of implementing backspace. Consistent with Windows Explorer.
 
 **Q3.** For search and listening online: (a) through yt-dlp, slow but self-updating; (b) asking
 YouTube directly, quick but breaking now and then until VidFetch is updated; or (c) both, searching
 directly and listening through yt-dlp? My suggestion is (c).
 
-ANSWER:
+ANSWER: Yes, go with C.
 
 **Q4.** Which ways of adding a channel do you want: from search, from a download, from an address
 in Ctrl+N? Any other?
 
-ANSWER:
+ANSWER: All of the above for now please.
 
 **Q5.** Should VidFetch check your channels when it starts and say how many new videos there are,
 or only when you press Ctrl+L?
 
-ANSWER:
+ANSWER: Only when I press ctrl+l.
 
 **Q6.** Categories: should the output folder hold only category folders and Uncategorised, as in
 NoteFetch, with your existing downloads moved into Uncategorised once?
 
-ANSWER:
+ANSWER: Yes.
 
 **Q7.** Where should a new download go: into Uncategorised, into the category the list is showing,
 or should the New download window have a Category box?
 
-ANSWER:
+ANSWER: New downloads can have a category box, with the current category preselected.
 
 **Q8.** Is my order right, and which of the eleven ideas do you want at all?
 
-ANSWER:
+ANSWER: Lets go with your order. Its very sensible.
 
 ## Entry 2 — Your answers built: sound by default, a queue, captions (2026-11-02)
 
