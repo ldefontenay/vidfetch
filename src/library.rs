@@ -146,9 +146,9 @@ pub fn bad_name(name: &str) -> Option<String> {
 pub enum Kind {
     Video,
     Sound,
-    /// A playlist's folder: how many files are in it, and its address.
+    /// A playlist's folder: how many videos are in it, and its address.
     Playlist {
-        files: usize,
+        videos: usize,
         url: String,
     },
 }
@@ -175,8 +175,10 @@ impl Entry {
         match &self.kind {
             Kind::Video => format!("video, {ext}"),
             Kind::Sound => format!("sound, {ext}"),
-            Kind::Playlist { files: 1, .. } => "playlist, 1 file".into(),
-            Kind::Playlist { files, .. } => format!("playlist, {files} files"),
+            // Videos, not files: the folder also holds their captions
+            // (milestone 2 test, 5.5).
+            Kind::Playlist { videos: 1, .. } => "playlist, 1 video".into(),
+            Kind::Playlist { videos, .. } => format!("playlist, {videos} videos"),
         }
     }
 
@@ -210,17 +212,17 @@ pub fn list(output: &Path) -> Vec<Entry> {
             if kind.is_dir() {
                 let p = read_record(&path)?;
                 let mut made = modified(&path);
-                let mut files = 0;
+                let mut videos = 0;
                 for f in std::fs::read_dir(&path).into_iter().flatten().flatten() {
                     if is_media(&f.path()) {
-                        files += 1;
+                        videos += 1;
                         made = made.max(modified(&f.path()));
                     }
                 }
                 Some(Entry {
                     name: e.file_name().to_string_lossy().into_owned(),
                     path,
-                    kind: Kind::Playlist { files, url: p.url },
+                    kind: Kind::Playlist { videos, url: p.url },
                     made,
                 })
             } else if is_media(&path) {
@@ -248,6 +250,17 @@ pub fn list(output: &Path) -> Vec<Entry> {
         })
         .collect();
     out.sort_by_key(|e| std::cmp::Reverse(e.made));
+    out
+}
+
+/// The videos in a playlist's folder, in the playlist's order: by name, as
+/// each starts with its place in it, when numbered.
+pub fn videos_in(folder: &Path) -> Vec<Entry> {
+    let mut out: Vec<Entry> = list(folder)
+        .into_iter()
+        .filter(|e| !e.is_playlist())
+        .collect();
+    out.sort_by_key(|e| e.name.to_lowercase());
     out
 }
 
@@ -569,7 +582,15 @@ mod tests {
         let all = list(&d);
         assert_eq!(all.len(), 3, "{all:?}");
         let p = all.iter().find(|e| e.is_playlist()).unwrap();
-        assert_eq!(p.holds(), "playlist, 1 file");
+        assert_eq!(p.holds(), "playlist, 1 video");
+        std::fs::write(d.join("Films").join("02 - Two.en.srt"), b"x").unwrap();
+        std::fs::write(d.join("Films").join("10 - Ten.m4a"), b"x").unwrap();
+        std::fs::write(d.join("Films").join("02 - Two.m4a"), b"x").unwrap();
+        let names: Vec<String> = videos_in(&d.join("Films"))
+            .into_iter()
+            .map(|e| e.name)
+            .collect();
+        assert_eq!(names, ["01 - One", "02 - Two", "10 - Ten"]);
         let song = all.iter().find(|e| e.name == "A song").unwrap();
         assert_eq!(song.holds(), "sound, MP3");
         let to = rename(song, "Another song").unwrap();

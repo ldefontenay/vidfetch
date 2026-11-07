@@ -12,8 +12,8 @@ use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::System::Com::{CoCreateInstance, CoTaskMemFree, CLSCTX_INPROC_SERVER};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetFocus, GetKeyState, IsWindowEnabled, VIRTUAL_KEY, VK_CONTROL, VK_DELETE, VK_ESCAPE, VK_F2,
-    VK_MENU, VK_SHIFT,
+    GetFocus, GetKeyState, IsWindowEnabled, VIRTUAL_KEY, VK_BACK, VK_CONTROL, VK_DELETE, VK_ESCAPE,
+    VK_F2, VK_MENU, VK_SHIFT,
 };
 use windows::Win32::UI::Shell::{
     FileOpenDialog, IFileOpenDialog, IShellItem, SHCreateItemFromParsingName, FOS_FORCEFILESYSTEM,
@@ -21,15 +21,17 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::*;
 
-use crate::config::{Config, Format, FORMATS, QUALITIES};
+use crate::config::{Config, FORMATS, QUALITIES};
 use crate::downloads;
 use crate::job::{self, Event};
 use crate::library::{self, Kind};
 use crate::message;
+use crate::queue::{self, Queued};
 use crate::wide;
 use crate::ytdlp;
 
 const IDD_MAIN: u16 = 100;
+const IDC_LIST_LABEL: i32 = 1003;
 const IDC_STATUS: i32 = 1004;
 const IDC_LIST: i32 = 1005;
 const IDC_OPEN: i32 = 1006;
@@ -55,6 +57,9 @@ const IDM_STOP: i32 = 2011;
 const IDM_NUMBER: i32 = 2012;
 const IDM_CAPTIONS: i32 = 2013;
 const IDM_QUEUE: i32 = 2014;
+const IDM_CLEAR_QUEUE: i32 = 2015;
+const IDM_BACK: i32 = 2016;
+const IDM_EXTERNAL: i32 = 2017;
 const IDM_ADD: i32 = 2023;
 const IDM_RENAME: i32 = 2024;
 const IDM_DELETE: i32 = 2025;
@@ -75,43 +80,25 @@ const QUALITY_MENU: i32 = 1;
 const EM_SETSEL: u32 = 0x00B1;
 const EM_SCROLLCARET: u32 = 0x00B7;
 const EN_SETFOCUS: u32 = 0x0100;
+const LBN_SELCHANGE: u32 = 1;
 const LBN_DBLCLK: u32 = 2;
 
 const WM_WELCOME: u32 = WM_APP + 13;
 /// A window in front of this one has closed: do what was waiting for that.
 const WM_SETTLE: u32 = WM_APP + 14;
+/// Offer what was left in the queue when VidFetch last closed.
+const WM_RESUME: u32 = WM_APP + 15;
 
 const WELCOME: &str = "Welcome to VidFetch. It downloads videos and whole playlists from YouTube \
 and many other sites, as video or as sound only.\n\n\
 Copy the address of a video or a playlist in your browser, with Alt+D then Ctrl+C, then press \
 Ctrl+N here: the address is already filled in, so Enter starts the download. Each download takes \
-its place in the list of downloads, where Enter opens it and the Applications key opens a menu of \
-what else can be done. A playlist gets a folder of its own; Ctrl+U on it later fetches only its \
-new videos.\n\n\
+its place in the list of downloads, where Enter plays it and the Applications key opens a menu of \
+what else can be done. A playlist gets a folder of its own: Enter on it shows its videos, and \
+Ctrl+U fetches only its new ones.\n\n\
 Downloads are sound only to begin with, as an M4A. The Options menu (Alt+O), and the New download \
 window, choose video instead, and the picture quality. While one download runs, Ctrl+N adds the \
 next to a queue. F1 opens the help.";
-
-/// A download, running or waiting its turn. Everything about it was settled
-/// when it was asked for, so changing the options later does not change it.
-struct Queued {
-    settings: job::Settings,
-    /// The playlist folder it updates, which must stay as it is until it is done.
-    into: Option<PathBuf>,
-    /// What it is, in words.
-    label: String,
-}
-
-impl Queued {
-    fn same_as(&self, o: &Queued) -> bool {
-        let (a, b) = (&self.settings, &o.settings);
-        let lines = |s: &job::Settings| job::past_lines(s.format, s.lines);
-        a.url == b.url
-            && a.whole_list == b.whole_list
-            && a.format == b.format
-            && lines(a) == lines(b)
-    }
-}
 
 struct App {
     cfg: Config,
@@ -135,7 +122,13 @@ struct App {
     ending: bool,
     /// The queue's window, while it is open.
     queue_window: Option<HWND>,
-    /// The downloads in the list, most recent first.
+    /// What was left in the queue when VidFetch last closed, to offer again.
+    resume: Vec<Queued>,
+    /// The playlist folder whose videos the list shows, instead of all
+    /// downloads (milestone 2 test, section 5).
+    inside: Option<PathBuf>,
+    /// The downloads in the list, most recent first, or a playlist's videos
+    /// in its order.
     entries: Vec<library::Entry>,
     /// The file or folder to choose in the list next time it is filled.
     select: Option<PathBuf>,
@@ -153,6 +146,8 @@ pub fn run(cfg: Config, welcome: bool) {
         reports: Vec::new(),
         ending: false,
         queue_window: None,
+        resume: queue::load(),
+        inside: None,
         entries: Vec::new(),
         select: None,
     });
@@ -181,6 +176,15 @@ pub fn run(cfg: Config, welcome: bool) {
         let r = unsafe { GetMessageW(&mut msg, None, 0, 0) };
         if r.0 <= 0 {
             break;
+        }
+        // Alt+T on the Status box already: say it again, every time. Left to
+        // the dialog, the third press said nothing (milestone 2 test, 5.3).
+        if msg.message == WM_SYSKEYDOWN && msg.wParam.0 as u8 == b'T' {
+            let status = unsafe { GetDlgItem(Some(hwnd), IDC_STATUS) };
+            if status.is_ok_and(|s| unsafe { GetFocus() } == s) {
+                crate::announce::say(hwnd, &get_text(hwnd, IDC_STATUS));
+                continue;
+            }
         }
         // The menus' shortcuts, for this window only: the other windows are
         // modal and run their own loops.
@@ -223,10 +227,10 @@ unsafe extern "system" fn dialog_proc(
                     0 => "Ready. Nothing downloaded yet: press Ctrl+N to download a video or a \
                           playlist."
                         .to_string(),
-                    1 => "Ready. 1 download. Enter opens it; Ctrl+N downloads another.".to_string(),
+                    1 => "Ready. 1 download. Enter plays it; Ctrl+N downloads another.".to_string(),
                     n => format!(
-                        "Ready. {n} downloads. Enter opens the chosen one; Ctrl+N downloads \
-                         another."
+                        "Ready. {n} downloads. Enter plays the chosen one, or shows a playlist's \
+                         videos; Ctrl+N downloads another."
                     ),
                 };
                 set_text(hwnd, IDC_STATUS, &ready);
@@ -235,7 +239,29 @@ unsafe extern "system" fn dialog_proc(
             if app(hwnd).is_some_and(|a| a.welcome) {
                 let _ = PostMessageW(Some(hwnd), WM_WELCOME, WPARAM(0), LPARAM(0));
             }
+            if app(hwnd).is_some_and(|a| !a.resume.is_empty()) {
+                let _ = PostMessageW(Some(hwnd), WM_RESUME, WPARAM(0), LPARAM(0));
+            }
             0 // zero: we set the focus ourselves
+        }
+        WM_RESUME => {
+            if let Some(app) = app(hwnd) {
+                resume(hwnd, app);
+            }
+            1
+        }
+        queue::WM_TITLE => {
+            let (id, title) = queue::take_title(lparam);
+            if let Some(app) = app(hwnd) {
+                for q in app.current.iter_mut().chain(app.queue.iter_mut()) {
+                    if q.id == id {
+                        q.title = Some(title.clone());
+                    }
+                }
+                refill_queue(app);
+                save_queue(app);
+            }
+            1
         }
         WM_WELCOME => {
             message::welcome(hwnd, WELCOME);
@@ -255,8 +281,12 @@ unsafe extern "system" fn dialog_proc(
                 (IDC_LIST, LBN_DBLCLK) => {
                     command(hwnd, app, IDM_OPEN);
                 }
+                (IDC_LIST, LBN_SELCHANGE) => {
+                    name_enter(hwnd, app);
+                    return 0;
+                }
                 (IDC_LIST, _) => return 0,
-                // The buttons do what their menu items do. Enter is Open
+                // The buttons do what their menu items do. Enter is Play
                 // anywhere it is the default.
                 (IDC_OPEN, _) => {
                     command(hwnd, app, IDM_OPEN);
@@ -282,7 +312,7 @@ unsafe extern "system" fn dialog_proc(
                 (IDC_DELETE, _) => {
                     command(hwnd, app, IDM_DELETE);
                 }
-                (id, _) if id == IDCANCEL.0 => stop(hwnd),
+                (id, _) if id == IDCANCEL.0 => escape(hwnd),
                 // Menus and shortcuts: code 0 or 1, no control.
                 (id, 0 | 1) if lparam.0 == 0 => {
                     if !command(hwnd, app, id) {
@@ -293,15 +323,17 @@ unsafe extern "system" fn dialog_proc(
             }
             1
         }
-        // Delete in the list (LBS_WANTKEYBOARDINPUT); F2 is a shortcut
-        // everywhere in the window.
+        // Delete in the list (LBS_WANTKEYBOARDINPUT), and Backspace out of a
+        // playlist's videos; F2 is a shortcut everywhere in the window.
         WM_VKEYTOITEM => {
             let key = (wparam.0 & 0xFFFF) as u16;
-            if key != VK_DELETE.0 {
-                return -1;
-            }
-            if let Some(app) = app(hwnd) {
+            let Some(app) = app(hwnd) else { return -1 };
+            if key == VK_DELETE.0 {
                 command(hwnd, app, IDM_DELETE);
+            } else if key == VK_BACK.0 && app.inside.is_some() {
+                back(hwnd, app);
+            } else {
+                return -1;
             }
             -2
         }
@@ -351,26 +383,35 @@ unsafe extern "system" fn dialog_proc(
             // A multi-line edit turns Escape into WM_CLOSE on its dialog; only
             // Alt+F4 and the close button should end the app.
             if GetKeyState(VK_ESCAPE.0 as i32) < 0 {
-                stop(hwnd);
+                escape(hwnd);
                 return 1;
             }
             if let Some(app) = app(hwnd) {
-                let waiting = app.queue.len();
-                if waiting > 0
-                    && !message::ask(
+                let running = app.job.is_some() && app.current.is_some();
+                let what = match (running, app.queue.len()) {
+                    (false, 0) => None,
+                    (true, 0) => Some("A download is running.".to_string()),
+                    (true, n) => Some(format!(
+                        "A download is running, and {} more waiting in the queue.",
+                        count(n)
+                    )),
+                    (false, n) => Some(format!("{} waiting in the queue.", count(n))),
+                };
+                if let Some(what) = what {
+                    if !message::ask(
                         hwnd,
                         &format!(
-                            "{} waiting in the queue. Exiting forgets the queue, and stops the \
-                             download that is running. Exit anyway?",
-                            count(waiting)
+                            "{what} Exit now? What has not finished is kept, and VidFetch offers \
+                             to carry on with it when it starts again."
                         ),
                         "E&xit",
                         "&Keep downloading",
                         false,
-                    )
-                {
-                    return 1;
+                    ) {
+                        return 1;
+                    }
                 }
+                save_queue(app);
                 app.cfg.save();
                 // yt-dlp ends with VidFetch in any case (ytdlp.rs, Job).
                 if let Some(stop) = &app.job {
@@ -399,8 +440,8 @@ fn list(hwnd: HWND) -> HWND {
     unsafe { GetDlgItem(Some(hwnd), IDC_LIST).unwrap_or_default() }
 }
 
-/// Fills the list of downloads again from the output folder, keeping the
-/// one chosen, or choosing the one a job just saved.
+/// Fills the list again from the output folder, or from the playlist's folder
+/// it shows, keeping the one chosen, or choosing the one a job just saved.
 fn refresh(hwnd: HWND, app: &mut App) {
     let lb = list(hwnd);
     let at = downloads::chosen(lb);
@@ -408,8 +449,45 @@ fn refresh(hwnd: HWND, app: &mut App) {
         .select
         .take()
         .or_else(|| at.and_then(|i| app.entries.get(i)).map(|e| e.path.clone()));
-    app.entries = library::list(&app.cfg.output_folder());
+    // A playlist's folder gone from under it: back to all downloads.
+    if app.inside.as_deref().is_some_and(|f| !f.is_dir()) {
+        app.inside = None;
+        name_list(hwnd, app);
+    }
+    app.entries = match &app.inside {
+        Some(folder) => library::videos_in(folder),
+        None => library::list(&app.cfg.output_folder()),
+    };
     downloads::fill(lb, &app.entries, path.as_deref(), at.unwrap_or(0));
+    name_enter(hwnd, app);
+}
+
+/// The list's label says which list it is: a screen reader reads it as the
+/// list's name.
+fn name_list(hwnd: HWND, app: &App) {
+    let label = match &app.inside {
+        Some(folder) => format!(
+            "Do&wnloads in the playlist {}, in its order:",
+            folder.file_name().unwrap_or_default().to_string_lossy()
+        ),
+        None => "Do&wnloads, most recent first:".to_string(),
+    };
+    set_text(hwnd, IDC_LIST_LABEL, &label);
+}
+
+/// The Enter button says what Enter does to the one chosen.
+fn name_enter(hwnd: HWND, app: &App) {
+    let playlist = downloads::chosen(list(hwnd))
+        .and_then(|i| app.entries.get(i))
+        .is_some_and(|e| e.is_playlist());
+    let text = if playlist {
+        "Show the &playlist's videos  Enter"
+    } else {
+        "&Play  Enter"
+    };
+    if get_text(hwnd, IDC_OPEN) != text {
+        set_text(hwnd, IDC_OPEN, text);
+    }
 }
 
 /// The download chosen in the list; when there is none, that is said.
@@ -420,16 +498,92 @@ fn chosen(hwnd: HWND, app: &App) -> Option<library::Entry> {
     if e.is_none() {
         say(
             hwnd,
-            "There is nothing in the list of downloads. Press Ctrl+N to download a video or a \
-             playlist.",
+            if app.inside.is_some() {
+                "There are no videos in this playlist's folder. Escape goes back to all downloads."
+            } else {
+                "There is nothing in the list of downloads. Press Ctrl+N to download a video or a \
+                 playlist."
+            },
         );
     }
     e
 }
 
-/// The running job is filling this playlist's folder, so it must stay as it is.
+/// Shows the videos of the playlist `e` in the list, in its order (milestone
+/// 2 test, section 5). Escape or Backspace goes back.
+fn open_playlist(hwnd: HWND, app: &mut App, e: &library::Entry) {
+    app.inside = Some(e.path.clone());
+    app.entries = library::videos_in(&e.path);
+    name_list(hwnd, app);
+    downloads::fill(list(hwnd), &app.entries, None, 0);
+    name_enter(hwnd, app);
+    let n = app.entries.len();
+    let videos = if n == 1 {
+        "1 video".to_string()
+    } else {
+        format!("{n} videos")
+    };
+    say(
+        hwnd,
+        &format!(
+            "The playlist {}: {videos}. Enter plays the chosen one; Escape goes back to all \
+             downloads.",
+            e.name
+        ),
+    );
+    focus(hwnd, IDC_LIST);
+}
+
+/// Back from a playlist's videos to all downloads, on that playlist. False if
+/// the list was showing all downloads already.
+fn back(hwnd: HWND, app: &mut App) -> bool {
+    let Some(folder) = app.inside.take() else {
+        return false;
+    };
+    name_list(hwnd, app);
+    app.select = Some(folder.clone());
+    refresh(hwnd, app);
+    say(
+        hwnd,
+        &format!(
+            "All downloads, on the playlist {}.",
+            folder.file_name().unwrap_or_default().to_string_lossy()
+        ),
+    );
+    focus(hwnd, IDC_LIST);
+    true
+}
+
+/// Escape: out of a playlist's videos, else stops the download running.
+fn escape(hwnd: HWND) {
+    let Some(app) = (unsafe { app(hwnd) }) else {
+        return;
+    };
+    if !back(hwnd, app) {
+        stop(hwnd);
+    }
+}
+
+/// Plays the download `e` in the Play window.
+fn play(hwnd: HWND, e: &library::Entry) {
+    if let Err(why) = crate::listen::show(hwnd, &e.path.display().to_string(), &e.name) {
+        message::problem(hwnd, &why);
+    }
+    focus(hwnd, IDC_LIST);
+}
+
+/// The running job is filling this playlist's folder, so it and its videos
+/// must stay as they are.
 fn busy_with(hwnd: HWND, app: &App, e: &library::Entry) -> bool {
-    let here = |q: &Queued| q.into.as_deref() == Some(e.path.as_path());
+    let folder = if e.is_playlist() {
+        e.path.as_path()
+    } else {
+        match app.inside.as_deref() {
+            Some(f) => f,
+            None => return false,
+        }
+    };
+    let here = |q: &Queued| q.into.as_deref() == Some(folder);
     if app.current.as_ref().is_some_and(here) {
         say(
             hwnd,
@@ -471,25 +625,43 @@ fn in_front(hwnd: HWND) -> bool {
     unsafe { IsWindowEnabled(hwnd) }.as_bool()
 }
 
-/// What a download is, as the queue shows it: the title is not known until it
-/// has started.
-fn label_of(s: &job::Settings, into: Option<&Path>) -> String {
-    let how = match s.format {
-        Format::Video => format!("video at {} lines", s.lines),
-        Format::M4a => "sound, M4A".to_string(),
-        Format::Mp3 => "sound, MP3".to_string(),
-    };
-    let name = into
-        .and_then(|p| p.file_name())
-        .map(|n| n.to_string_lossy());
-    match name {
-        Some(name) => format!("Update the playlist {name}, {how}"),
-        None if s.whole_list => format!(
-            "The whole playlist from {}, {how}: {}",
-            ytdlp::site(&s.url),
-            s.url
+/// Keeps the download running and those waiting for next time.
+fn save_queue(app: &App) {
+    queue::save(app.current.iter().chain(app.queue.iter()));
+}
+
+/// Offers what was left in the queue when VidFetch last closed: carry on, or
+/// empty the queue (log entry 2, Q3).
+fn resume(hwnd: HWND, app: &mut App) {
+    let kept = std::mem::take(&mut app.resume);
+    if kept.is_empty() {
+        return;
+    }
+    let names: Vec<String> = kept.iter().map(|q| q.label()).collect();
+    let empty = message::ask(
+        hwnd,
+        &format!(
+            "When VidFetch last closed, {} had not finished:\n\n{}\n\nCarry on downloading now, \
+             or empty the queue?",
+            count(kept.len()),
+            names.join("\n")
         ),
-        None => format!("From {}, {how}: {}", ytdlp::site(&s.url), s.url),
+        "&Empty the queue",
+        "&Carry on downloading",
+        false,
+    );
+    if empty {
+        queue::save(std::iter::empty());
+        say(hwnd, "The queue is empty. Nothing more will be downloaded.");
+        focus(hwnd, IDC_LIST);
+        return;
+    }
+    for q in &kept {
+        queue::fetch_title(hwnd, q);
+    }
+    app.queue = kept.into();
+    if let Some(q) = app.queue.pop_front() {
+        begin(hwnd, app, q, false);
     }
 }
 
@@ -524,9 +696,20 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
     let Some(e) = chosen(hwnd, app) else {
         return;
     };
-    let mut items = vec![(IDM_OPEN, "&Open\tEnter")];
-    if e.is_playlist() {
-        items.push((IDM_UPDATE, "&Update the playlist\tCtrl+U"));
+    let mut items = if e.is_playlist() {
+        vec![
+            (IDM_OPEN, "Show its &videos\tEnter"),
+            (IDM_UPDATE, "&Update the playlist\tCtrl+U"),
+            (IDM_EXTERNAL, "&Open the folder in File Explorer"),
+        ]
+    } else {
+        vec![
+            (IDM_OPEN, "&Play\tEnter"),
+            (IDM_EXTERNAL, "&Open in the default player"),
+        ]
+    };
+    if app.inside.is_some() {
+        items.push((IDM_BACK, "&Back to all downloads\tEscape"));
     }
     items.extend([
         (0, ""),
@@ -563,7 +746,18 @@ fn add(hwnd: HWND, app: &mut App, text: &str) {
                     "Just this &video",
                     false,
                 );
-            if !whole && open_instead(hwnd, app, &url) {
+            if !whole && !download_again(hwnd, app, &url) {
+                say(
+                    hwnd,
+                    if busy {
+                        "Nothing added to the queue."
+                    } else {
+                        "Nothing downloaded."
+                    },
+                );
+                if !busy {
+                    focus(hwnd, IDC_LIST);
+                }
                 return;
             }
             submit(hwnd, app, url, whole, None);
@@ -584,48 +778,35 @@ fn add(hwnd: HWND, app: &mut App, text: &str) {
     }
 }
 
-/// This address is already saved at this format and quality: the user may
-/// want that file rather than a second copy. True if they do, and it was
-/// opened. A different format or quality just downloads (log entry 1, Q2).
-fn open_instead(hwnd: HWND, app: &mut App, url: &str) -> bool {
+/// This address is already saved at this format and quality, so a second copy
+/// is asked about first, with Cancel the default (milestone 2 test, 3.6). True
+/// to download it again; otherwise the copy there is chosen in the list. A
+/// different format or quality just downloads (log entry 1, Q2).
+fn download_again(hwnd: HWND, app: &mut App, url: &str) -> bool {
     let (Some(record), Some(key)) = (Config::past_path(), ytdlp::key(url)) else {
-        return false;
+        return true;
     };
     let lines = job::past_lines(app.cfg.format, app.cfg.lines);
     let Some(file) = library::already(&record, &key, app.cfg.format.word(), lines) else {
-        return false;
+        return true;
     };
     let name = file
         .file_name()
         .unwrap_or_default()
         .to_string_lossy()
         .into_owned();
-    if message::ask(
+    let again = message::ask(
         hwnd,
-        &format!("Already downloaded as {name}, at this quality. Open it, or download it again?"),
+        &format!("Already downloaded as {name}, at this quality. Download it again?"),
         "&Download again",
-        "&Open it",
+        "&Cancel",
         false,
-    ) {
-        return false;
-    }
-    let said = downloads::open(
-        hwnd,
-        &library::Entry {
-            name: file
-                .file_stem()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .into_owned(),
-            path: file.clone(),
-            kind: Kind::Video,
-            made: std::time::SystemTime::now(),
-        },
     );
-    app.select = Some(file);
-    refresh(hwnd, app);
-    say(hwnd, &said);
-    true
+    if !again && app.inside.is_none() {
+        app.select = Some(file);
+        refresh(hwnd, app);
+    }
+    again
 }
 
 /// Downloads `url`, now or when its turn comes, as the options stand; `whole`
@@ -642,12 +823,8 @@ fn submit(hwnd: HWND, app: &mut App, url: String, whole: bool, into: Option<Path
         whole_list: whole,
         fetch_ytdlp: false,
     };
-    let label = label_of(&settings, into.as_deref());
-    let q = Queued {
-        settings,
-        into,
-        label,
-    };
+    let q = Queued::new(settings, into);
+    queue::fetch_title(hwnd, &q);
     if app.job.is_none() {
         begin(hwnd, app, q, false);
         return;
@@ -666,6 +843,7 @@ fn submit(hwnd: HWND, app: &mut App, url: String, whole: bool, into: Option<Path
         app.queue.push_back(q);
         let place = app.queue.len();
         refill_queue(app);
+        save_queue(app);
         say(
             hwnd,
             &format!(
@@ -693,23 +871,20 @@ fn begin(hwnd: HWND, app: &mut App, mut q: Queued, quiet: bool) -> bool {
             // Everything waiting needs it too.
             app.queue.clear();
             refill_queue(app);
+            save_queue(app);
             say(hwnd, "Not started: downloading needs yt-dlp.");
             focus(hwnd, IDC_LIST);
             return false;
         }
     }
-    // The job takes these; the queue's window and the checks above want them
-    // kept, so they are made again for it.
-    let settings = job::Settings {
-        url: q.settings.url.clone(),
-        output_folder: q.settings.output_folder.clone(),
-        ..q.settings
-    };
-    app.job = Some(job::start(hwnd, settings));
+    // The job takes its own copy; the queue's window and the checks above
+    // want this one kept.
+    app.job = Some(job::start(hwnd, q.settings()));
     app.quiet = quiet;
     app.ending = false;
     app.current = Some(q);
     refill_queue(app);
+    save_queue(app);
     if quiet {
         set_text(hwnd, IDC_STATUS, "Starting the next download in the queue.");
     } else {
@@ -762,6 +937,7 @@ fn ended(hwnd: HWND, app: &mut App, focus_after: bool) {
     app.quiet = false;
     app.ending = focus_after;
     refill_queue(app);
+    save_queue(app);
     settle(hwnd, app);
 }
 
@@ -864,7 +1040,7 @@ fn refill_queue(app: &App) {
                 "Nothing.".to_string()
             }
         },
-        |c| c.label.clone(),
+        Queued::label,
     );
     if get_text(w, IDC_Q_NOW) != now {
         set_text(w, IDC_Q_NOW, &now);
@@ -887,19 +1063,28 @@ fn refill_queue(app: &App) {
             );
             String::from_utf16_lossy(&buf[..n])
         };
-        if shown == app.queue.len()
-            && app
-                .queue
-                .iter()
-                .enumerate()
-                .all(|(i, q)| item(i) == q.label)
-        {
+        let labels: Vec<String> = app.queue.iter().map(Queued::label).collect();
+        let at = downloads::chosen(lb).unwrap_or(0);
+        if shown == labels.len() {
+            // A title come in: that item alone changes.
+            for (i, l) in labels.iter().enumerate().filter(|(i, l)| item(*i) != **l) {
+                let t = wide(l);
+                SendMessageW(lb, LB_DELETESTRING, Some(WPARAM(i)), None);
+                SendMessageW(
+                    lb,
+                    LB_INSERTSTRING,
+                    Some(WPARAM(i)),
+                    Some(LPARAM(t.as_ptr() as isize)),
+                );
+                if i == at {
+                    SendMessageW(lb, LB_SETCURSEL, Some(WPARAM(i)), None);
+                }
+            }
             return;
         }
-        let at = downloads::chosen(lb).unwrap_or(0);
         SendMessageW(lb, LB_RESETCONTENT, None, None);
-        for q in &app.queue {
-            let t = wide(&q.label);
+        for l in &labels {
+            let t = wide(l);
             SendMessageW(lb, LB_ADDSTRING, None, Some(LPARAM(t.as_ptr() as isize)));
         }
         if !app.queue.is_empty() {
@@ -916,10 +1101,15 @@ fn remove_queued(w: HWND, app: &mut App) {
         .ok()
         .and_then(downloads::chosen);
     let said = match chosen.and_then(|i| app.queue.remove(i)) {
-        Some(q) => format!("Removed: {}. {} waiting.", q.label, count(app.queue.len())),
+        Some(q) => format!(
+            "Removed: {}. {} waiting.",
+            q.label(),
+            count(app.queue.len())
+        ),
         None => "Nothing is waiting, so there is nothing to remove.".to_string(),
     };
     refill_queue(app);
+    save_queue(app);
     crate::announce::say(w, &said);
 }
 
@@ -960,30 +1150,8 @@ unsafe extern "system" fn queue_proc(
                 (IDC_Q_NOW, EN_SETFOCUS) => caret_to_start(w, IDC_Q_NOW),
                 (IDC_Q_REMOVE, _) => remove_queued(w, app),
                 (IDC_Q_ALL, _) => {
-                    let n = app.queue.len();
-                    if n == 0 {
-                        crate::announce::say(
-                            w,
-                            "Nothing is waiting, so there is nothing to remove.",
-                        );
-                    } else if message::ask(
-                        w,
-                        &format!(
-                            "Remove all {} waiting from the queue? The one running now carries on.",
-                            count(n)
-                        ),
-                        "&Remove them",
-                        "&Keep them",
-                        false,
-                    ) {
-                        // Taken again from the app: downloads moved on behind
-                        // the question.
-                        if let Some(app) = self::app(main) {
-                            app.queue.clear();
-                            refill_queue(app);
-                        }
-                        crate::announce::say(w, "The queue is empty.");
-                    }
+                    let said = empty_queue(main, w);
+                    crate::announce::say(w, &said);
                 }
                 (id, _) if id == IDOK.0 || id == IDCANCEL.0 => {
                     app.queue_window = None;
@@ -995,6 +1163,34 @@ unsafe extern "system" fn queue_proc(
         }
         _ => 0,
     }
+}
+
+/// Asks from `owner`, then empties the queue of the main window `main`; what
+/// to say. The one running carries on.
+fn empty_queue(main: HWND, owner: HWND) -> String {
+    let n = unsafe { app(main) }.map_or(0, |a| a.queue.len());
+    if n == 0 {
+        return "Nothing is waiting in the queue, so there is nothing to remove.".into();
+    }
+    if !message::ask(
+        owner,
+        &format!(
+            "Remove all {} waiting from the queue? The one running now carries on.",
+            count(n)
+        ),
+        "&Remove them",
+        "&Keep them",
+        false,
+    ) {
+        return "The queue was kept as it was.".into();
+    }
+    // Taken again from the app: downloads moved on behind the question.
+    if let Some(app) = unsafe { app(main) } {
+        app.queue.clear();
+        refill_queue(app);
+        save_queue(app);
+    }
+    "The queue is empty.".into()
 }
 
 fn submenu(menu: HMENU, pos: i32) -> HMENU {
@@ -1121,15 +1317,55 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
             show_queue(hwnd);
             return true;
         }
+        IDM_CLEAR_QUEUE => {
+            let said = empty_queue(hwnd, hwnd);
+            say(hwnd, &said);
+            return true;
+        }
         IDM_OPEN => {
+            if let Some(e) = chosen(hwnd, app) {
+                if e.is_playlist() {
+                    open_playlist(hwnd, app, &e);
+                } else {
+                    play(hwnd, &e);
+                }
+            }
+            return true;
+        }
+        IDM_EXTERNAL => {
             if let Some(e) = chosen(hwnd, app) {
                 let said = downloads::open(hwnd, &e);
                 say(hwnd, &said);
             }
             return true;
         }
+        IDM_BACK => {
+            if !back(hwnd, app) {
+                say(
+                    hwnd,
+                    "The list already shows all downloads. Enter on a playlist shows its videos.",
+                );
+            }
+            return true;
+        }
         IDM_UPDATE => {
-            if let Some(e) = chosen(hwnd, app) {
+            // Among a playlist's videos, the playlist itself.
+            let here = app.inside.clone().map(|folder| library::Entry {
+                name: folder
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned(),
+                kind: Kind::Playlist {
+                    videos: 0,
+                    url: library::read_record(&folder)
+                        .map(|r| r.url)
+                        .unwrap_or_default(),
+                },
+                made: std::time::SystemTime::now(),
+                path: folder,
+            });
+            if let Some(e) = here.or_else(|| chosen(hwnd, app)) {
                 match &e.kind {
                     Kind::Playlist { url, .. } if !url.is_empty() => {
                         submit(hwnd, app, url.clone(), true, Some(e.path.clone()));
@@ -1157,7 +1393,7 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
         IDM_RENAME => {
             if let Some(e) = chosen(hwnd, app).filter(|e| !busy_with(hwnd, app, e)) {
                 if let Some((path, said)) = downloads::rename(hwnd, &e) {
-                    if let Some(record) = Config::past_path() {
+                    if let Some(record) = Config::past_path().filter(|_| !e.is_playlist()) {
                         library::moved(&record, &e.path, &path);
                     }
                     app.select = Some(path);
@@ -1179,7 +1415,12 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
                 let mut said = downloads::delete(hwnd, &e);
                 refresh(hwnd, app);
                 if app.entries.is_empty() {
-                    said += " The list is empty now: press Ctrl+N to download something.";
+                    said += if app.inside.is_some() {
+                        " No videos are left in this playlist's folder: Escape goes back to all \
+                         downloads."
+                    } else {
+                        " The list is empty now: press Ctrl+N to download something."
+                    };
                 }
                 say(hwnd, &said);
                 focus(hwnd, IDC_LIST);

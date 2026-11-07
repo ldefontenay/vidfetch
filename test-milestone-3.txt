@@ -1,0 +1,177 @@
+VidFetch - milestone 3: the player, a playlist's videos, and the queue kept
+=========================================================================
+
+Why: your answers in test-milestone-2.txt and log entry 2. Log entry 3 says what changed, what I
+tried, and has the plan for your feature requests, with questions.
+
+How to start it: run
+C:\Users\ldefo\dev\VidFetch\target\release\vidfetch.exe
+Your settings and downloads from the last test are kept, so no welcome this time. The steps use
+what you downloaded then: "Me at the zoo", and the "Blender Open Movies" playlist. If you deleted
+them, download them again first (the addresses are in test-milestone-2.txt). Nothing costs anything.
+
+
+Section 1 - wording, and Alt+T
+------------------------------
+
+1.1  Start VidFetch. Does the Status box say Enter plays the chosen one, or shows a playlist's videos?
+ANSWER: Yes
+
+1.2  Tab to the button after the list, with "Me at the zoo" chosen. Is it "Play, Enter"? Shift+Tab
+     back, choose "Blender Open Movies", and Tab again: is it now "Show the playlist's videos, Enter"?
+ANSWER: Yes
+
+1.3  Does "Blender Open Movies" say "playlist, 2 videos" (or however many), not files?
+ANSWER: Yes
+
+1.4  Press Alt+T five times. Is the Status box read every time?
+ANSWER: Yes
+
+ANYTHING ODD:
+No, very nice.
+
+Section 2 - playing
+-------------------
+
+2.1  Choose "Me at the zoo" in the list and press Enter. Does a window called "Playing Me at the zoo"
+     open, saying "Playing from the start", with the sound playing at once?
+ANSWER: Yes
+
+2.2  Press the Space bar: paused, and said? Again: playing again? Press Left and Right arrows, Home
+     and T. Is each one clear? Tab to Where playing is: does it say the time?
+ANSWER: Yes
+
+2.3  Let it play to the end (it is 19 seconds). Is "Reached the end" said? Press Escape: are you back
+     in the list, on "Me at the zoo"?
+ANSWER: Yes
+
+2.4  Press the Applications key on "Me at the zoo". Is Play first, then "Open in the default player"?
+     Choose that: does it play in your default player as before? Close the player.
+ANSWER: Yes
+
+2.5  Is it quick enough to start, compared with Video Scribe's?
+ANSWER: Yes, its super quick, exactly what I want.
+
+ANYTHING ODD:
+No.
+
+Section 3 - a playlist's videos
+-------------------------------
+
+3.1  Choose "Blender Open Movies" and press Enter. Is it said "The playlist Blender Open Movies: 2
+     videos" (or however many), with focus on the first film? Is the list now named "Downloads in the
+     playlist Blender Open Movies, in its order"?
+ANSWER: Yes
+
+3.2  Arrow through them: are they in the playlist's order, 01, 02 and so on? Press Enter on one: does
+     it play? Press Escape to close the Play window: are you back on that film in the playlist?
+ANSWER: Yes
+
+3.3  Press the Applications key on a film. Is there Play, Open in the default player, Back to all
+     downloads, Rename, Show in File Explorer and Delete? Press Escape.
+ANSWER: Yes
+
+3.4  Press Escape. Is "All downloads, on the playlist Blender Open Movies" said, with the list back as
+     it was and the playlist chosen?
+ANSWER: Yes
+
+3.5  Press Enter on the playlist again, then Backspace. Does it go back too?
+ANSWER: Yes
+
+ANYTHING ODD:
+No.
+
+Section 4 - the same video again
+--------------------------------
+
+4.1  Copy https://www.youtube.com/watch?v=jNQXAC9IVRw (with M4A still chosen, as you left it), press
+     Ctrl+N and Enter. Is it "Already downloaded as Me at the zoo.m4a, at this quality. Download it
+     again?", with Cancel first?
+ANSWER: Yes
+
+4.2  Press Escape. Is "Nothing downloaded" said, with nothing playing, and "Me at the zoo" chosen in
+     the list?
+ANSWER: Yes
+
+4.3  Copy https://www.youtube.com/watch?v=jNQXAC9IVRw&list=PLav47HAVZMjnTFVZL-aImCQIC0uLZtNCz and
+     press Ctrl+N, Enter. To "the whole playlist, or just this video", press Escape (just the video).
+     Then to "Already downloaded", press Escape again. Are you back in the list, with nothing opened?
+ANSWER: Yes
+
+ANYTHING ODD:
+No, very good. Default actions are good and enter also selects them, which is exactly right.
+
+Section 5 - the queue, kept busy by a playlist
+----------------------------------------------
+
+5.1  Choose "Blender Open Movies" in the list and press Ctrl+U. It has some 16 films left, each a
+     minute or so as sound, so it runs for a while. Is "Started" said?
+ANSWER: Yes
+
+5.2  While it runs, copy https://www.youtube.com/watch?v=aqz-KE-bpKQ (a film's sound) and press
+     Ctrl+N. Does What will happen say it goes in the queue, and is the button "Start when its turn
+     comes"? Press Enter: is "Added to the queue, number 1" said?
+ANSWER: Yes
+
+5.3  Copy https://www.youtube.com/watch?v=UF8uR6Z6KLc (the speech) and add it the same way, then copy
+     https://www.youtube.com/watch?v=xxxxxxxxxxx, which cannot work, and add that too. Then press
+     Ctrl+N and Enter on the speech's address again: is it refused, as already in the queue?
+ANSWER: Yes
+
+5.4  Wait ten seconds, then press Ctrl+Q. Do the waiting downloads show titles, such as "Big Buck Bunny
+     60fps 4K - Official Blender Foundation Short Film, sound, M4A", rather than addresses? (The one
+     that cannot work keeps its address.) Shift+Tab: does Downloading now say "Update the playlist
+     Blender Open Movies"?
+ANSWER: Yes
+
+5.5  In the Waiting list, choose the speech and press Delete. Is it removed, and said? Press Escape.
+ANSWER: Yes
+
+5.6  Press Alt+T: does the Status box say how far the playlist has got, ending with how many more are
+     waiting?
+ANSWER: Yes
+
+5.7  Press Ctrl+N, and leave the New download window open for a minute or two, until a film of the
+     playlist finishes and the next starts. Is anything said while you are in that window? Does focus
+     stay in it? (Nothing is said as each film of a playlist starts, as you asked; this checks that
+     nothing breaks.) Press Escape to close it.
+ANSWER: All good, as expected.
+
+5.8  Press Alt+F4. Are you asked "A download is running, and 2 downloads more waiting in the queue.
+     Exit now? What has not finished is kept...", with Keep downloading as the safe answer? Tab to
+     Exit and press it. Does VidFetch close?
+ANSWER: Yes
+
+5.9  Start VidFetch again. Are you told what had not finished: the playlist, the film and the address
+     that cannot work, and asked to carry on downloading or empty the queue, with Carry on first?
+     Press Enter. Does the playlist start again, carrying on with the films it does not have yet?
+ANSWER: Yes
+
+5.10 Press Alt+D, Empty the queue. Are you asked first, with Keep them as the safe answer? Answer
+     Remove them. Is "The queue is empty" said? Ctrl+Q: is Waiting empty, with the playlist still
+     running? Press Escape.
+ANSWER: Unclear what part of the process this question refers to. pressing alt+d opens the downloads pull-down menu.
+
+5.11 While the playlist runs, press Enter on it, so the list shows its films. Press Escape once: does
+     it go back to all downloads, and the playlist keep running? Press Escape again: does it stop?
+ANSWER: Yes, as expected.
+
+5.12 Add the address that cannot work again with Ctrl+N, while nothing runs: is the problem shown
+     straight away, readable with the arrow keys?
+ANSWER: Yes
+
+5.13 Press Alt+F4 now, with nothing running: does VidFetch close without asking? Start it again: no
+     question about the queue this time?
+ANSWER: Yes, all good as expected.
+
+ANYTHING ODD:
+No.
+
+Section 6 - when you are done
+-----------------------------
+
+6.1  Delete what you do not want, as before. Anything else about this version?
+ANSWER:
+No.
+ANYTHING ODD:
+No.

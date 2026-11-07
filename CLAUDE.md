@@ -16,16 +16,16 @@ newest entry at the top.
 
 Split off from a Video Scribe session on 2 November 2026; this repository is now worked on on its own.
 
-- Milestone 1, the downloader, is on `main`. Milestone 2, the user's answers to log entry 1 (sound by
-  default, a queue, captions, noticing a repeat), is on `m2-queue-captions`, not yet merged.
+- Milestones 1 and 2 are on `main` (milestone 2 tested by the user, 7 November 2026). Milestone 3,
+  the answers to that test (the player, a playlist's videos in the list, the queue with titles kept
+  between runs), is on `m3-player-and-fixes`, awaiting `test-milestone-3.txt`.
+- Log entry 3 holds the plan for the user's feature requests (search, followed channels, categories,
+  more ideas) and questions Q1 to Q8; build nothing of those before the answers.
 - The private repository is https://github.com/ldefontenay/vidfetch, created by the user, as the
-  permission check refused it from Claude. Both branches are on it. Still ask before pushing.
-- The user's test is `test-milestone-2.txt`; their answers to it and to log entry 2 are what comes next.
-- Tried by Claude, not yet by the user (see log entries 1 and 2). The a11y probe was clean on the main
-  window, New download and the Queue. Whether JAWS speaks from behind a window in front is untested.
-- `%APPDATA%\VidFetch` and `%LOCALAPPDATA%\VidFetch` were deleted after testing, so the user's first run
-  shows the welcome and the yt-dlp question. If you test, use a scratch output folder and delete both
-  again afterwards, unless the user has started using VidFetch for real (then back up their settings first).
+  permission check refused it from Claude. Still ask before pushing.
+- The user now uses VidFetch for real: their settings are in `%APPDATA%\VidFetch` and yt-dlp in
+  `%LOCALAPPDATA%\VidFetch\tools`. Test with `APPDATA` and `LOCALAPPDATA` pointed at a temporary
+  folder (copy yt-dlp.exe into its `VidFetch\tools`), and never touch theirs.
 - Video Scribe's yt-dlp encoding fix (`--encoding utf-8`) came from here and lives in that repository.
 
 ## Editing practice

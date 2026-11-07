@@ -251,14 +251,19 @@ pub fn mp3(
 }
 
 unsafe fn pcm(channels: u32) -> windows::core::Result<IMFMediaType> {
+    pcm_at(MP3_RATE, channels)
+}
+
+/// 16-bit samples at `rate`, which Media Foundation converts to.
+unsafe fn pcm_at(rate: u32, channels: u32) -> windows::core::Result<IMFMediaType> {
     let t = MFCreateMediaType()?;
     t.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)?;
     t.SetGUID(&MF_MT_SUBTYPE, &MFAudioFormat_PCM)?;
-    t.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, MP3_RATE)?;
+    t.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, rate)?;
     t.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, channels)?;
     t.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)?;
     t.SetUINT32(&MF_MT_AUDIO_BLOCK_ALIGNMENT, 2 * channels)?;
-    t.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 2 * channels * MP3_RATE)?;
+    t.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 2 * channels * rate)?;
     t.SetUINT32(&MF_MT_ALL_SAMPLES_INDEPENDENT, 1)?;
     Ok(t)
 }
@@ -301,6 +306,92 @@ unsafe fn mp3_into(
     }
     writer.Finalize()?;
     Ok(true)
+}
+
+/// Takes each decoded piece of sound, with the time it starts at.
+pub type Take<'a> = dyn FnMut(f64, &[i16]) -> Result<(), String> + 'a;
+
+/// What Windows said about `source`, in words.
+fn unreadable(e: windows::core::Error, source: &str) -> String {
+    let name = Path::new(source)
+        .file_name()
+        .map_or_else(|| source.to_string(), |n| n.to_string_lossy().into_owned());
+    match e.code().0 as u32 {
+        0xC00D36C4 | 0xC00D36C3 | 0xC00D36B4 | 0xC00D36E6 => format!(
+            "Windows cannot play the sound of {name}: it is not a kind of file Windows can \
+             read, or it is damaged. Try Open in the default player, in its context menu."
+        ),
+        0x80070002 | 0x80070003 => format!("{name} could not be found."),
+        _ => format!(
+            "Windows could not play {name}: {}",
+            e.message().trim().trim_end_matches('.')
+        ),
+    }
+}
+
+/// How long `source`, a file or a web address, plays, in seconds; nought if
+/// it does not say. For the player, from Video Scribe's media.rs.
+pub fn length(source: &str) -> Result<f64, String> {
+    unsafe {
+        let r = MFCreateSourceReaderFromURL(&HSTRING::from(source), None)
+            .map_err(|e| unreadable(e, source))?;
+        Ok(secs_of(&r))
+    }
+}
+
+/// The sound of `source` from `from` seconds to the end, as 16-bit samples
+/// at `rate` with `channels`, each piece handed over with the time it starts
+/// at. Seeking lands near `from`, not on it. False if `stop` was set. Video
+/// Scribe's media.rs, for the player.
+pub fn sound_from(
+    source: &str,
+    from: f64,
+    rate: u32,
+    channels: u32,
+    stop: &AtomicBool,
+    take: &mut Take,
+) -> Result<bool, String> {
+    let fail = |e| unreadable(e, source);
+    unsafe {
+        let r = MFCreateSourceReaderFromURL(&HSTRING::from(source), None).map_err(fail)?;
+        r.SetStreamSelection(ALL, false).map_err(fail)?;
+        if r.SetStreamSelection(AUDIO, true).is_err() {
+            return Err("It has no sound to play.".into());
+        }
+        r.SetCurrentMediaType(AUDIO, None, &pcm_at(rate, channels).map_err(fail)?)
+            .map_err(fail)?;
+        if from > 0.0 {
+            r.SetCurrentPosition(
+                &GUID::zeroed(),
+                &windows::Win32::System::Com::StructuredStorage::PROPVARIANT::from(
+                    (from * HNS) as i64,
+                ),
+            )
+            .map_err(fail)?;
+        }
+        let mut piece: Vec<i16> = Vec::new();
+        while let Some((at, sample)) = next(&r, AUDIO).map_err(fail)? {
+            if stop.load(Ordering::Relaxed) {
+                return Ok(false);
+            }
+            let buf = sample.ConvertToContiguousBuffer().map_err(fail)?;
+            let mut p = std::ptr::null_mut();
+            let mut len = 0u32;
+            buf.Lock(&mut p, None, Some(&mut len)).map_err(fail)?;
+            let bytes = std::slice::from_raw_parts(p, len as usize);
+            piece.clear();
+            piece.extend(
+                bytes
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|b| i16::from_le_bytes(*b)),
+            );
+            let _ = buf.Unlock();
+            take(at, &piece)?;
+        }
+        Ok(true)
+    }
 }
 
 /// How long the file at `path` plays, in seconds.

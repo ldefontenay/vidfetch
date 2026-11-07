@@ -491,7 +491,7 @@ fn single(
         .unwrap_or_default()
         .to_string_lossy()
         .into_owned();
-    let mut said = format!("Downloaded: {name}. Press Enter to open it.");
+    let mut said = format!("Downloaded: {name}. Press Enter to play it.");
     if let Some(n) = &f.note {
         said = format!("{n} {said}");
     }

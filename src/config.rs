@@ -47,6 +47,15 @@ impl Format {
             Format::Mp3 => "mp3",
         }
     }
+
+    /// The format a word names; M4A for anything else.
+    pub fn from_word(word: &str) -> Format {
+        match word.trim().to_ascii_lowercase().as_str() {
+            "video" => Format::Video,
+            "mp3" => Format::Mp3,
+            _ => Format::M4a,
+        }
+    }
 }
 
 /// YouTube offers H.264, which an MP4 holds, up to 1080 lines.
@@ -82,6 +91,10 @@ impl Config {
     }
 
     /// The record of single downloads (library.rs, Past).
+    pub fn queue_path() -> Option<PathBuf> {
+        Some(Self::dir()?.join("queue.json"))
+    }
+
     pub fn past_path() -> Option<PathBuf> {
         Self::dir().map(|d| d.join("downloaded.json"))
     }
@@ -125,13 +138,7 @@ impl Config {
                 "output folder" if !value.is_empty() => {
                     cfg.output_folder = Some(PathBuf::from(value))
                 }
-                "download as" => {
-                    cfg.format = match lower.as_str() {
-                        "video" => Format::Video,
-                        "mp3" => Format::Mp3,
-                        _ => Format::M4a,
-                    }
-                }
+                "download as" => cfg.format = Format::from_word(&lower),
                 "lines of picture" => {
                     if let Ok(n) = value.parse::<u32>() {
                         cfg.lines = QUALITIES
