@@ -73,14 +73,27 @@ videos not yet in its folder are downloaded. The folder holds a small file,
 like, in VidFetch or in File Explorer, but keep that file in it.</p>
 
 <h2>Playing</h2>
-<p><kbd>Enter</kbd> on a download plays it in VidFetch's own Play window, which opens at once and
-starts from the beginning. Its title says what is playing.</p>
+<p><kbd>Enter</kbd> on a download plays it in VidFetch's own Play window, which opens at once. Its
+title says what is playing. It carries on from where you stopped last time, and says so; stopping
+within 10 seconds of the start or the end is not remembered, so a finished one starts again.</p>
 <ul>
 <li><strong>Play or pause</strong> (<kbd>Alt+P</kbd>, or <kbd>Enter</kbd> or the Space bar on it).</li>
 <li><strong>Back 10 seconds</strong> (<kbd>Alt+B</kbd>) and <strong>Forward 10 seconds</strong>
 (<kbd>Alt+F</kbd>).</li>
 <li>The <kbd>Left</kbd> and <kbd>Right</kbd> arrows: 2 seconds back or forward. <kbd>Home</kbd>:
-the start. <kbd>T</kbd>: where playing is, said out loud.</li>
+the start. <kbd>End</kbd>: 10 seconds before the end. <kbd>T</kbd>: where playing is, said out loud,
+with the chapter.</li>
+<li>The <kbd>Up</kbd> and <kbd>Down</kbd> arrows: louder or quieter, by a tenth.</li>
+<li><kbd>Shift</kbd> with <kbd>Up</kbd> and <kbd>Down</kbd>: faster or slower, a quarter at a time,
+from half speed to three times as fast, with voices kept at their own pitch. The speed is kept for
+the next one, and is also in the Options menu.</li>
+<li><kbd>Page Down</kbd> and <kbd>Page Up</kbd>: the next or the previous in the list. With
+<strong>Play the next one at the end</strong> ticked in the Options menu, the next starts by
+itself.</li>
+<li><kbd>Ctrl+Page Down</kbd> and <kbd>Ctrl+Page Up</kbd>: the next chapter, or back to the start
+of this one, of a YouTube video whose description lists its chapters. Each chapter's name is
+said.</li>
+<li><kbd>Ctrl+D</kbd>, while listening to a video online: downloads it.</li>
 <li><strong>Where playing is</strong> (<kbd>Alt+W</kbd>): the time, such as "1:23 of 15:04,
 playing", to read with the arrow keys.</li>
 <li><kbd>Escape</kbd> stops and closes it.</li>
@@ -88,6 +101,58 @@ playing", to read with the arrow keys.</li>
 <p>The Play window plays the sound only, of a video too. To see a video's picture, choose
 <strong>Open in the default player</strong> in its context menu or the Download menu, which plays
 it in the program Windows plays it with.</p>
+
+<h2>Searching YouTube</h2>
+<p><kbd>Ctrl+F</kbd>, Search YouTube in the YouTube menu, asks what to search for, then the list
+shows the videos found, with each one's channel, length and age. The last line, More results,
+fetches the next page when you press <kbd>Enter</kbd> on it.</p>
+<ul>
+<li><kbd>Enter</kbd> listens to a video straight from YouTube in the Play window, without
+downloading it. It takes about 5 seconds to start. Closing the Play window leaves you on the same
+video, and <kbd>Enter</kbd> carries on from there.</li>
+<li><kbd>Ctrl+D</kbd> downloads it with your usual settings, into the category shown.</li>
+<li><kbd>Ctrl+I</kbd> reads its description.</li>
+<li>The context menu (<kbd>Shift+F10</kbd>) also has Follow its channel, Copy its web address, and
+Open it in the browser.</li>
+<li><kbd>Escape</kbd> or <kbd>Backspace</kbd> goes back to where you were, one list at a time, as
+in File Explorer.</li>
+</ul>
+<p>VidFetch asks YouTube directly, which is quick; if that ever fails, it searches with yt-dlp
+instead, which is slower.</p>
+
+<h2>Following channels</h2>
+<p>VidFetch keeps its own list of channels you follow, with no account and no signing in. To follow
+a channel:</p>
+<ul>
+<li>Follow its channel, in the context menu of a video found, or of a download.</li>
+<li>Paste a channel's address in New download (<kbd>Ctrl+N</kbd>), and press
+<strong>Follow the channel instead</strong> (<kbd>Alt+F</kbd>).</li>
+</ul>
+<p><kbd>Ctrl+L</kbd>, New from your channels, fetches the latest videos of every channel you follow
+and lists them, newest first. Those that came out since you last pressed <kbd>Ctrl+L</kbd> start
+with "New". Channels are only checked when you ask.</p>
+<p><kbd>Ctrl+Shift+L</kbd>, Your channels, lists the channels you follow. <kbd>Enter</kbd> on one
+shows its latest videos; <kbd>Delete</kbd> stops following it, after asking.</p>
+
+<h2>Recently played</h2>
+<p><kbd>Ctrl+H</kbd> lists the last hundred things you played, downloads and videos online alike,
+newest first, each with where you stopped. <kbd>Enter</kbd> carries on from there; <kbd>Delete</kbd>
+takes one off the list, and deletes nothing.</p>
+
+<h2>Categories</h2>
+<p>Categories are folders inside the output folder, so File Explorer shows the same as VidFetch.
+Downloads that are in no category are in a folder called Uncategorised. The first time VidFetch
+starts with categories, it moves the downloads already in the output folder into Uncategorised, and
+says so.</p>
+<ul>
+<li><strong>Category to show</strong> (<kbd>Alt+C</kbd>), above the list: one category, or All
+categories. New downloads go into the category shown, or into Uncategorised when all are shown.
+New download has its own Category box too.</li>
+<li>The Category menu has New category, Rename the category shown, and Delete the category shown.
+Deleting a category moves what is in it into Uncategorised; nothing is lost.</li>
+<li><kbd>Ctrl+Shift+M</kbd>, Move to a category, moves the download chosen, a playlist whole, into
+another category, or a new one.</li>
+</ul>
 
 <h2>A playlist's videos</h2>
 <p><kbd>Enter</kbd> on a playlist shows its videos in the list, in the playlist's order, in place
@@ -123,13 +188,19 @@ on, each download's captions are saved beside it as an SRT file, which media pla
 the video's language or in English, otherwise the site's automatic ones, in the language spoken. When
 a video has none, or the site refuses them, VidFetch says so, and the download itself is kept. Renaming
 or deleting a download in VidFetch does the same to its captions.</p>
+<p><strong>Read its captions as text</strong>, in the Download menu and the context menu, shows a
+download's saved captions as running text, in paragraphs, each starting with its time, such as
+[1:23], to read with the arrow keys.</p>
 
 <h2>The main window</h2>
 <p>The list of downloads, most recent first, shows each file and playlist in the output folder,
 with what it is and when it was saved. Tab moves from the list to the buttons, then to the Status
 box:</p>
 <ul>
-<li><strong>Downloads</strong> (<kbd>Alt+W</kbd>): the list. <kbd>Enter</kbd> plays the chosen
+<li><strong>Category to show</strong> (<kbd>Alt+C</kbd>): which category the list shows, or all of
+them.</li>
+<li><strong>Downloads</strong> (<kbd>Alt+W</kbd>): the list. It also shows what YouTube found, and
+your channels, in their turn. <kbd>Enter</kbd> plays the chosen
 download, or shows a playlist's videos, <kbd>F2</kbd> renames it, <kbd>Delete</kbd> deletes it, and <kbd>Shift+F10</kbd> or the
 Applications key opens its context menu.</li>
 <li><strong>Play</strong> (<kbd>Alt+P</kbd> or <kbd>Enter</kbd>): plays the download in the Play
@@ -154,10 +225,16 @@ download chosen in it.</li>
 <li><strong>File</strong>: New download; Choose the output folder; Show the output folder in File
 Explorer; Update yt-dlp; Exit.</li>
 <li><strong>Download</strong>: what can be done to the download chosen in the list, including Open
-in the default player and Back to all downloads; Show the queue (<kbd>Ctrl+Q</kbd>); Empty the
-queue; and Stop the current download (<kbd>Escape</kbd>).</li>
+in the default player, Back, Download (<kbd>Ctrl+D</kbd>), Read its description (<kbd>Ctrl+I</kbd>),
+Read its captions as text, Recently played (<kbd>Ctrl+H</kbd>) and Move to a category; Show the
+queue (<kbd>Ctrl+Q</kbd>); Empty the queue; and Stop the current download (<kbd>Escape</kbd>).</li>
+<li><strong>YouTube</strong>: Search YouTube (<kbd>Ctrl+F</kbd>); New from your channels
+(<kbd>Ctrl+L</kbd>); Your channels (<kbd>Ctrl+Shift+L</kbd>); Follow and Stop following; Copy the
+web address; Open it in the browser.</li>
+<li><strong>Category</strong>: New, Rename and Delete category; Move the download chosen to a
+category (<kbd>Ctrl+Shift+M</kbd>).</li>
 <li><strong>Options</strong>: Download as; Picture quality; Number the files of a playlist; Save
-captions. Each choice is saved at once and said.</li>
+captions; Playing speed; Play the next one at the end. Each choice is saved at once and said.</li>
 <li><strong>Help</strong>: this page (<kbd>F1</kbd>), and About VidFetch.</li>
 </ul>
 
@@ -186,7 +263,9 @@ own use where the law and the site allow it.</p>
 menu.</li>
 <li>Settings: <em>%APPDATA%\VidFetch\settings.txt</em>, plain text, safe to edit while VidFetch is
 closed. Beside it, <em>downloaded.json</em> remembers which single videos you have, to notice one
-asked for again, and <em>queue.json</em> holds what had not finished when VidFetch closed.</li>
+asked for again, and <em>queue.json</em> holds what had not finished when VidFetch closed;
+<em>channels.json</em> the channels you follow, <em>places.json</em> where you stopped playing
+each one, and <em>history.json</em> what you played lately.</li>
 <li>yt-dlp, and downloads in progress: <em>%LOCALAPPDATA%\VidFetch</em>. A stopped download is
 kept there for a day, so starting it again carries on where it was.</li>
 </ul>

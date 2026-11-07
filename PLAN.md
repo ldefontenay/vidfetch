@@ -68,6 +68,19 @@ Picture quality and Save captions in it.
 8. Enter on a playlist shows its videos in the same list; Escape goes back (milestone 2 test, 5).
 9. The queue shows titles (log entry 2, Q2: "Yes."), and is kept between runs, with a question at the
    start and Empty the queue in the Download menu (Q3).
+10. Search results and channels are shown in the main list, Escape and Backspace going back one list
+    at a time: "Consistent with Windows Explorer" (log entry 3, Q2).
+11. Search asks YouTube directly (InnerTube, `youtube.rs`), falling back to yt-dlp; listening gets the
+    sound's address from yt-dlp (`-g`), about 5 seconds, then streams it (Q3, option c).
+12. Following from a search result, from a download, and from a channel address in New download (Q4).
+    Channels are checked only when the user presses Ctrl+L, through their public feeds (Q5).
+13. Categories as NoteFetch has them: folders in the output folder, the rest in Uncategorised, the
+    existing downloads moved there once (Q6). New download has a Category box, the category shown
+    chosen (Q7).
+14. Deno is fetched, asking first, only if yt-dlp comes to need it for YouTube (Q1). Not needed yet.
+15. Order of work: search, channels, resume, speed and volume, categories, then the rest of the ideas
+    list (Q8). Built in milestone 4: all but audio-described sound, skip silence and the clipboard
+    watch.
 
 ## 5. Milestones
 
@@ -80,9 +93,11 @@ Picture quality and Save captions in it.
    2026, merged into `main`; the queue's own steps could not be tried, as single videos were too quick.
 3. **The milestone 2 test's answers** (branch `m3-player-and-fixes`): the player, a playlist's videos,
    the queue with titles kept between runs, Download again or Cancel, Alt+T, "videos" not "files".
-   Built 7 November 2026; tried by Claude (log entry 3); awaiting `test-milestone-3.txt`.
-4. Next, to agree with the user (log entry 3): YouTube search with listening, following channels,
-   categories as in NoteFetch, and the list of further ideas.
+   Built 7 November 2026; tried by Claude (log entry 3).
+   Tested by the user 7 November 2026 and merged.
+4. **Search, channels, categories and the listening ideas** (branch `m4-search-channels`):
+   decisions 10 to 15. Built 7 November 2026; tried by Claude (log entry 4); awaiting
+   `test-milestone-4.txt`.
 5. A private GitHub repository: done, https://github.com/ldefontenay/vidfetch (log entry 1, Q6). Next, a
    release like NoteFetch's with its guide online. Needs a LICENSE file, which the repository does not
    have yet.

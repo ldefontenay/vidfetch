@@ -16,11 +16,11 @@ newest entry at the top.
 
 Split off from a Video Scribe session on 2 November 2026; this repository is now worked on on its own.
 
-- Milestones 1 and 2 are on `main` (milestone 2 tested by the user, 7 November 2026). Milestone 3,
-  the answers to that test (the player, a playlist's videos in the list, the queue with titles kept
-  between runs), is on `m3-player-and-fixes`, awaiting `test-milestone-3.txt`.
-- Log entry 3 holds the plan for the user's feature requests (search, followed channels, categories,
-  more ideas) and questions Q1 to Q8; build nothing of those before the answers.
+- Milestones 1 to 3 are on `main` (milestone 3 tested by the user, 7 November 2026). Milestone 4,
+  search, followed channels, categories and the listening ideas of log entry 3, is on
+  `m4-search-channels`, awaiting `test-milestone-4.txt`. Log entry 4 has its questions.
+- `src/ui/online.rs` holds the lists that are not downloads (search, channels, recently played);
+  `src/ui/category.rs` the categories. Both are children of `ui.rs` and use its private items.
 - The private repository is https://github.com/ldefontenay/vidfetch, created by the user, as the
   permission check refused it from Claude. Still ask before pushing.
 - The user now uses VidFetch for real: their settings are in `%APPDATA%\VidFetch` and yt-dlp in

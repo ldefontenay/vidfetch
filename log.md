@@ -2,6 +2,133 @@
 
 Newest entry at the top. Each question is followed by an `ANSWER:` line.
 
+## Entry 4 — Search, channels, categories and the listening ideas built (2026-11-07)
+
+Thank you for your answers. Milestone 3 is merged into `main`. Everything below is on a new branch,
+`m4-search-channels`, and the test is `test-milestone-4.txt`. As you asked, I built as much as I
+could before your next test: your answers Q1 to Q8, and most of the ideas list.
+
+### What was built
+
+- **Search YouTube, Ctrl+F (Q2, Q3).** The results go in the main list, with each one's channel,
+  length and age. "More results" at the end fetches the next page.
+  - Enter listens online, in the Play window.
+  - Ctrl+D downloads, and Ctrl+I reads the description.
+  - Escape or Backspace goes back one list at a time, as in File Explorer.
+  - As agreed in option (c), the search asks YouTube directly, which takes about a second. When
+    that fails, yt-dlp searches instead.
+- **Following channels (Q4, Q5).** You can follow from three places: a search result, a download,
+  or a channel's address in New download, with the new "Follow the channel instead" button.
+  - Ctrl+L, New from your channels, lists their latest videos, newest first. Those that came out
+    since your last Ctrl+L start with "New".
+  - Ctrl+Shift+L, Your channels, lists the channels themselves. Enter shows a channel's videos;
+    Delete stops following it, after asking.
+  - Channels are checked only when you press Ctrl+L.
+- **Categories (Q6, Q7).** They work as in NoteFetch: folders in the output folder, with
+  Uncategorised for the rest.
+  - The first start moves your downloads into Uncategorised, and says so.
+  - "Category to show", Alt+C, is above the list. The Category menu is Alt+G.
+  - Ctrl+Shift+M moves a download into a category.
+  - New download has a Category box, with the category shown already chosen.
+- **The Play window** gains your ideas 1 to 4 and 6:
+  - It carries on where you stopped, for downloads and for videos online alike.
+  - Up and Down change the volume.
+  - Shift with Up and Down changes the speed, from half speed to three times as fast, a quarter at
+    a time. Voices keep their pitch.
+  - Page Down and Page Up go to the next or previous in the list, and "Play the next one at the
+    end" in the Options menu does it by itself.
+  - Ctrl with Page Down and Page Up goes from chapter to chapter, saying each name. End goes to 10
+    seconds before the end.
+  - While listening online, Ctrl+D downloads.
+- **Reading (ideas 7 and 8).** "Read its description", Ctrl+I, and "Read its captions as text" are
+  in the Download menu. The captions come as running text in paragraphs, each starting with its
+  time.
+- **Recently played, Ctrl+H (idea 9, the history half).** It lists the last 100 things you played,
+  downloads and videos online alike, each with where you stopped. Enter carries on, and Delete takes
+  one off the list without deleting the file.
+- **Deno (Q1)** is not needed yet, so nothing was built for it.
+
+Some decisions of mine, which you can change:
+
+- A place within 10 seconds of the start or the end is not remembered. A finished video starts
+  again from the beginning.
+- Speed is kept from one video to the next, and saved, so it is the same tomorrow.
+- A download started from search results says how to stop it, as Escape there goes back first.
+- Chapters are found the way YouTube finds them: times at the start of lines in the description,
+  starting at 0:00, with at least three chapters.
+
+### Tried by me
+
+I used temporary settings and copies of your Zoo and Blender downloads, so your own were not
+touched. The automated checks and 48 unit tests pass. The accessibility probe found no problems in
+the main window, New download, the Play window and the Search box.
+
+Through the real window, each of these worked:
+
+- Loose downloads moving into Uncategorised, with that said.
+- A new category, and Ctrl+D downloading into it.
+- A search with 20 results, then More results.
+- Listening: about 6 seconds to start. Page Down started the next result in about 5 seconds.
+- Following from all three places, then Ctrl+L, Your channels, and a channel's own videos.
+- Descriptions, captions as text, and Recently played, including carrying on and Delete.
+- Escape going back one list at a time.
+- Playing at twice the speed, in an automated test: 7 seconds of playing went 14 seconds into the
+  file, as it should.
+
+**Not tried:**
+
+- Anything by ear, including whether fast speech sounds good. Speed changes the sound itself, which
+  only you can judge.
+- Move to a category's menu, which I could not drive safely. I tried the moving underneath it.
+- Chapters on a real video: the reading of them is tested, but I did not find one with chapters to
+  try by hand.
+- Your real downloads being moved into Uncategorised. That happens the first time you start it.
+
+**Sorry:** during my test of "Copy its web address", I replaced what was on your clipboard with a
+YouTube address. If you had something there you needed, it is gone; I should have kept it.
+
+### Findings
+
+- **Listening online takes about 5 seconds to start.** Of that, yt-dlp takes almost all the time
+  finding the sound's address. The sound itself starts in under half a second. Jumping 5 minutes
+  ahead takes about 3 seconds.
+- **YouTube's second page of results is small.** It sometimes has only 4 videos rather than 20.
+  That is YouTube, not VidFetch.
+- **Audio-described sound (idea 5) is not built.** yt-dlp marks such a track "descriptive", but I
+  could not find a single YouTube video that has one, so I could not test it. See Q1.
+
+### Questions
+
+**Q1.** Audio-described sound: do you know a YouTube video that has a described track? With one, I
+can build it as an option: "Choose the described sound when there is one".
+
+ANSWER:
+
+**Q2.** Skip silence (idea 10): should the Play window skip long silences, for instance any silence
+longer than 2 seconds, as an option that is off to begin with?
+
+ANSWER:
+
+**Q3.** Copy a link and be asked (idea 11): when you copy a YouTube address anywhere, should VidFetch,
+if it is running, offer to download it? It would be an option, off to begin with.
+
+ANSWER:
+
+**Q4.** Favourites (the other half of idea 9): do you want to mark videos as favourites, beside
+Recently played? Or do categories, and following channels, already cover it?
+
+ANSWER:
+
+**Q5.** Speed goes from half speed to three times as fast, in steps of a quarter. Is that the right
+range and step?
+
+ANSWER:
+
+**Q6.** May I push `main` and this branch to your GitHub repository? The last two milestones are
+not on GitHub yet.
+
+ANSWER:
+
 ## Entry 3 — Your test answers built, and a plan for your feature requests (2026-11-07)
 
 Thank you for the test. Milestone 2 is merged into `main`. The changes below are on a new branch,
