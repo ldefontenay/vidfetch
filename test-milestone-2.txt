@@ -16,19 +16,19 @@ Section 1 - first run
 
 1.1  Start VidFetch. Is a welcome shown, and is it clear? Does it say downloads are sound only to begin
      with? Press Enter to close it.
-ANSWER:
+ANSWER: Yes
 
 1.2  Is focus on the list of downloads, read as "Downloads, most recent first", empty? Does the Status
      box (Alt+T) say to press Ctrl+N?
-ANSWER:
+ANSWER: Yes
 
 1.3  Press Alt+F, Alt+D, Alt+O and Alt+H in turn, and arrow through each menu, then Escape. Is
      everything there and clear? New here: Show the queue in the Download menu, and Save captions in
      the Options menu.
-ANSWER:
+ANSWER: Yes
 
 ANYTHING ODD:
-
+In the main window, the play button is labeled as "open". It should be "play".
 
 Section 2 - sound, by default
 -----------------------------
@@ -36,60 +36,60 @@ Section 2 - sound, by default
 2.1  Copy this address (from this file, or from the browser with Alt+D then Ctrl+C):
      https://www.youtube.com/watch?v=jNQXAC9IVRw
      Then press Ctrl+N in VidFetch. Is the New download window shown, with the address in the box?
-ANSWER:
+ANSWER: Yes
 
 2.2  Tab through the window. Is Download as on "Sound only, as the site sends it, nothing lost (M4A)"?
      Then Picture quality (720 lines), Save captions (not ticked) and What will happen. Does What will
      happen say one video, the sound alone, and where it is saved?
-ANSWER:
+ANSWER: Yes.
 
 2.3  Press Enter. VidFetch asks to download yt-dlp first (about 18 MB). Answer Download, then wait. Is
      each step said, and at the end "Downloaded: Me at the zoo.m4a. Press Enter to open it"?
-ANSWER:
+ANSWER: Yes.
 
 2.4  Is "Me at the zoo" in the list, chosen? Press Enter: does it play?
-ANSWER:
+ANSWER: Yes, it plays in the default media player. Could we please hav VideoScribe's built-in media player? Its really quick to start, and I miss it here.
 
 2.5  Back in VidFetch, press the Applications key on it. Is there Open, Rename, Show in File Explorer and
      Delete? Press Escape.
-ANSWER:
+ANSWER: Yes
 
 ANYTHING ODD:
-
+Opening the video should be changed to playing it.
 
 Section 3 - the same video again
 --------------------------------
 
 3.1  Press Ctrl+N with the same address, then Enter. Are you asked "Already downloaded as Me at the
      zoo.m4a, at this quality. Open it, or download it again?"
-ANSWER:
+ANSWER: Yes
 
 3.2  Press Enter. Does Open it come first, and does the file play, with nothing downloaded?
-ANSWER:
+ANSWER: Yes
 
 3.3  Press Ctrl+N and Enter again, then Tab to Download again and press it. Is a second copy saved, as
      "Me at the zoo 2.m4a"?
-ANSWER:
+ANSWER: Yes
 
 3.4  Press Ctrl+N, then Alt+A, and choose "Sound only, for any player (MP3)". Press Enter. Does it
      download straight away, with no question, as the format changed?
-ANSWER:
+ANSWER: Yes, all as expected.
 
 3.5  Press Ctrl+N, then Alt+A, and choose Video. Press Enter. No question again? Then the same address
      again, video, but with Alt+Q on Standard, 480 lines. No question either, and a file with picture
      that plays?
-ANSWER:
+ANSWER: Yes
 
 3.6  Choose "Me at the zoo.mp4" in the list, press F2 and rename it "Zoo". Is "Renamed to Zoo" said?
      Now press Ctrl+N with the same address, Download as Video, Picture quality High, 720 lines. Does
      the question say "Already downloaded as Zoo.mp4"? Press Escape: is that Open it, not a download?
-ANSWER:
+ANSWER: All works as expected. Please take away the "open it" option. Just have redownload and cancel, with cancel as the default.
 
 3.7  Press Alt+O, Download as, and choose the M4A again, so the next sections are quick.
-ANSWER:
+ANSWER: Done.
 
 ANYTHING ODD:
-
+Very good, only the little issues mentioned above.
 
 Section 4 - the queue
 ---------------------
@@ -97,34 +97,34 @@ Section 4 - the queue
 4.1  Copy this address, which is a 15 minute speech, press Ctrl+N, then Enter:
      https://www.youtube.com/watch?v=UF8uR6Z6KLc
      Is "Started" said?
-ANSWER:
+ANSWER: Yes
 
 4.2  While it runs, copy this address, a film's sound, and press Ctrl+N:
      https://www.youtube.com/watch?v=aqz-KE-bpKQ
      Does What will happen say this one goes in the queue? Is the button now "Start when its turn comes"?
-ANSWER:
+ANSWER: Downloads too quick, but assume it works.
 
 4.3  Press Enter. Is "Added to the queue, number 1" said? Press Alt+T: does the Status box still say how
      far the speech has got, ending with "1 download more in the queue" or similar?
-ANSWER:
+ANSWER: Coould not test, downloads too quick.
 
 4.4  Press Ctrl+N and Enter with the same film's address again. Is it refused, as already in the queue?
-ANSWER:
+ANSWER: Could not test.
 
 4.5  Press Ctrl+Q. Is the Queue window shown, saying how many are waiting, with focus on the Waiting list?
      Shift+Tab goes to Downloading now. Are both clear, although they show addresses, not titles?
      (See log entry 2, Q2.) Press Escape.
-ANSWER:
+ANSWER: Could not test.
 
 4.6  Press Ctrl+N again, with the address in the box empty or anything else, then leave that window open
      until the speech finishes. Do you hear "Downloaded: Steve Jobs..." while you are in that window?
      Does your focus stay in the window? This is the check I cannot make myself: whether JAWS speaks
      from behind a window in front. Press Escape to close it.
-ANSWER:
+ANSWER: Could not test.
 
 4.7  Did the film then start by itself, silently? Press Alt+T to see. Press Escape: is "Stopped" said?
      Was the speech saved, and is it in the list?
-ANSWER:
+ANSWER: Both videos saved in the list.
 
 4.8  Queue three things quickly, using Ctrl+N each time: the speech's address again with Download again,
      then the film's address, then this one, which cannot work:
@@ -132,59 +132,59 @@ ANSWER:
      Press Escape once. Is it said that this one stops, and the others carry on? Then Ctrl+Q: is one
      item less there? Choose an item, press Delete: is it removed, and said? Remove all asks first, with
      Keep them as the safe answer. Press Escape in each.
-ANSWER:
+ANSWER: Could not test.
 
 4.9  Queue the address that cannot work while something else is running, and let it reach its turn. Is
      it said that a download stopped with a problem, and is the reason only shown when everything is
      done, with the reason readable with the arrow keys?
-ANSWER:
+ANSWER: Could not test.
 
 4.10 With something running and something waiting, press Alt+F4. Are you asked, with Keep downloading
      as the safe answer? Press Enter: does it carry on? Press Escape afterwards to stop what runs.
-ANSWER:
+ANSWER: Could not test.
 
 ANYTHING ODD:
-
+Nothing odd, but the queue tests will likely have to be run with a playlist as the downloads are really too quick.
 
 Section 5 - a playlist, with captions
 -------------------------------------
 
 5.1  Press Alt+O, then C, Save captions. Is it said that captions are now saved? Open the same menu
      again: is it ticked?
-ANSWER:
+ANSWER: Yes
 
 5.2  Copy this address, press Ctrl+N, then Enter:
      https://www.youtube.com/playlist?list=PLav47HAVZMjnTFVZL-aImCQIC0uLZtNCz
      (Blender's Open Movies: 18 films.) Is the Save captions box ticked in the window, and is
      "Downloading the playlist Blender Open Movies: 18 videos" said?
-ANSWER:
+ANSWER: Yes
 
 5.3  Press Alt+T now and then. Does the Status box say which video it is on, with its title and how far
      it has got, and "Fetching the captions" between videos? Nothing is said as each video starts, as
      you asked.
-ANSWER:
+ANSWER: All good, but interesting behaviour with alt+t: When pressed for the first time, it jumps focus to the status box and announces the appropriate message. When pressed for the second time, it announces the appropriate message again. When pressed for the third time, nothing happens. Ideally it should do what happened when pressed the second time.
 
 5.4  Once the third video has started, press Escape. Is "Stopped. 2 videos were saved" said, or similar?
-ANSWER:
+ANSWER: Yes, stopped during download of fourth video. Expected behaviour.
 
 5.5  Press Enter on "Blender Open Movies" in the list. Does File Explorer open the folder, with each film
      and beside it a file ending ".en.srt", such as "01 - OVERGROWN ... .en.srt"? Open one in Notepad: are
      the captions in English, with no line repeated? Close both.
-ANSWER:
+ANSWER: All as expected, with .srt files in good shape. Note: the line referring to the playlist says it contains "3 files" and it should rather say "3 videos", as actually the folder contains 6 files including the .srt captions, so refering to videos is more accurate.
 
 5.6  On the playlist in the list, press Ctrl+U. Does it say "16 new of 18, 2 already there"? Stop it
      after one more with Escape.
-ANSWER:
+ANSWER: Yes, perfect.
 
 5.7  Play one of the playlist's files in a music player. Is the album "Blender Open Movies", with the
      track numbers in order?
-ANSWER:
+ANSWER: Yes.
 
 5.8  Press Alt+O, then C again, to stop saving captions. Is that said?
-ANSWER:
+ANSWER: Yes
 
 ANYTHING ODD:
-
+When pressing enter on a playlist, please make the content of the playlist appear in a new list inside VidFetch. This should be as consistent with the main list as possible, with the context menu opening appropriate options for each video. Pressing escape should then exit back to the main list. Pressing enter on any video plays it in the built-in player, copied from VideoScribe.
 
 Section 6 - a video in a playlist
 ---------------------------------
@@ -192,15 +192,15 @@ Section 6 - a video in a playlist
 6.1  Copy this address and press Ctrl+N:
      https://www.youtube.com/watch?v=jNQXAC9IVRw&list=PLav47HAVZMjnTFVZL-aImCQIC0uLZtNCz
      Does What will happen say it is a video in a playlist, and that you will be asked?
-ANSWER:
+ANSWER: Yes
 
 6.2  Press Enter. Is the question "Download the whole playlist, or just this video?" asked, with "Just
      this video" first? Press Escape. As you already have that video as an M4A, are you then asked Open
      it or Download again? Press Escape.
-ANSWER:
+ANSWER:Yes
 
 ANYTHING ODD:
-
+The video opens after pressing escape. Pressing escape should just return to the main list.
 
 Section 7 - when you are done
 -----------------------------
@@ -208,9 +208,16 @@ Section 7 - when you are done
 7.1  Delete what you do not want with the Delete key in the list (each goes to the Recycle Bin). Is the
      question clear, with Keep it as the safe answer? When you delete a download with captions, do the
      captions go too? (The playlist's folder takes them all.)
-ANSWER:
+ANSWER: Yes.
 
 7.2  Anything else you would want a downloader to do?
 ANSWER:
+Feature requests:
+1. Implement the ability to search Youtube. Search results are listed, pressing enter on a result starts streaming the audio with the built-in player. Pressing ctrl+d adds the video to the download queue to be downloaded with currently active settings. A context menu also enables these actions. Pressing escape exits search.
+2. Implement the ability to follow channels, making it possible to go to a list of followed channels and see what is new and to stream or download videos as above. The information re followed channels should be kept locally, no account sign-in required. Suggest best mechanisms for adding channels to the followed channels list, e.g. from search.
+3. Implement the type of categories management found in NoteFetch. This should make it possible to organise downloads by different categories, e.g. Tech, News, Music, Documentaries, Language Learning, whatever the user wants to create. Copy from NoteFetch to implement this.
+4. Search for what else blind users would really like and appreciate in a video downloader/streamer for Windows and come up with a list of features we can prioritise together.
+
 
 ANYTHING ODD:
+No, great work!

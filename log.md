@@ -116,17 +116,17 @@ like it looked at in a Video Scribe session?
 find videos you want that VidFetch refuses, tell me which and it becomes worth doing. Also, which
 browser would it use?
 
-ANSWER:
+ANSWER: Not for now.
 
 **Q2.** The Queue window shows addresses, not titles, as a title is only known once a download starts.
 Fetching each title when it is added would take a few seconds in the background. Worth it?
 
-ANSWER:
+ANSWER: Yes.
 
 **Q3.** The queue is forgotten when VidFetch closes (it asks first). Should it be remembered, and carry
 on next time?
 
-ANSWER:
+ANSWER: Yes please. Make sure items can be removed from the queue by providing a clear queue option in an appropriate place. When the app starts with material in the queue, alert the user and ask whether to continue downloads or not.
 
 ## Entry 1 — VidFetch built: videos, sound only, playlists (2026-11-02)
 
