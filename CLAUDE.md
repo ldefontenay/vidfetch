@@ -24,8 +24,8 @@ Split off from a Video Scribe session on 2 November 2026; this repository is now
 - The private repository is https://github.com/ldefontenay/vidfetch, created by the user, as the
   permission check refused it from Claude. Still ask before pushing.
 - The user now uses VidFetch for real: their settings are in `%APPDATA%\VidFetch` and yt-dlp in
-  `%LOCALAPPDATA%\VidFetch	ools`. Test with `APPDATA` and `LOCALAPPDATA` pointed at a temporary
-  folder (copy yt-dlp.exe into its `VidFetch	ools`), and never touch theirs.
+  `%LOCALAPPDATA%\VidFetch\tools`. Test with `APPDATA` and `LOCALAPPDATA` pointed at a temporary
+  folder (copy yt-dlp.exe into its `VidFetch\tools`), and never touch theirs.
 - Video Scribe's yt-dlp encoding fix (`--encoding utf-8`) came from here and lives in that repository.
 
 ## Editing practice
