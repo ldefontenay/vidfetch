@@ -186,8 +186,14 @@ pub fn delete(owner: HWND, e: &Entry) -> String {
     if !message::ask(owner, &what, "&Delete", "&Keep it", false) {
         return "Nothing was deleted.".into();
     }
+    // Each path ends with a null, and the list with another. Its captions go
+    // with it.
     let mut from = wide(&e.path.display().to_string());
-    // The list of paths ends with two nulls.
+    if !e.is_playlist() {
+        for c in library::captions_of(&e.path) {
+            from.extend(wide(&c.display().to_string()));
+        }
+    }
     from.push(0);
     let mut op = SHFILEOPSTRUCTW {
         hwnd: owner,

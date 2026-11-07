@@ -13,8 +13,8 @@ kbd { font-family: inherit; font-weight: bold; }
 <p>Version {{VERSION}}, a test version.</p>
 
 <h2>What it does</h2>
-<p>VidFetch downloads videos, and whole playlists, from YouTube and many other sites, as video
-or as sound only. Each download is saved in the output folder, named after its title. A playlist
+<p>VidFetch downloads videos, and whole playlists, from YouTube and many other sites, as sound
+only to begin with, or as video if you choose. Each download is saved in the output folder, named after its title. A playlist
 gets a folder of its own, and fetching it again later brings only its new videos.</p>
 
 <h2>Downloading a video or a playlist</h2>
@@ -35,6 +35,22 @@ Enter, or Escape, downloads just the video. A YouTube mix, the endless list YouT
 video, is never taken as a playlist.</p>
 <p>The Status box says how far the download has got. <kbd>Escape</kbd> stops it. When it is done,
 VidFetch says so, and the download is chosen in the list: <kbd>Enter</kbd> plays it.</p>
+<p>If you ask for a video you already have, at the same format and quality, VidFetch asks whether
+to open what you have or download it again; <kbd>Enter</kbd>, or <kbd>Escape</kbd>, opens it. A
+different format or picture quality just downloads. VidFetch remembers a download if you rename it
+in VidFetch, but not if you rename or move it in File Explorer.</p>
+
+<h2>The queue</h2>
+<p>While one download runs, press <kbd>Ctrl+N</kbd> for the next, or <kbd>Ctrl+U</kbd> on a
+playlist: it waits its turn, with the choices it had when you asked for it. The downloads that
+follow start by themselves, without a word; VidFetch says when each one finishes, and the Status box
+says how far the current one has got and how many more are waiting.</p>
+<p><kbd>Escape</kbd> stops only the download running now, and the next one starts.
+<strong>Show the queue</strong> (<kbd>Ctrl+Q</kbd>) lists what is running and what is waiting;
+<kbd>Delete</kbd> takes the chosen one out, and Remove all empties the queue. So to stop everything,
+press <kbd>Ctrl+Q</kbd>, remove all, close it, and press <kbd>Escape</kbd>.</p>
+<p>If a download fails, the others carry on, and VidFetch says why once they are all done. The queue
+is not remembered when VidFetch closes; it asks first.</p>
 
 <h2>Playlists and channels</h2>
 <p>A playlist's videos are downloaded one after the other into a folder named after the playlist.
@@ -52,13 +68,13 @@ like, in VidFetch or in File Explorer, but keep that file in it.</p>
 <h2>Video or sound only</h2>
 <p>Download as, in the Options menu and in the New download window:</p>
 <ul>
+<li><strong>Sound only, M4A</strong>, the choice to begin with: the sound exactly as the site sends
+it, nothing lost and nothing converted. Most players, phones and Windows itself play it.</li>
+<li><strong>Sound only, MP3</strong>: for a player that takes nothing else, such as an older car
+stereo or a talking book player. It is converted, so it takes a little longer.</li>
 <li><strong>Video</strong>: an MP4 with picture and sound, which every player plays. YouTube sends
 the picture and the sound separately; VidFetch puts them together with Windows' own Media
 Foundation, copying both as they are, so nothing is lost.</li>
-<li><strong>Sound only, M4A</strong>: the sound exactly as the site sends it, nothing lost and
-nothing converted. Most players, phones and Windows itself play it.</li>
-<li><strong>Sound only, MP3</strong>: for a player that takes nothing else, such as an older car
-stereo or a talking book player. It is converted, so it takes a little longer.</li>
 </ul>
 <p>Picture quality is how many lines high the picture is at most: 360, 480, 720 or 1080. Higher is
 sharper and larger. YouTube offers the kind of picture an MP4 holds up to 1080 lines; a video that
@@ -66,6 +82,14 @@ is only in higher quality comes down at the best it has up to that.</p>
 <p>Each file is tagged with its title, the channel that put it online, the year, and the address it
 came from; a playlist's videos also with the playlist's name as the album and their place as the
 track number. Media players and File Explorer show these.</p>
+
+<h2>Captions</h2>
+<p>Save captions, in the Options menu and the New download window, is off to begin with. When it is
+on, each download's captions are saved beside it as an SRT file, which media players show, such as
+<em>Title.en.srt</em> for <em>Title.mp4</em>. A person's captions are chosen when there are some in
+the video's language or in English, otherwise the site's automatic ones, in the language spoken. When
+a video has none, or the site refuses them, VidFetch says so, and the download itself is kept. Renaming
+or deleting a download in VidFetch does the same to its captions.</p>
 
 <h2>The main window</h2>
 <p>The list of downloads, most recent first, shows each file and playlist in the output folder,
@@ -80,6 +104,8 @@ Windows plays it with, or opens a playlist's folder in File Explorer.</li>
 <li><strong>New download</strong> (<kbd>Alt+N</kbd> or <kbd>Ctrl+N</kbd>).</li>
 <li><strong>Update the playlist</strong> (<kbd>Alt+U</kbd> or <kbd>Ctrl+U</kbd>): fetches the
 chosen playlist's videos that are not in its folder yet.</li>
+<li><strong>Show the queue</strong> (<kbd>Alt+Q</kbd> or <kbd>Ctrl+Q</kbd>): what is running and
+what is waiting.</li>
 <li><strong>Rename</strong> (<kbd>Alt+R</kbd> or <kbd>F2</kbd>): a new name for the file, keeping
 its ending, or for the playlist's folder.</li>
 <li><strong>Show in File Explorer</strong> (<kbd>Alt+X</kbd>): opens the output folder with the
@@ -93,10 +119,10 @@ download chosen in it.</li>
 <ul>
 <li><strong>File</strong>: New download; Choose the output folder; Show the output folder in File
 Explorer; Update yt-dlp; Exit.</li>
-<li><strong>Download</strong>: what can be done to the download chosen in the list, and Stop
-(<kbd>Escape</kbd>).</li>
-<li><strong>Options</strong>: Download as; Picture quality; Number the files of a playlist. Each
-choice is saved at once and said.</li>
+<li><strong>Download</strong>: what can be done to the download chosen in the list, Show the queue
+(<kbd>Ctrl+Q</kbd>), and Stop the current download (<kbd>Escape</kbd>).</li>
+<li><strong>Options</strong>: Download as; Picture quality; Number the files of a playlist; Save
+captions. Each choice is saved at once and said.</li>
 <li><strong>Help</strong>: this page (<kbd>F1</kbd>), and About VidFetch.</li>
 </ul>
 
@@ -124,7 +150,8 @@ own use where the law and the site allow it.</p>
 <li>Downloads: <em>Videos\VidFetch</em> in your user folder, unless you choose another in the File
 menu.</li>
 <li>Settings: <em>%APPDATA%\VidFetch\settings.txt</em>, plain text, safe to edit while VidFetch is
-closed.</li>
+closed. Beside it, <em>downloaded.json</em> remembers which single videos you have, to notice one
+asked for again.</li>
 <li>yt-dlp, and downloads in progress: <em>%LOCALAPPDATA%\VidFetch</em>. A stopped download is
 kept there for a day, so starting it again carries on where it was.</li>
 </ul>

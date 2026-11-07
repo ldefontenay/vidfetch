@@ -9,6 +9,7 @@ target/
 *.mkv
 *.part
 *.vtt
+*.srt
 
 # yt-dlp is fetched at run time, never committed
 *.exe

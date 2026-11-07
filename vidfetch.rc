@@ -11,7 +11,7 @@
 //    ui.rs checks this). Main window, in use:
 //      Menus:     f File, d Download, o Options, h Help
 //      Controls:  w Downloads, p Open, n New download, u Update the playlist,
-//                 r Rename, x Show in File Explorer, l Delete, t Status
+//                 q Queue, r Rename, x Show in File Explorer, l Delete, t Status
 // 3. Every control reads correctly on its own. JAWS does not announce group
 //    headings, so no label may depend on one, or on any other control.
 
@@ -53,6 +53,7 @@ END
 #define IDD_ASK             102
 #define IDD_NAME            106
 #define IDD_ADD             108
+#define IDD_QUEUE           109
 
 #define IDC_STATUS          1004
 #define IDC_LIST            1005
@@ -62,6 +63,7 @@ END
 #define IDC_SHOW            1011
 #define IDC_DELETE          1012
 #define IDC_UPDATE          1013
+#define IDC_QUEUE           1014
 #define IDC_MESSAGE         1017
 #define IDC_MESSAGE_LABEL   1018
 #define IDC_ASK_TEXT        1020
@@ -71,6 +73,11 @@ END
 #define IDC_A_PLAN          1092
 #define IDC_A_FORMAT        1093
 #define IDC_A_QUALITY       1094
+#define IDC_A_CAPTIONS      1095
+#define IDC_Q_NOW           1100
+#define IDC_Q_LIST          1101
+#define IDC_Q_REMOVE        1102
+#define IDC_Q_ALL           1103
 
 #define IDR_MENU            200
 
@@ -82,6 +89,8 @@ END
 #define IDM_UPDATE_YTDLP    2005
 #define IDM_STOP            2011
 #define IDM_NUMBER          2012
+#define IDM_CAPTIONS        2013
+#define IDM_QUEUE           2014
 #define IDM_ADD             2023
 #define IDM_RENAME          2024
 #define IDM_DELETE          2025
@@ -96,7 +105,7 @@ END
 // context menu (Shift+F10 or the Applications key). Every command is in the
 // menus too. Delete is the last button, before the Status box, so
 // overshooting by one stop cannot reach it.
-IDD_MAIN DIALOGEX 0, 0, 400, 226
+IDD_MAIN DIALOGEX 0, 0, 400, 246
 STYLE DS_SETFONT | WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
 EXSTYLE WS_EX_APPWINDOW
 CAPTION "VidFetch"
@@ -110,12 +119,13 @@ BEGIN
     DEFPUSHBUTTON "O&pen  Enter", IDC_OPEN, 7, 144, 190, 14, WS_GROUP | WS_TABSTOP
     PUSHBUTTON "&New download...  Ctrl+N", IDC_ADD, 203, 144, 190, 14, WS_TABSTOP
     PUSHBUTTON "&Update the playlist  Ctrl+U", IDC_UPDATE, 7, 164, 190, 14, WS_TABSTOP
-    PUSHBUTTON "&Rename...  F2", IDC_RENAME, 203, 164, 190, 14, WS_TABSTOP
-    PUSHBUTTON "Show in File E&xplorer", IDC_SHOW, 7, 184, 190, 14, WS_TABSTOP
-    PUSHBUTTON "De&lete...  Delete", IDC_DELETE, 203, 184, 190, 14, WS_TABSTOP
+    PUSHBUTTON "Show the &queue...  Ctrl+Q", IDC_QUEUE, 203, 164, 190, 14, WS_TABSTOP
+    PUSHBUTTON "&Rename...  F2", IDC_RENAME, 7, 184, 190, 14, WS_TABSTOP
+    PUSHBUTTON "Show in File E&xplorer", IDC_SHOW, 203, 184, 190, 14, WS_TABSTOP
+    PUSHBUTTON "De&lete...  Delete", IDC_DELETE, 7, 204, 190, 14, WS_TABSTOP
 
-    LTEXT      "S&tatus:", -1, 7, 208, 30, 8
-    EDITTEXT   IDC_STATUS, 40, 206, 353, 12, ES_AUTOHSCROLL | ES_READONLY | WS_GROUP | WS_TABSTOP
+    LTEXT      "S&tatus:", -1, 7, 228, 30, 8
+    EDITTEXT   IDC_STATUS, 40, 226, 353, 12, ES_AUTOHSCROLL | ES_READONLY | WS_GROUP | WS_TABSTOP
 END
 
 // Every command, with its shortcut, so that commands can be found without the
@@ -136,7 +146,8 @@ BEGIN
     BEGIN
         MENUITEM "&Open\tEnter", IDM_OPEN
         MENUITEM "&Update the playlist, fetching its new videos\tCtrl+U", IDM_UPDATE
-        MENUITEM "S&top\tEscape", IDM_STOP
+        MENUITEM "Show the &queue...\tCtrl+Q", IDM_QUEUE
+        MENUITEM "S&top the current download\tEscape", IDM_STOP
         MENUITEM SEPARATOR
         MENUITEM "&Rename...\tF2", IDM_RENAME
         MENUITEM "Show in File E&xplorer", IDM_SHOW
@@ -155,6 +166,7 @@ BEGIN
             MENUITEM "-", 2200
         END
         MENUITEM "&Number the files of a playlist in its order", IDM_NUMBER
+        MENUITEM "Save &captions as a file beside each download", IDM_CAPTIONS
     END
     POPUP "&Help"
     BEGIN
@@ -201,8 +213,8 @@ BEGIN
 END
 
 // A new download (addvideo.rs): a web address, how to download it, and what
-// will happen. Letters: w, a, q, h, s; Cancel is Escape. Enter starts.
-IDD_ADD DIALOGEX 0, 0, 400, 200
+// will happen. Letters: w, a, q, c, h, s; Cancel is Escape. Enter starts.
+IDD_ADD DIALOGEX 0, 0, 400, 216
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "New download - VidFetch"
 FONT 9, "Segoe UI", 400, 0, 0x1
@@ -216,10 +228,31 @@ BEGIN
     LTEXT      "Picture &quality:", -1, 7, 56, 60, 8
     COMBOBOX   IDC_A_QUALITY, 70, 54, 323, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_GROUP | WS_TABSTOP
 
-    LTEXT      "W&hat will happen:", -1, 7, 74, 386, 8
-    EDITTEXT   IDC_A_PLAN, 7, 84, 386, 86,
+    AUTOCHECKBOX "Save &captions as a file beside the download", IDC_A_CAPTIONS, 7, 72, 386, 10, WS_GROUP | WS_TABSTOP
+
+    LTEXT      "W&hat will happen:", -1, 7, 90, 386, 8
+    EDITTEXT   IDC_A_PLAN, 7, 100, 386, 86,
                ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_VSCROLL | WS_GROUP | WS_TABSTOP
 
-    DEFPUSHBUTTON "&Start downloading", IDOK, 239, 178, 100, 14, WS_GROUP | WS_TABSTOP
-    PUSHBUTTON "Cancel", IDCANCEL, 343, 178, 50, 14, WS_TABSTOP
+    DEFPUSHBUTTON "&Start downloading", IDOK, 239, 194, 100, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "Cancel", IDCANCEL, 343, 194, 50, 14, WS_TABSTOP
+END
+
+// The queue (queue in ui.rs): what is running, and what waits its turn. Delete
+// removes from the list. Letters: n, w, r, a; Close is Escape or Enter.
+IDD_QUEUE DIALOGEX 0, 0, 400, 176
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Queue - VidFetch"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "Downloading &now:", -1, 7, 7, 386, 8
+    EDITTEXT   IDC_Q_NOW, 7, 17, 386, 12, ES_AUTOHSCROLL | ES_READONLY | WS_GROUP | WS_TABSTOP
+
+    LTEXT      "&Waiting, next first:", -1, 7, 36, 386, 8
+    LISTBOX    IDC_Q_LIST, 7, 46, 386, 100,
+               LBS_NOTIFY | LBS_WANTKEYBOARDINPUT | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_HSCROLL | WS_BORDER | WS_GROUP | WS_TABSTOP
+
+    PUSHBUTTON "&Remove  Delete", IDC_Q_REMOVE, 7, 154, 120, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "Remove &all...", IDC_Q_ALL, 133, 154, 120, 14, WS_TABSTOP
+    DEFPUSHBUTTON "Close", IDOK, 343, 154, 50, 14, WS_TABSTOP
 END

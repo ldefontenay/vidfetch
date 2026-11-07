@@ -16,12 +16,13 @@ newest entry at the top.
 
 Split off from a Video Scribe session on 2 November 2026; this repository is now worked on on its own.
 
-- Milestone 1, the downloader, is built and committed on `main`. Nothing is pushed: there is no GitHub
-  repository yet (log entry 1, Q6, asks).
-- The user's test is `test-milestone-1.txt`; their answers to it and to log entry 1 are what comes next.
-- Tried by Claude, not yet by the user (see log entry 1): YouTube video as MP4, M4A and MP3; a playlist
-  stopped and carried on with Update; a direct file link; an archive.org film; an accented title. The
-  a11y probe was clean on the main window and New download.
+- Milestone 1, the downloader, is on `main`. Milestone 2, the user's answers to log entry 1 (sound by
+  default, a queue, captions, noticing a repeat), is on `m2-queue-captions`, not yet merged.
+- The private repository is https://github.com/ldefontenay/vidfetch, created by the user, as the
+  permission check refused it from Claude. Both branches are on it. Still ask before pushing.
+- The user's test is `test-milestone-2.txt`; their answers to it and to log entry 2 are what comes next.
+- Tried by Claude, not yet by the user (see log entries 1 and 2). The a11y probe was clean on the main
+  window, New download and the Queue. Whether JAWS speaks from behind a window in front is untested.
 - `%APPDATA%\VidFetch` and `%LOCALAPPDATA%\VidFetch` were deleted after testing, so the user's first run
   shows the welcome and the yt-dlp question. If you test, use a scratch output folder and delete both
   again afterwards, unless the user has started using VidFetch for real (then back up their settings first).
@@ -65,7 +66,7 @@ cargo fmt
 cargo clippy --all-targets -- -D warnings
 cargo test
 # A real download, without the window (needs the network):
-VF_URL=<address> VF_OUT=<folder> [VF_FORMAT=m4a|mp3] [VF_WHOLE=1] [VF_STOP_AT=3] \
+VF_URL=<address> VF_OUT=<folder> [VF_FORMAT=m4a|mp3] [VF_WHOLE=1] [VF_STOP_AT=3] [VF_CAPTIONS=1] \
     cargo test end_to_end -- --ignored --nocapture
 ```
 
@@ -75,6 +76,7 @@ VF_URL=<address> VF_OUT=<folder> [VF_FORMAT=m4a|mp3] [VF_WHOLE=1] [VF_STOP_AT=3]
 - Commit in small steps. Ask before pushing. Say plainly what is untested.
 - Never commit downloaded media, yt-dlp, or build output.
 - When testing the app, point its output folder at a scratch folder, and put the user's settings back.
+  Setting `APPDATA` and `LOCALAPPDATA` to scratch folders for the test leaves theirs untouched.
 
 ## Provenance and licences
 

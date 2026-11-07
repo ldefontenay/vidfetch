@@ -281,6 +281,127 @@ pub fn read_record(folder: &Path) -> Option<Record> {
     })
 }
 
+/// One single download VidFetch remembers, to notice it being asked for again.
+/// A playlist needs none of this: its folder has its own record.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Past {
+    /// `ytdlp::key` of the address, so every form of a YouTube address is one.
+    pub key: String,
+    pub file: PathBuf,
+    /// `Format::word`.
+    pub format: String,
+    /// Lines of picture; 0 for sound, where they make no difference.
+    pub lines: u32,
+}
+
+fn read_past(record: &Path) -> Vec<Past> {
+    let text = std::fs::read_to_string(record).unwrap_or_default();
+    let v: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
+    v.as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|p| {
+            Some(Past {
+                key: p["key"].as_str()?.to_string(),
+                file: PathBuf::from(p["file"].as_str()?),
+                format: p["format"].as_str()?.to_string(),
+                lines: p["lines"].as_u64()? as u32,
+            })
+        })
+        .collect()
+}
+
+/// Saved under a temporary name first; files gone since are left out. Failing
+/// to save only means a later download is not noticed as a repeat.
+fn write_past(record: &Path, past: &[Past]) {
+    let v: Vec<serde_json::Value> = past
+        .iter()
+        .filter(|p| p.file.exists())
+        .map(|p| {
+            serde_json::json!({
+                "key": p.key,
+                "file": p.file.display().to_string(),
+                "format": p.format,
+                "lines": p.lines,
+            })
+        })
+        .collect();
+    if let Some(dir) = record.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let part = record.with_extension("part");
+    let text = serde_json::to_string_pretty(&v).unwrap_or_default();
+    if std::fs::write(&part, text).is_ok() {
+        let _ = std::fs::rename(&part, record);
+    }
+}
+
+/// The file `key` was already saved as, at this format and quality, if it is
+/// still there. Lines are 0 for sound.
+pub fn already(record: &Path, key: &str, format: &str, lines: u32) -> Option<PathBuf> {
+    read_past(record)
+        .into_iter()
+        .find(|p| p.key == key && p.format == format && p.lines == lines && p.file.exists())
+        .map(|p| p.file)
+}
+
+/// Remembers a single download just saved. Lines are 0 for sound.
+pub fn remember(record: &Path, key: &str, file: &Path, format: &str, lines: u32) {
+    let mut past = read_past(record);
+    past.retain(|p| !(p.key == key && p.format == format && p.lines == lines));
+    past.push(Past {
+        key: key.to_string(),
+        file: file.to_path_buf(),
+        format: format.to_string(),
+        lines,
+    });
+    write_past(record, &past);
+}
+
+/// A remembered download was renamed.
+pub fn moved(record: &Path, from: &Path, to: &Path) {
+    let mut past = read_past(record);
+    if !past.iter().any(|p| p.file == from) {
+        return;
+    }
+    for p in past.iter_mut().filter(|p| p.file == from) {
+        p.file = to.to_path_buf();
+    }
+    write_past(record, &past);
+}
+
+/// The captions beside a download: `Title.en.srt` for `Title.mp4`. None are
+/// counted as its own while another download has the same name, such as
+/// `Title.mp3`, as they serve that one too.
+pub fn captions_of(file: &Path) -> Vec<PathBuf> {
+    let (Some(stem), Some(dir)) = (file.file_stem(), file.parent()) else {
+        return Vec::new();
+    };
+    let stem = stem.to_string_lossy().to_lowercase();
+    let mut found = Vec::new();
+    for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        let path = e.path();
+        if path != file
+            && is_media(&path)
+            && path
+                .file_stem()
+                .is_some_and(|s| s.to_string_lossy().to_lowercase() == stem)
+        {
+            return Vec::new();
+        }
+        let name = e.file_name().to_string_lossy().to_lowercase();
+        let lang = name
+            .strip_prefix(stem.as_str())
+            .and_then(|r| r.strip_prefix('.'))
+            .and_then(|r| r.strip_suffix(".srt"));
+        if lang.is_some_and(|l| !l.is_empty() && l.chars().all(|c| c.is_alphanumeric() || c == '-'))
+        {
+            found.push(path);
+        }
+    }
+    found
+}
+
 /// Saves the record, under a temporary name first, so it is never half
 /// written.
 pub fn write_record(folder: &Path, r: &Record) -> Result<(), String> {
@@ -363,6 +484,11 @@ pub fn rename(e: &Entry, new: &str) -> Result<PathBuf, String> {
             "There is already something called {new} in the output folder. Choose another name."
         ));
     }
+    let captions = if e.is_playlist() {
+        Vec::new()
+    } else {
+        captions_of(&e.path)
+    };
     std::fs::rename(&e.path, &target).map_err(|err| {
         if err.raw_os_error() == Some(32) || err.raw_os_error() == Some(5) {
             format!(
@@ -374,6 +500,16 @@ pub fn rename(e: &Entry, new: &str) -> Result<PathBuf, String> {
             format!("{} could not be renamed: {err}", e.name)
         }
     })?;
+    // The captions follow, keeping their language: Old.en.srt to New.en.srt.
+    for c in captions {
+        let name = c
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
+        let lang = name.get(e.name.len()..).unwrap_or(".srt");
+        let _ = std::fs::rename(&c, parent.join(format!("{new}{lang}")));
+    }
     Ok(target)
 }
 
@@ -442,6 +578,46 @@ mod tests {
         assert!(rename(p, "Another song.mp3").is_err());
         let renamed = rename(p, "Open films").unwrap();
         assert!(read_record(&renamed).is_some_and(|r| r.id == "PLx"));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_download_is_noticed_only_at_the_same_quality() {
+        let d = scratch("past");
+        let record = d.join("downloaded.json");
+        let file = d.join("Zoo.mp4");
+        std::fs::write(&file, b"x").unwrap();
+        assert_eq!(already(&record, "k", "video", 720), None);
+        remember(&record, "k", &file, "video", 720);
+        assert_eq!(already(&record, "k", "video", 720), Some(file.clone()));
+        assert_eq!(already(&record, "k", "video", 1080), None);
+        assert_eq!(already(&record, "k", "mp3", 0), None);
+        assert_eq!(already(&record, "other", "video", 720), None);
+        // Renamed in VidFetch: still known.
+        let to = d.join("Zebra.mp4");
+        std::fs::rename(&file, &to).unwrap();
+        moved(&record, &file, &to);
+        assert_eq!(already(&record, "k", "video", 720), Some(to.clone()));
+        // Deleted: free to download again.
+        std::fs::remove_file(&to).unwrap();
+        assert_eq!(already(&record, "k", "video", 720), None);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn captions_follow_their_download() {
+        let d = scratch("captions");
+        let file = d.join("Zoo.mp4");
+        std::fs::write(&file, b"x").unwrap();
+        std::fs::write(d.join("Zoo.en.srt"), b"x").unwrap();
+        std::fs::write(d.join("Zoo two.en.srt"), b"x").unwrap();
+        assert_eq!(captions_of(&file), vec![d.join("Zoo.en.srt")]);
+        let e = list(&d).remove(0);
+        let to = rename(&e, "Zebra").unwrap();
+        assert!(d.join("Zebra.en.srt").exists() && !d.join("Zoo.en.srt").exists());
+        // The sound of the same title shares them, so they stay with it.
+        std::fs::write(d.join("Zebra.mp3"), b"x").unwrap();
+        assert!(captions_of(&to).is_empty());
         let _ = std::fs::remove_dir_all(&d);
     }
 
