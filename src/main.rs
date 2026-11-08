@@ -21,6 +21,7 @@ mod net;
 mod places;
 mod player;
 mod queue;
+mod searchbox;
 mod stretch;
 mod tags;
 mod ui;

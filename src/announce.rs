@@ -10,11 +10,11 @@ use windows::Win32::Foundation::HWND;
 use windows::Win32::System::Com::{
     CLSIDFromProgID, CoCreateInstance, IDispatch, CLSCTX_ALL, DISPATCH_METHOD, DISPPARAMS,
 };
-use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
 use windows::Win32::UI::Accessibility::{
     NotificationKind_Other, NotificationProcessing_ImportantAll, UiaClientsAreListening,
     UiaHostProviderFromHwnd, UiaRaiseNotificationEvent,
 };
+use windows::Win32::UI::WindowsAndMessaging::FindWindowW;
 
 /// Stops what JAWS is saying, through the programming interface it installs.
 /// Does nothing when JAWS is not running. An experiment for the quiet Play

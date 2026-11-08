@@ -82,6 +82,10 @@ const IDM_FOLLOW: i32 = 2043;
 const IDM_UNFOLLOW: i32 = 2044;
 const IDM_COPY: i32 = 2045;
 const IDM_BROWSER: i32 = 2046;
+const IDM_RELATED: i32 = 2055;
+const IDM_COMMENTS: i32 = 2056;
+const IDM_TRANSCRIPT: i32 = 2057;
+const IDM_SEARCH_CHANNEL: i32 = 2058;
 /// In the context menu of a video found online only.
 const IDM_CHANNEL: i32 = 2047;
 const IDM_NEW_CATEGORY: i32 = 2050;
@@ -201,7 +205,7 @@ struct App {
     lookup: Option<(u64, Arc<AtomicBool>)>,
     next_lookup: u64,
     /// What was searched for last, to start the next search from.
-    last_search: String,
+    last_search: crate::youtube::Query,
     /// Downloads moved into Uncategorised as VidFetch started, to say so.
     tidied: usize,
 }
@@ -230,7 +234,7 @@ pub fn run(cfg: Config, welcome: bool) {
         channels: channels::load(),
         lookup: None,
         next_lookup: 0,
-        last_search: String::new(),
+        last_search: Default::default(),
         tidied: 0,
     });
     let mut app = app;
@@ -969,6 +973,9 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
         if online::knows_video(&e) {
             items.extend([
                 (IDM_DESCRIBE, "Show d&escription\tCtrl+I"),
+                (IDM_RELATED, "Related v&ideos\tCtrl+R"),
+                (IDM_COMMENTS, "Comme&nts\tCtrl+K"),
+                (IDM_TRANSCRIPT, "Tran&script\tCtrl+T"),
                 (IDM_FOLLOW, "&Follow channel"),
             ]);
         }
@@ -1552,6 +1559,9 @@ fn init_menu(hwnd: HWND, app: &mut App, menu: HMENU) {
     enable(IDM_BACK, app.inside.is_some());
     enable(IDM_UPDATE, playlist || app.inside.is_some());
     enable(IDM_DESCRIBE, video);
+    enable(IDM_RELATED, video);
+    enable(IDM_COMMENTS, video);
+    enable(IDM_TRANSCRIPT, video);
     enable(
         IDM_CAPTIONS_TEXT,
         file && e.is_some_and(|e| !library::captions_of(&e.path).is_empty()),
@@ -1640,6 +1650,9 @@ fn shortcut(key: u16) -> Option<i32> {
         b'D' => Some(IDM_DOWNLOAD),
         b'I' => Some(IDM_DESCRIBE),
         b'H' => Some(IDM_HISTORY),
+        b'R' => Some(IDM_RELATED),
+        b'K' => Some(IDM_COMMENTS),
+        b'T' => Some(IDM_TRANSCRIPT),
         _ => None,
     }
 }

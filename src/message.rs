@@ -56,6 +56,21 @@ pub fn captions(owner: HWND, text: &str) {
     );
 }
 
+/// A video's comments, to read with the arrow keys.
+pub fn comments(owner: HWND, text: &str) {
+    show(owner, text, MB_OK, "&Comments:");
+}
+
+/// What is said in a video, to read with the arrow keys.
+pub fn transcript(owner: HWND, text: &str) {
+    show(
+        owner,
+        text,
+        MB_OK,
+        "&Transcript, with the time each part starts:",
+    );
+}
+
 /// A finished job's report, to read with the arrow keys.
 pub fn report(owner: HWND, text: &str) {
     show(owner, text, MB_ICONINFORMATION, REPORT_HEADING);
