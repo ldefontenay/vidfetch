@@ -466,6 +466,9 @@ fn run(
         vec![
             "--js-runtimes".to_string(),
             format!("deno:{}", deno().display()),
+            // The answers to YouTube's questions, from yt-dlp's own project.
+            "--remote-components".to_string(),
+            "ejs:github".to_string(),
         ]
     } else {
         Vec::new()
@@ -1349,6 +1352,28 @@ pub fn drop_edit_list(path: &Path) -> Result<f64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Needs the network; point LOCALAPPDATA at a scratch folder.
+    #[test]
+    #[ignore]
+    fn deno_is_fetched() {
+        let stop = AtomicBool::new(false);
+        fetch_deno(&stop, &mut |_, _| {}).unwrap().unwrap();
+        assert!(has_deno());
+    }
+
+    #[test]
+    fn a_checksum_is_found_whatever_surrounds_it() {
+        let hash = "AB".repeat(32);
+        assert_eq!(
+            hash_in(&format!(
+                "Algorithm : SHA256\r\nHash      : {hash}\r\nPath : x.zip"
+            )),
+            Some("ab".repeat(32))
+        );
+        assert_eq!(hash_in(&format!("{hash}  deno.zip")), Some("ab".repeat(32)));
+        assert_eq!(hash_in("nothing here"), None);
+    }
 
     /// The folder build fetched, checked, unpacked and run, then checked
     /// again as up to date. Needs the network; point LOCALAPPDATA at a

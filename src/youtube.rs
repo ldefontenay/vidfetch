@@ -714,7 +714,7 @@ fn lockups(
                 let when = last
                     .iter()
                     .find(|t| t.ends_with(" ago"))
-                    .cloned()
+                    .map(|t| in_words(t))
                     .unwrap_or_default();
                 let length = badges
                     .iter()
@@ -801,6 +801,27 @@ fn badges_in(v: &serde_json::Value, out: &mut Vec<String>) {
         serde_json::Value::Array(a) => a.iter().for_each(|x| badges_in(x, out)),
         _ => {}
     }
+}
+
+/// YouTube's "1y ago" and "4mo ago", on related videos, as they are said.
+fn in_words(when: &str) -> String {
+    let Some(short) = when.strip_suffix(" ago") else {
+        return when.to_string();
+    };
+    let digits = short.chars().take_while(char::is_ascii_digit).count();
+    let (n, unit) = short.split_at(digits);
+    let word = match unit {
+        "s" => "second",
+        "m" | "min" => "minute",
+        "h" => "hour",
+        "d" => "day",
+        "w" => "week",
+        "mo" => "month",
+        "y" => "year",
+        _ => return when.to_string(),
+    };
+    let plural = if n == "1" { "" } else { "s" };
+    format!("{n} {word}{plural} ago")
 }
 
 /// "5 days ago", "Streamed 2 weeks ago", as seconds since 1970, about. Zero
@@ -928,6 +949,13 @@ mod tests {
         let p = playlist_videos("PLuaAWflRSLYNAo4ER_MVItiLkDm6TaJNV", None, &stop).unwrap();
         println!("playlist {:?} {}", p.title, p.videos.len());
         assert!(!p.title.is_empty());
+    }
+
+    #[test]
+    fn short_ages_are_said_in_words() {
+        assert_eq!(in_words("1y ago"), "1 year ago");
+        assert_eq!(in_words("4mo ago"), "4 months ago");
+        assert_eq!(in_words("3 days ago"), "3 days ago");
     }
 
     #[test]
