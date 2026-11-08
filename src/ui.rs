@@ -1160,7 +1160,7 @@ fn begin(hwnd: HWND, app: &mut App, mut q: Queued, quiet: bool) -> bool {
         q.settings.fetch_ytdlp = message::ask(
             hwnd,
             "VidFetch downloads videos with yt-dlp, a free program that is not on this computer \
-             yet. Download it now from its official page on GitHub? It is about 18 MB, is checked \
+             yet. Download it now from its official page on GitHub? It is about 24 MB, is checked \
              against its published checksum, and is kept in VidFetch's own folder.",
             "&Download",
             "&Not now",
