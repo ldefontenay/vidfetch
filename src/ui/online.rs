@@ -798,14 +798,28 @@ fn appended(hwnd: HWND, app: &mut App, r: youtube::Results) {
     }
     o.at = first.min(o.rows.len().saturating_sub(1));
     show_top(hwnd, app);
-    say(
-        hwnd,
-        &format!(
-            "{}, added at the end of the list.",
-            count_of(n, "more video", "more videos")
-        ),
-    );
+    if n == 0 {
+        say(hwnd, "That was all: there are no more videos.");
+    } else {
+        say(
+            hwnd,
+            &format!(
+                "{}, added at the end of the list.",
+                count_of(n, "more video", "more videos")
+            ),
+        );
+    }
     focus(hwnd, IDC_LIST);
+}
+
+/// The number at the start of a playlist's count, "95 videos".
+fn count_in(count: &str) -> Option<usize> {
+    count
+        .split_whitespace()
+        .next()?
+        .replace(',', "")
+        .parse()
+        .ok()
 }
 
 fn video_rows(videos: Vec<Video>, more: Option<String>) -> Vec<Row> {
@@ -1396,8 +1410,12 @@ fn show_playlist(hwnd: HWND, app: &mut App, playlist: Playlist) {
     });
 }
 
-fn playlist_found(hwnd: HWND, app: &mut App, playlist: Playlist, r: youtube::Results) {
+fn playlist_found(hwnd: HWND, app: &mut App, playlist: Playlist, mut r: youtube::Results) {
     let n = r.videos.len();
+    // YouTube offers a next page even when every video is listed.
+    if count_in(&playlist.count).is_some_and(|all| n >= all) {
+        r.more = None;
+    }
     let more = if r.more.is_some() {
         " More, at the end, fetches the rest."
     } else {
@@ -1920,6 +1938,13 @@ mod tests {
         assert_eq!(label(&o), "&What YouTube found for M&&S:");
         assert_eq!(spoken(&label(&o)), "What YouTube found for M&S");
         assert_eq!(title(&o), "YouTube results for M&S - VidFetch");
+    }
+
+    #[test]
+    fn a_playlists_count_is_read() {
+        assert_eq!(count_in("95 videos"), Some(95));
+        assert_eq!(count_in("1,204 videos"), Some(1204));
+        assert_eq!(count_in(""), None);
     }
 
     #[test]
