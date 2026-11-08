@@ -102,32 +102,32 @@ YouTube address. If you had something there you needed, it is gone; I should hav
 **Q1.** Audio-described sound: do you know a YouTube video that has a described track? With one, I
 can build it as an option: "Choose the described sound when there is one".
 
-ANSWER:
+ANSWER: I think this year's M&S Christmas add has one. See if you can find it.
 
 **Q2.** Skip silence (idea 10): should the Play window skip long silences, for instance any silence
 longer than 2 seconds, as an option that is off to begin with?
 
-ANSWER:
+ANSWER: Nice option to have, but should be off by default.
 
 **Q3.** Copy a link and be asked (idea 11): when you copy a YouTube address anywhere, should VidFetch,
 if it is running, offer to download it? It would be an option, off to begin with.
 
-ANSWER:
+ANSWER: Nice to have, but off by default.
 
 **Q4.** Favourites (the other half of idea 9): do you want to mark videos as favourites, beside
 Recently played? Or do categories, and following channels, already cover it?
 
-ANSWER:
+ANSWER: Already covered for now. Will consider adding later after using the app for a while and getting feedback.
 
 **Q5.** Speed goes from half speed to three times as fast, in steps of a quarter. Is that the right
 range and step?
 
-ANSWER:
+ANSWER: Good for now.
 
 **Q6.** May I push `main` and this branch to your GitHub repository? The last two milestones are
 not on GitHub yet.
 
-ANSWER:
+ANSWER: Yes, please push.
 
 ## Entry 3 — Your test answers built, and a plan for your feature requests (2026-11-07)
 
