@@ -1,0 +1,218 @@
+VidFetch - milestone 4: search, channels, categories, and listening
+===================================================================
+
+Why: your answers to log entry 3. Log entry 4 says what was built, what I tried, and has a few
+new questions.
+
+How to start it: run
+C:\Users\ldefo\dev\VidFetch\target\release\vidfetch.exe
+
+Before you start, a warning: the first time this version starts, it moves your downloads into a
+folder called Uncategorised inside your output folder, as you agreed in log entry 3, Q6. Nothing is
+deleted, and File Explorer shows the same. Settings, the queue and what VidFetch remembers about
+your downloads follow them.
+
+Some steps need the network. Listening online takes about 5 seconds to start; that is expected.
+
+
+Section 1 - categories
+----------------------
+
+1.1  Start VidFetch. Is it said that your downloads were moved into the category Uncategorised?
+ANSWER: Yes
+
+1.2  Press Alt+C. Is it the "Category to show" box, on Uncategorised or All categories? Press the
+     Down and Up arrows: does the list change to show each, and is it said what is shown?
+ANSWER: Yes
+
+1.3  Press Alt+G for the Category menu, then N for New category. Type Music and press Enter. Is it
+     said that Music was made and is now shown, with an empty list?
+ANSWER: Yes.
+
+1.4  Go back to Uncategorised with Alt+C. Choose "Me at the zoo" in the list and press
+     Ctrl+Shift+M. Does a short menu of categories open? Choose Music. Is it said that it moved?
+     Show Music with Alt+C: is it there?
+ANSWER: Yes.
+
+1.5  With Music shown, press Ctrl+N. Tab to the Category box (or Alt+G): is Music already chosen?
+     Press Escape.
+ANSWER: Yes
+
+1.6  Alt+G, R, rename Music to Songs. Is it said? Then Alt+G, D, Delete the category shown: are you
+     asked first, with keeping it as the safe answer? Answer to delete it. Is it said that "Me at
+     the zoo" went back into Uncategorised, with nothing deleted?
+ANSWER: Yes, works perfectly.
+
+ANYTHING ODD:
+All functions well. The notes below are more for aesthetics and what sounds good with a screenreader:
+In the main window:
+1. "update the playlist" change to "update playlist".
+2. "show the queue" change to "show queue".
+3. "show in file explorer" to "show video in file explorer".
+4. "category to show" to "category".
+
+Inthe menus:
+1. File menu: "select output folder"; "open library in file explorer".
+2. Download menu: "open playlist / play video"; "open video using default media player"; "back"; "update playlist"; "download video"; "show description"; "show captions"; "stop download".
+3. Using the above examples, follow a similar, less verbose format for the other menus. Specificallly in the Youtube menu, items like "follow the channel of the one chosen" sound very odd. "follow channel" is much better and also just "unfollow channel".
+
+Also please make sure that menu options that can't apply in the context at hand (e.g. not at the given moment) are grayed out.
+
+Section 2 - the Play window
+---------------------------
+
+2.1  Show All categories, choose a long download, such as one of the Blender films, and press
+     Enter. Let it play for 30 seconds or so, then press Escape. Press Enter on it again: is it said
+     "Carrying on from" the time where you stopped?
+ANSWER: Yes, very good. Note that while the focus is on the "where playing is" field, Jaws doesn't see that its updating. Ideally, it should be able to update silently. If that can't be done, it just needs to be documented and the user needs to know that they need to tab and shift-tab to get the correct time while the audio is playing.
+
+2.2  Press the Up and Down arrows: louder and quieter, with "Volume 70 percent" or the like said?
+ANSWER: Yes, very good. Please make volume adjustable in increments of 5%.
+
+2.3  Press Shift+Up two or three times: faster each time, with the speed said, and the voice not
+     higher? Shift+Down back to normal speed. Is a speed between 1.25 and 2 pleasant to listen to?
+ANSWER: Works. Some small artifacts seam to creep in at 2x, not sure if much can be done about that. Sound quite distorted at the slowest speeds. If there are good existing dsp crates, and not too hard to implement, this could be a nice touch, but its a bonus and not a deal-breaker.
+
+2.4  Press End: does it go to 10 seconds before the end? Press T: is where it is said?
+ANSWER: Yes.
+
+2.5  Press Page Down: does the next download in the list start? Page Up: the previous one? Press
+     Escape.
+ANSWER: Page up and down work well. One odity, Jaws announces the title of the current video and then the title of the next one. Ideally it would only announce the title of the next video to play.
+
+2.6  Alt+O for the Options menu: are "Playing speed" and "Play the next one at the end" there?
+     Tick "Play the next one at the end", then play a short download to its end: does the next
+     start by itself? Untick it afterwards if you prefer.
+ANSWER: Yes, works nicely.
+
+ANYTHING ODD:
+No.
+
+Section 3 - searching YouTube
+-----------------------------
+
+3.1  Press Ctrl+F. Type a search, such as "blender open movie", and press Enter. Does the list show
+     what was found, each with its channel, length and age, and is the number found said?
+ANSWER: Yes
+
+3.2  Press End to reach the last line, "More results". Press Enter: are more added at the end, and
+     is it said how many?
+ANSWER: Yes, but its necessary to press enter twice for it to work. The first time its says that 0 videos have been added. The second time it augments the list and reports correctly.
+
+3.3  Choose a video and press Enter. After about 5 seconds, does the Play window open and play it?
+     Press Page Down: does the next one in the results play? Press Escape.
+ANSWER: Yes, works nicely. The message to wait 5 seconds is annoying. Let it say "please wait" when pressing enter and nothing with pgdn and pgup.
+
+3.4  Press Enter on the same video again: does it carry on where you stopped?
+     Press Escape again.
+ANSWER: Yes, works well.
+
+3.5  Press Ctrl+I: is the video's description shown, readable with the arrow keys? Escape closes it.
+ANSWER: Yes, works well. 
+
+3.6  Press Ctrl+D: does it start downloading, and does it tell you how to stop it? Later, when it
+     is done, is that said?
+ANSWER: Yes, both from the player window and the results window.
+
+3.7  Open the context menu (Shift+F10): are Follow its channel, Copy its web address and Open it in
+     the browser there? Choose Copy its web address, then paste it somewhere: is it the video's
+     address?
+ANSWER: Yes
+
+3.8  Press Escape, or Backspace: are you back in your downloads, on the same one as before?
+ANSWER: Yes
+
+ANYTHING ODD:
+A download attempt failed for a video at https://www.youtube.com/watch?v=1g4rGEA4g-U
+The error was: Windows could not make 1g4rGEA4g-U.sound.m4a: The operation failed because no samples were processed by the sink
+When trying to play this video with enter (streaming from the results), it just went to the end without any sound playing. Other videos in the search downloaded ok. What caused this error?
+
+Also:
+The categories selection still appears in the search results window. Ideally, search results should have its own window to avoid confusion. Changing the categories box clears the search results. Ok, but could be a bit confusing.
+
+Section 4 - following channels
+------------------------------
+
+4.1  Search again (Ctrl+F), choose a video, and in its context menu choose Follow its channel. Is
+     it said that you now follow the channel?
+ANSWER: Yes
+
+4.2  Escape back to your downloads. Choose a YouTube download, and in its context menu choose
+     Follow its channel. Is it said?
+ANSWER: Yes
+
+4.3  Press Ctrl+N and paste this channel's address:
+     https://www.youtube.com/@BlenderStudio
+     Does "What will happen" talk about following it? Press Alt+F, "Follow the channel instead".
+     Is it said?
+ANSWER: Yes
+
+4.4  Press Ctrl+L. After a few seconds, does the list show the latest videos from your channels,
+     newest first, with how many are new said? Press Ctrl+L again later: are the "New" marks gone,
+     as you have now seen them?
+ANSWER: Pressing ctrl+l gave the following error message:
+Nothing new since you last looked. The latest 0 videos from your 3 channels, newest first. Not reached: Matt Wolfe: www.youtube.com answered with status 500; DominicanaVideo: www.youtube.com answered with status 404; Blender Studio: www.youtube.com answered with status 404.
+
+4.5  Press Ctrl+Shift+L: are your channels listed? Press Enter on one: are its latest videos shown?
+     Backspace back to the channels. Press Delete on one: are you asked, with keeping it as the safe
+     answer? Stop following it: is it said?
+ANSWER: ctrl+shift+l lists the chalnnels. Pressing enter on one says: The videos of Matt Wolfe could not be listed: www.youtube.com answered with status 404
+Delete to unfollow works well, correct messages spoken.
+
+4.6  Press Escape until you are back in your downloads. Does each press go back one list, and is it
+     said where you are?
+ANSWER: Yes
+
+ANYTHING ODD:
+Only what was mentioned above regarding interacting with channels.
+If channels can be fixed, please see if its also possible to view and interact with the playlists in the channel.
+
+Section 5 - reading, chapters, and recently played
+--------------------------------------------------
+
+5.1  Choose a YouTube download and press Ctrl+I: is its description shown?
+ANSWER: Yes
+
+5.2  Download a video with captions: press Ctrl+N, paste a YouTube address, tick "Save captions"
+     and start. When it is done, choose it and use "Read its captions as text" in the Download menu
+     (Alt+D, then C). Is the text shown in paragraphs, each starting with a time such as [1:23]?
+ANSWER: Yes
+
+5.3  Chapters: search for something long that explains or teaches, such as a lecture or a
+     tutorial, and listen to it. Press Ctrl+Page Down: is the next chapter's name said and played?
+     If it says the video has no chapters, try another; many tutorials have them. Ctrl+Page Up goes
+     back. Does T now say the chapter as well?
+ANSWER: Yes, chapters work well and t announces them.
+
+5.4  Press Ctrl+H. Are the things you played in this test listed, newest first, each saying where
+     you stopped? Press Enter on one: does it carry on from there? Escape the Play window, then
+     press Delete on one: is it taken off the list, and does it say nothing was deleted?
+ANSWER: Yes.
+
+ANYTHING ODD:
+Like search results, please also give this its own window.
+
+Section 6 - last time's unclear step
+------------------------------------
+
+6.1  This is 5.10 from last time, explained. Fill the queue first: search for something with
+     Ctrl+F, then press Ctrl+D on three videos in a row, quickly. The first downloads; the other two
+     wait in the queue. Now press Alt+D: the Download menu opens. Press E, for "Empty the queue".
+     Are you asked first, with Keep them as the safe answer? Answer Remove them. Is "The queue is
+     empty" said? Press Ctrl+Q: is Waiting empty, with the first download still running? Press
+     Escape to close the queue.
+ANSWER: All as expected.
+
+ANYTHING ODD:
+Nothing apart from the above.
+
+Section 7 - when you are done
+-----------------------------
+
+7.1  Anything else about this version? The questions are in log entry 4.
+ANSWER:
+Request: In the captions and descriptions message box, make ctrl+c copy the text to the clipboard.
+Also: Please carefully research and think through what might be possible to make streaming and downloading start faster, but not at the cost of anything that might make Youtube have problems with YT-DLP.
+
+ANYTHING ODD:
+No.

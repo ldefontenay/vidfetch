@@ -437,4 +437,27 @@ mod tests {
         let got = duration(&mp3).unwrap();
         assert!((sound - got).abs() < 0.5, "sound {sound} s, MP3 {got} s");
     }
+
+    /// How much sound Media Foundation reads from VF_SOUND:
+    /// `cargo test -- --ignored reads_sound --nocapture`.
+    #[test]
+    #[ignore]
+    fn reads_sound() {
+        let _s = Session::start().unwrap();
+        let path = std::env::var("VF_SOUND").expect("VF_SOUND");
+        let stop = AtomicBool::new(false);
+        let mut samples = 0usize;
+        let mut last = 0.0;
+        sound_from(&path, 0.0, 44_100, 2, &stop, &mut |at, s| {
+            samples += s.len();
+            last = at;
+            Ok(())
+        })
+        .unwrap();
+        println!(
+            "{path}: {} s long, {} s of sound read, the last piece at {last:.1} s",
+            length(&path).unwrap_or(-1.0),
+            samples as f64 / 88_200.0
+        );
+    }
 }

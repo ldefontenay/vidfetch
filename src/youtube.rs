@@ -1,0 +1,689 @@
+//! YouTube asked directly, for what yt-dlp is slow at: searching, a video's
+//! details, finding a channel from an address, and a channel's latest videos.
+//! Each takes about a second, where yt-dlp takes 5 to 15. Downloading and
+//! listening still go through yt-dlp, which keeps up with YouTube's changes
+//! (log entry 3, Q3: "Yes, go with C."). If YouTube changes what it sends,
+//! search falls back to yt-dlp (`ytdlp::search`).
+//!
+//! All of it comes from YouTube's own web API, as its pages and NewPipe use
+//! it, without signing in. A channel's latest videos came from its public
+//! feed until YouTube stopped answering those (404, November 2026: milestone
+//! 4 test, 4.4); they come from the channel's Videos tab now, as its page
+//! shows them, with its playlists from the Playlists tab.
+
+use std::sync::atomic::AtomicBool;
+
+use crate::net;
+
+const HOST: &str = "www.youtube.com";
+/// Who VidFetch says it is to YouTube's API: its web page. English, so
+/// lengths and dates read the same everywhere.
+const CONTEXT: &str =
+    r#"{"client":{"clientName":"WEB","clientVersion":"2.20251101.00.00","hl":"en"}}"#;
+/// YouTube's search filter for videos only.
+const VIDEOS_ONLY: &str = "EgIQAQ==";
+/// A channel's Videos tab, and its Playlists tab.
+const VIDEOS_TAB: &str = "EgZ2aWRlb3PyBgQKAjoA";
+const PLAYLISTS_TAB: &str = "EglwbGF5bGlzdHPyBgQKAkIA";
+
+/// A video found online.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Video {
+    pub id: String,
+    pub title: String,
+    pub channel: String,
+    /// "UC..." when known.
+    pub channel_id: String,
+    /// "7:45", or empty when not known.
+    pub length: String,
+    /// When it came out, in words: "3 days ago".
+    pub when: String,
+    /// Seconds since 1970, about: worked out from `when`, for the newest
+    /// first across channels.
+    pub published: i64,
+    /// The description, when it came with the video; else Ctrl+I fetches it.
+    pub description: String,
+    /// A YouTube Short.
+    pub short: bool,
+}
+
+impl Video {
+    pub fn url(&self) -> String {
+        format!("https://www.youtube.com/watch?v={}", self.id)
+    }
+
+    /// The line in the list: "Title: channel, 7:45, 3 days ago".
+    pub fn line(&self) -> String {
+        let mut parts = Vec::new();
+        if !self.channel.is_empty() {
+            parts.push(self.channel.clone());
+        }
+        if self.short {
+            parts.push("a short".into());
+        }
+        if !self.length.is_empty() {
+            parts.push(self.length.clone());
+        }
+        if !self.when.is_empty() {
+            parts.push(self.when.clone());
+        }
+        if parts.is_empty() {
+            self.title.clone()
+        } else {
+            format!("{}: {}", self.title, parts.join(", "))
+        }
+    }
+}
+
+/// A page of search results, and the key to the next page, if there is one.
+#[derive(Debug, Default)]
+pub struct Results {
+    pub videos: Vec<Video>,
+    pub more: Option<String>,
+}
+
+/// A playlist on a channel's Playlists tab.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Playlist {
+    pub id: String,
+    pub title: String,
+    /// "95 videos", as YouTube says it.
+    pub count: String,
+}
+
+impl Playlist {
+    pub fn url(&self) -> String {
+        format!("https://www.youtube.com/playlist?list={}", self.id)
+    }
+}
+
+fn post(
+    path: &str,
+    body: serde_json::Value,
+    stop: &AtomicBool,
+) -> Result<serde_json::Value, String> {
+    let mut body = body;
+    body["context"] = serde_json::from_str(CONTEXT).unwrap_or_default();
+    let answer = net::post_json(HOST, path, &body.to_string(), stop)?
+        .ok_or_else(|| "Stopped.".to_string())?;
+    serde_json::from_slice(&answer).map_err(|e| format!("YouTube's answer could not be read: {e}"))
+}
+
+/// Searches YouTube for videos, or with `more` fetches the next page.
+pub fn search(query: &str, more: Option<&str>, stop: &AtomicBool) -> Result<Results, String> {
+    let body = match more {
+        Some(token) => serde_json::json!({ "continuation": token }),
+        None => serde_json::json!({ "query": query, "params": VIDEOS_ONLY }),
+    };
+    let v = post("/youtubei/v1/search?prettyPrint=false", body, stop)?;
+    Ok(results_of(&v))
+}
+
+/// The videos and next-page key in a search answer, in order.
+fn results_of(v: &serde_json::Value) -> Results {
+    let mut r = Results::default();
+    walk(v, &mut r);
+    r
+}
+
+fn walk(v: &serde_json::Value, r: &mut Results) {
+    match v {
+        serde_json::Value::Object(o) => {
+            for (k, x) in o {
+                match k.as_str() {
+                    "videoRenderer" => {
+                        if let Some(video) = video_of(x) {
+                            r.videos.push(video);
+                        }
+                    }
+                    "continuationItemRenderer" | "continuationItemViewModel" => {
+                        if let Some(t) = token_in(x) {
+                            r.more = Some(t);
+                        }
+                    }
+                    _ => walk(x, r),
+                }
+            }
+        }
+        serde_json::Value::Array(a) => a.iter().for_each(|x| walk(x, r)),
+        _ => {}
+    }
+}
+
+/// The first `continuationCommand`'s key under `v`.
+fn token_in(v: &serde_json::Value) -> Option<String> {
+    match v {
+        serde_json::Value::Object(o) => {
+            if let Some(t) = o
+                .get("continuationCommand")
+                .and_then(|c| c["token"].as_str())
+            {
+                return Some(t.to_string());
+            }
+            o.values().find_map(token_in)
+        }
+        serde_json::Value::Array(a) => a.iter().find_map(token_in),
+        _ => None,
+    }
+}
+
+/// Text YouTube gives as `{"simpleText": ...}` or `{"runs": [{"text": ...}]}`.
+fn text(v: &serde_json::Value) -> String {
+    if let Some(t) = v["simpleText"].as_str() {
+        return t.trim().to_string();
+    }
+    v["runs"]
+        .as_array()
+        .map(|runs| {
+            runs.iter()
+                .filter_map(|r| r["text"].as_str())
+                .collect::<String>()
+        })
+        .unwrap_or_default()
+        .trim()
+        .to_string()
+}
+
+fn video_of(v: &serde_json::Value) -> Option<Video> {
+    let id = v["videoId"].as_str()?.to_string();
+    let owner = &v["ownerText"]["runs"][0];
+    let live = v["badges"]
+        .as_array()
+        .is_some_and(|b| b.iter().any(|x| x.to_string().contains("LIVE")));
+    Some(Video {
+        id,
+        title: text(&v["title"]),
+        channel: owner["text"].as_str().unwrap_or_default().to_string(),
+        channel_id: owner["navigationEndpoint"]["browseEndpoint"]["browseId"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
+        length: if live && v["lengthText"].is_null() {
+            "live now".into()
+        } else {
+            text(&v["lengthText"])
+        },
+        when: text(&v["publishedTimeText"]),
+        ..Video::default()
+    })
+}
+
+/// What YouTube says about one video.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Details {
+    pub title: String,
+    pub channel: String,
+    pub channel_id: String,
+    pub seconds: u64,
+    pub description: String,
+    /// "2014-11-10".
+    pub date: String,
+}
+
+/// A video's title, channel and description.
+pub fn details(id: &str, stop: &AtomicBool) -> Result<Details, String> {
+    let v = post(
+        "/youtubei/v1/player?prettyPrint=false",
+        serde_json::json!({ "videoId": id }),
+        stop,
+    )?;
+    details_of(&v).ok_or_else(|| {
+        format!(
+            "YouTube did not say anything about the video {id}. It may be private or removed. {}",
+            v["playabilityStatus"]["reason"]
+                .as_str()
+                .unwrap_or_default()
+        )
+        .trim()
+        .to_string()
+    })
+}
+
+fn details_of(v: &serde_json::Value) -> Option<Details> {
+    let d = &v["videoDetails"];
+    let s = |k: &str| d[k].as_str().unwrap_or_default().to_string();
+    let channel_id = s("channelId");
+    if channel_id.is_empty() {
+        return None;
+    }
+    let date = v["microformat"]["playerMicroformatRenderer"]["publishDate"]
+        .as_str()
+        .unwrap_or_default();
+    Some(Details {
+        title: s("title"),
+        channel: s("author"),
+        channel_id,
+        seconds: s("lengthSeconds").parse().unwrap_or(0),
+        description: s("shortDescription"),
+        date: date.get(..10).unwrap_or(date).to_string(),
+    })
+}
+
+/// The channel an address belongs to: a channel's own address, by its id or
+/// its handle (`/@name`), or a video's, by the video's channel. Its id and
+/// name.
+pub fn channel_of(url: &str, stop: &AtomicBool) -> Result<(String, String), String> {
+    if let Some(id) = channel_id_in(url) {
+        let (name, _) = channel_videos(&id, stop)?;
+        return Ok((id, name));
+    }
+    if crate::ytdlp::is_youtube(url) {
+        if let Some(video) = crate::ytdlp::video_id(url) {
+            let d = details(&video, stop)?;
+            return Ok((d.channel_id, d.channel));
+        }
+        let v = post(
+            "/youtubei/v1/navigation/resolve_url?prettyPrint=false",
+            serde_json::json!({ "url": url }),
+            stop,
+        )?;
+        if let Some(id) = v["endpoint"]["browseEndpoint"]["browseId"]
+            .as_str()
+            .filter(|id| id.starts_with("UC"))
+        {
+            let (name, _) = channel_videos(id, stop)?;
+            return Ok((id.to_string(), name));
+        }
+    }
+    Err(format!(
+        "{url} is not the address of a YouTube channel, or of one of its videos. Copy the \
+         address of the channel's page, such as https://www.youtube.com/@BlenderStudio."
+    ))
+}
+
+/// The "UC..." id in a `/channel/UC...` address.
+pub fn channel_id_in(url: &str) -> Option<String> {
+    let i = url.find("/channel/UC")?;
+    let id: String = url[i + 9..]
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+        .collect();
+    (id.len() == 24).then_some(id)
+}
+
+/// Whether `url` is a YouTube channel's own page, rather than a video or a
+/// playlist.
+pub fn is_channel(url: &str) -> bool {
+    crate::ytdlp::is_youtube(url)
+        && crate::ytdlp::video_id(url).is_none()
+        && crate::ytdlp::list_id(url).is_none()
+        && (url.contains("/@")
+            || url.contains("/channel/")
+            || url.contains("/c/")
+            || url.contains("/user/"))
+}
+
+pub fn now() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs() as i64)
+}
+
+/// A channel's name and latest videos, newest first, from its Videos tab:
+/// about 30.
+pub fn channel_videos(channel_id: &str, stop: &AtomicBool) -> Result<(String, Vec<Video>), String> {
+    let v = post(
+        "/youtubei/v1/browse?prettyPrint=false",
+        serde_json::json!({ "browseId": channel_id, "params": VIDEOS_TAB }),
+        stop,
+    )?;
+    let name = channel_name(&v);
+    let (videos, _, _) = lockups(&v, &name, channel_id, now());
+    if name.is_empty() && videos.is_empty() {
+        return Err(format!(
+            "YouTube said nothing about the channel {channel_id}. It may have been removed."
+        ));
+    }
+    Ok((name, videos))
+}
+
+/// A channel's playlists, from its Playlists tab.
+pub fn channel_playlists(channel_id: &str, stop: &AtomicBool) -> Result<Vec<Playlist>, String> {
+    let v = post(
+        "/youtubei/v1/browse?prettyPrint=false",
+        serde_json::json!({ "browseId": channel_id, "params": PLAYLISTS_TAB }),
+        stop,
+    )?;
+    Ok(lockups(&v, "", channel_id, now()).1)
+}
+
+/// A playlist's videos, a page at a time (about 100), and the key to the
+/// next page; with `more`, the next page.
+pub fn playlist_videos(id: &str, more: Option<&str>, stop: &AtomicBool) -> Result<Results, String> {
+    let body = match more {
+        Some(token) => serde_json::json!({ "continuation": token }),
+        None => serde_json::json!({ "browseId": format!("VL{id}") }),
+    };
+    let v = post("/youtubei/v1/browse?prettyPrint=false", body, stop)?;
+    let (videos, _, more) = lockups(&v, "", "", now());
+    Ok(Results { videos, more })
+}
+
+fn channel_name(v: &serde_json::Value) -> String {
+    v["metadata"]["channelMetadataRenderer"]["title"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// The videos and playlists YouTube's newer pages list as "lockups", in
+/// order, and the key to the next page. `channel`: whose they are, when the
+/// page does not say each one's channel.
+fn lockups(
+    v: &serde_json::Value,
+    channel: &str,
+    channel_id: &str,
+    now: i64,
+) -> (Vec<Video>, Vec<Playlist>, Option<String>) {
+    let mut found = Vec::new();
+    let mut more = None;
+    collect(v, &mut found, &mut more);
+    let mut videos = Vec::new();
+    let mut playlists = Vec::new();
+    for l in found {
+        let Some(id) = l["contentId"].as_str() else {
+            continue;
+        };
+        let meta = &l["metadata"]["lockupMetadataViewModel"];
+        let title = meta["title"]["content"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let rows: Vec<Vec<String>> = meta["metadata"]["contentMetadataViewModel"]["metadataRows"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|r| {
+                r["metadataParts"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|p| p["text"]["content"].as_str())
+                    .map(str::to_string)
+                    .collect()
+            })
+            .collect();
+        let mut badges = Vec::new();
+        badges_in(&l["contentImage"], &mut badges);
+        match l["contentType"].as_str().unwrap_or_default() {
+            "LOCKUP_CONTENT_TYPE_VIDEO" => {
+                // On a playlist the first row is the channel, then views and
+                // age; on a channel's tab, just views and age.
+                let (by, last) = match rows.len() {
+                    0 => (String::new(), Vec::new()),
+                    1 => (String::new(), rows[0].clone()),
+                    _ => (rows[0].join(" and "), rows[rows.len() - 1].clone()),
+                };
+                let when = last
+                    .iter()
+                    .find(|t| t.ends_with(" ago"))
+                    .cloned()
+                    .unwrap_or_default();
+                let length = badges
+                    .iter()
+                    .find(|b| b.contains(':'))
+                    .cloned()
+                    .or_else(|| {
+                        badges
+                            .iter()
+                            .find(|b| b.contains("LIVE"))
+                            .map(|_| "live now".into())
+                    })
+                    .unwrap_or_default();
+                videos.push(Video {
+                    id: id.to_string(),
+                    title,
+                    channel: if by.is_empty() {
+                        channel.to_string()
+                    } else {
+                        by
+                    },
+                    channel_id: channel_id.to_string(),
+                    length,
+                    published: published(now, &when),
+                    when,
+                    ..Video::default()
+                });
+            }
+            "LOCKUP_CONTENT_TYPE_PLAYLIST" => playlists.push(Playlist {
+                id: id.to_string(),
+                title,
+                count: badges
+                    .iter()
+                    .find(|b| b.contains("video") || b.contains("episode"))
+                    .cloned()
+                    .unwrap_or_default(),
+            }),
+            _ => {}
+        }
+    }
+    (videos, playlists, more)
+}
+
+fn collect<'a>(
+    v: &'a serde_json::Value,
+    found: &mut Vec<&'a serde_json::Value>,
+    more: &mut Option<String>,
+) {
+    match v {
+        serde_json::Value::Object(o) => {
+            for (k, x) in o {
+                match k.as_str() {
+                    "lockupViewModel" => found.push(x),
+                    "continuationItemRenderer" | "continuationItemViewModel" => {
+                        if let Some(t) = token_in(x) {
+                            *more = Some(t);
+                        }
+                    }
+                    // The sort and filter buttons: their keys are not the
+                    // next page.
+                    "chipBarViewModel" | "chipCloudRenderer" | "sortFilterSubMenuRenderer" => {}
+                    _ => collect(x, found, more),
+                }
+            }
+        }
+        serde_json::Value::Array(a) => a.iter().for_each(|x| collect(x, found, more)),
+        _ => {}
+    }
+}
+
+fn badges_in(v: &serde_json::Value, out: &mut Vec<String>) {
+    match v {
+        serde_json::Value::Object(o) => {
+            if let Some(t) = o
+                .get("thumbnailBadgeViewModel")
+                .and_then(|b| b["text"].as_str())
+            {
+                out.push(t.to_string());
+            }
+            o.values().for_each(|x| badges_in(x, out));
+        }
+        serde_json::Value::Array(a) => a.iter().for_each(|x| badges_in(x, out)),
+        _ => {}
+    }
+}
+
+/// "5 days ago", "Streamed 2 weeks ago", as seconds since 1970, about. Zero
+/// when it says no age.
+pub fn published(now: i64, when: &str) -> i64 {
+    let words: Vec<&str> = when.split_whitespace().collect();
+    let Some(i) = words.iter().position(|w| *w == "ago") else {
+        return 0;
+    };
+    if i < 2 {
+        return 0;
+    }
+    let Ok(n) = words[i - 2].parse::<i64>() else {
+        return 0;
+    };
+    let unit = match words[i - 1].trim_end_matches('s') {
+        "second" => 1,
+        "minute" => 60,
+        "hour" => 3600,
+        "day" => 86_400,
+        "week" => 7 * 86_400,
+        "month" => 30 * 86_400,
+        "year" => 365 * 86_400,
+        _ => return 0,
+    };
+    now - n * unit
+}
+
+/// How long ago, in words, as YouTube says it.
+pub fn ago(now: i64, then: i64) -> String {
+    if then == 0 {
+        return String::new();
+    }
+    let s = (now - then).max(0);
+    let plural = |n: i64, unit: &str| {
+        if n == 1 {
+            format!("1 {unit} ago")
+        } else {
+            format!("{n} {unit}s ago")
+        }
+    };
+    match s {
+        s if s < 60 => "just now".into(),
+        s if s < 3600 => plural((s / 60).max(1), "minute"),
+        s if s < 86_400 => plural(s / 3600, "hour"),
+        s if s < 7 * 86_400 => plural(s / 86_400, "day"),
+        s if s < 31 * 86_400 => plural(s / (7 * 86_400), "week"),
+        s if s < 365 * 86_400 => plural(s / (30 * 86_400), "month"),
+        s => plural(s / (365 * 86_400), "year"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn search_results_are_read_in_order() {
+        let v: serde_json::Value = serde_json::from_str(
+            r#"{"contents":{"x":[
+              {"videoRenderer":{"videoId":"WhWc3b3KhnY","title":{"runs":[{"text":"Spring - Blender Open Movie"}]},
+                "ownerText":{"runs":[{"text":"Blender Studio","navigationEndpoint":{"browseEndpoint":{"browseId":"UCz75RVbH8q2jdBJ4SnwuZZQ"}}}]},
+                "lengthText":{"simpleText":"7:45"},"publishedTimeText":{"simpleText":"7 years ago"}}},
+              {"channelRenderer":{"channelId":"UCx"}},
+              {"videoRenderer":{"videoId":"abcdefghijk","title":{"runs":[{"text":"Live"}]},
+                "badges":[{"metadataBadgeRenderer":{"label":"LIVE"}}]}},
+              {"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"NEXT"}}}}
+            ]}}"#,
+        )
+        .unwrap();
+        let r = results_of(&v);
+        assert_eq!(r.videos.len(), 2);
+        assert_eq!(
+            r.videos[0].line(),
+            "Spring - Blender Open Movie: Blender Studio, 7:45, 7 years ago"
+        );
+        assert_eq!(r.videos[0].channel_id, "UCz75RVbH8q2jdBJ4SnwuZZQ");
+        assert_eq!(r.videos[1].length, "live now");
+        assert_eq!(r.more.as_deref(), Some("NEXT"));
+    }
+
+    #[test]
+    fn ages_are_read_and_said() {
+        assert_eq!(published(1_000_000, "5 days ago"), 1_000_000 - 5 * 86_400);
+        assert_eq!(
+            published(1_000_000, "Streamed 1 hour ago"),
+            1_000_000 - 3600
+        );
+        assert_eq!(published(1_000_000, "Premieres soon"), 0);
+        assert_eq!(ago(100_000, 100_000 - 2 * 86_400), "2 days ago");
+        assert_eq!(ago(100_000, 0), "");
+    }
+
+    #[test]
+    fn a_channels_videos_and_playlists_are_read() {
+        let v: serde_json::Value = serde_json::from_str(
+            r#"{"metadata":{"channelMetadataRenderer":{"title":"Blender"}},"contents":[
+              {"chipBarViewModel":{"x":{"continuationCommand":{"token":"CHIP"}}}},
+              {"lockupViewModel":{"contentId":"mHrHLqQj7Ts","contentType":"LOCKUP_CONTENT_TYPE_VIDEO",
+                "contentImage":{"thumbnailViewModel":{"overlays":[{"thumbnailBottomOverlayViewModel":
+                  {"badges":[{"thumbnailBadgeViewModel":{"text":"4:40"}}]}}]}},
+                "metadata":{"lockupMetadataViewModel":{"title":{"content":"Making of"},
+                  "metadata":{"contentMetadataViewModel":{"metadataRows":[{"metadataParts":[
+                    {"text":{"content":"16K views"}},{"text":{"content":"5 days ago"}}]}]}}}}}},
+              {"lockupViewModel":{"contentId":"PLa1","contentType":"LOCKUP_CONTENT_TYPE_PLAYLIST",
+                "contentImage":{"collectionThumbnailViewModel":{"x":[{"thumbnailBadgeViewModel":{"text":"95 videos"}}]}},
+                "metadata":{"lockupMetadataViewModel":{"title":{"content":"Blender Conference 2026"}}}}},
+              {"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"NEXT"}}}}
+            ]}"#,
+        )
+        .unwrap();
+        assert_eq!(channel_name(&v), "Blender");
+        let (videos, playlists, more) = lockups(&v, "Blender", "UCx", 1_000_000);
+        assert_eq!(videos.len(), 1);
+        assert_eq!(videos[0].line(), "Making of: Blender, 4:40, 5 days ago");
+        assert_eq!(videos[0].published, 1_000_000 - 5 * 86_400);
+        assert_eq!(playlists[0].count, "95 videos");
+        assert_eq!(more.as_deref(), Some("NEXT"));
+    }
+
+    #[test]
+    fn the_filter_buttons_keys_are_not_the_next_page() {
+        let v: serde_json::Value = serde_json::from_str(
+            r#"{"a":[{"continuationItemRenderer":{"continuationEndpoint":{"continuationCommand":{"token":"NEXT"}}}}],
+                "b":{"chipCloudChipRenderer":{"navigationEndpoint":{"continuationCommand":{"token":"CHIP"}}}}}"#,
+        )
+        .unwrap();
+        assert_eq!(results_of(&v).more.as_deref(), Some("NEXT"));
+    }
+
+    #[test]
+    fn channel_addresses_are_recognised() {
+        assert_eq!(
+            channel_id_in("https://www.youtube.com/channel/UCz75RVbH8q2jdBJ4SnwuZZQ/videos")
+                .as_deref(),
+            Some("UCz75RVbH8q2jdBJ4SnwuZZQ")
+        );
+        assert!(is_channel("https://www.youtube.com/@BlenderStudio"));
+        assert!(!is_channel("https://www.youtube.com/watch?v=jNQXAC9IVRw"));
+        assert!(!is_channel("https://www.youtube.com/playlist?list=PLx"));
+    }
+
+    #[test]
+    fn details_say_whose_video_it_is() {
+        let v: serde_json::Value = serde_json::from_str(
+            r#"{"videoDetails":{"title":"Big Buck Bunny","author":"Blender","channelId":"UCSMOQeBJ2RAnuFungnQOxLg",
+                "lengthSeconds":"635","shortDescription":"UHD"},
+               "microformat":{"playerMicroformatRenderer":{"publishDate":"2014-11-10T06:05:55-08:00"}}}"#,
+        )
+        .unwrap();
+        let d = details_of(&v).unwrap();
+        assert_eq!(d.channel, "Blender");
+        assert_eq!(d.seconds, 635);
+        assert_eq!(d.date, "2014-11-10");
+    }
+
+    /// Needs the network: `cargo test live_youtube -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn live_youtube() {
+        let stop = AtomicBool::new(false);
+        let r = search("blender open movie", None, &stop).unwrap();
+        assert!(r.videos.len() > 5, "{r:?}");
+        println!("{}", r.videos[0].line());
+        let more = search("", r.more.as_deref(), &stop).unwrap();
+        assert!(!more.videos.is_empty());
+        let (id, name) = channel_of("https://www.youtube.com/@BlenderStudio", &stop).unwrap();
+        assert_eq!(id, "UCz75RVbH8q2jdBJ4SnwuZZQ");
+        println!("{name}");
+        let (_, v) = channel_videos(&id, &stop).unwrap();
+        assert!(v.len() > 5, "{v:?}");
+        println!("{}", v[0].line());
+        let p = channel_playlists(&id, &stop).unwrap();
+        assert!(!p.is_empty());
+        let pv = playlist_videos(&p[0].id, None, &stop).unwrap();
+        assert!(!pv.videos.is_empty());
+        println!("{}: {}", p[0].title, pv.videos[0].line());
+        assert!(
+            more.videos.len() >= 10,
+            "the second page: {}",
+            more.videos.len()
+        );
+        let d = details("aqz-KE-bpKQ", &stop).unwrap();
+        assert_eq!(d.channel_id, "UCSMOQeBJ2RAnuFungnQOxLg");
+    }
+}

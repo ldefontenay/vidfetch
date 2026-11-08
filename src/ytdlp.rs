@@ -3,7 +3,11 @@
 //!
 //! yt-dlp is found on the PATH, or fetched from its official GitHub release
 //! into `%LOCALAPPDATA%\VidFetch\tools`, checked against the release's
-//! SHA2-256SUMS. There is no FFmpeg: YouTube's picture and sound come down as
+//! SHA2-256SUMS. The release's folder build, yt-dlp_win.zip, is fetched
+//! rather than its single yt-dlp.exe: that unpacks itself into a temporary
+//! folder every time it starts, which took 5.7 seconds against 1.6 here
+//! (milestone 4 test, section 7). The folder build cannot update itself, so
+//! VidFetch does it, comparing the release's checksum with the one kept. There is no FFmpeg: YouTube's picture and sound come down as
 //! two files, and VidFetch puts them together itself with Media Foundation
 //! (media.rs). `--ffmpeg-location` points at an empty folder, so a machine
 //! that happens to have FFmpeg behaves like one that does not. Only formats
@@ -45,25 +49,40 @@ pub fn local_dir() -> PathBuf {
         .join("VidFetch")
 }
 
+/// The release's folder build, as named in its SHA2-256SUMS.
+const ZIP: &str = "yt-dlp_win.zip";
+/// Beside our copy: the checksum of the zip it came from.
+const STAMP: &str = "vidfetch-zip.sha256";
+
+fn tools() -> PathBuf {
+    local_dir().join("tools")
+}
+
+/// Our own copy: the folder build, unpacked.
 fn own_copy() -> PathBuf {
-    local_dir().join("tools").join("yt-dlp.exe")
+    tools().join("yt-dlp").join("yt-dlp.exe")
+}
+
+/// The single yt-dlp.exe VidFetch fetched before; replaced by the folder
+/// build at its next update.
+fn old_copy() -> PathBuf {
+    tools().join("yt-dlp.exe")
 }
 
 /// yt-dlp on the PATH, or our own copy. None when neither is there.
 pub fn find() -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path)
-        .map(|d| d.join("yt-dlp.exe"))
-        .find(|p| p.is_file())
+    let on_path = std::env::var_os("PATH").and_then(|path| {
+        std::env::split_paths(&path)
+            .map(|d| d.join("yt-dlp.exe"))
+            .find(|p| p.is_file())
+    });
+    on_path
         .or_else(|| Some(own_copy()).filter(|p| p.is_file()))
+        .or_else(|| Some(old_copy()).filter(|p| p.is_file()))
 }
 
-/// Fetches yt-dlp.exe from its latest release and checks it against the
-/// release's SHA2-256SUMS before keeping it. None if stopped.
-pub fn fetch(
-    stop: &AtomicBool,
-    progress: &mut dyn FnMut(u64, u64),
-) -> Result<Option<PathBuf>, String> {
+/// The release's checksum of its folder build. None if stopped.
+fn latest_hash(stop: &AtomicBool) -> Result<Option<String>, String> {
     let sums = match net::download(
         "github.com",
         &format!("{RELEASE}SHA2-256SUMS"),
@@ -73,34 +92,122 @@ pub fn fetch(
         Some(s) => String::from_utf8_lossy(&s).into_owned(),
         None => return Ok(None),
     };
-    let Some(want) = expected_hash(&sums, "yt-dlp.exe") else {
-        return Err("yt-dlp's release has no checksum for yt-dlp.exe, so it was not kept.".into());
-    };
-    let Some(exe) = net::download(
-        "github.com",
-        &format!("{RELEASE}yt-dlp.exe"),
-        stop,
-        progress,
-    )?
-    else {
+    match expected_hash(&sums, ZIP) {
+        Some(h) => Ok(Some(h)),
+        None => Err(format!(
+            "yt-dlp's release has no checksum for {ZIP}, so nothing was kept."
+        )),
+    }
+}
+
+/// Fetches yt-dlp's folder build from its latest release, checks it against
+/// the release's SHA2-256SUMS, and unpacks it in place of our copy. None if
+/// stopped.
+pub fn fetch(
+    stop: &AtomicBool,
+    progress: &mut dyn FnMut(u64, u64),
+) -> Result<Option<PathBuf>, String> {
+    let Some(want) = latest_hash(stop)? else {
         return Ok(None);
     };
-    let got = net::hex(&net::sha256(&exe));
-    if got != want {
+    fetch_build(&want, stop, progress)
+}
+
+fn fetch_build(
+    want: &str,
+    stop: &AtomicBool,
+    progress: &mut dyn FnMut(u64, u64),
+) -> Result<Option<PathBuf>, String> {
+    let Some(zip) = net::download("github.com", &format!("{RELEASE}{ZIP}"), stop, progress)? else {
+        return Ok(None);
+    };
+    if net::hex(&net::sha256(&zip)) != want {
         return Err(
             "The yt-dlp that was downloaded does not match its published checksum, so it was not \
              kept. A new release may have come out during the download: try again."
                 .into(),
         );
     }
-    let path = own_copy();
-    let dir = path.parent().unwrap_or(Path::new("."));
-    std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
-    // Written beside, then renamed, so a half-written exe is never run.
-    let part = path.with_extension("exe.part");
-    std::fs::write(&part, &exe).map_err(|e| format!("{}: {e}", part.display()))?;
-    std::fs::rename(&part, &path).map_err(|e| format!("{}: {e}", path.display()))?;
-    Ok(Some(path))
+    let tools = tools();
+    std::fs::create_dir_all(&tools).map_err(|e| format!("{}: {e}", tools.display()))?;
+    let zip_path = tools.join(ZIP);
+    std::fs::write(&zip_path, &zip).map_err(|e| format!("{}: {e}", zip_path.display()))?;
+    // Unpacked beside, then put in place, so a half-unpacked yt-dlp is never
+    // run.
+    let new = tools.join("yt-dlp.new");
+    let _ = std::fs::remove_dir_all(&new);
+    std::fs::create_dir_all(&new).map_err(|e| format!("{}: {e}", new.display()))?;
+    let unpacked = unzip(&zip_path, &new);
+    let _ = std::fs::remove_file(&zip_path);
+    unpacked?;
+    if !new.join("yt-dlp.exe").is_file() {
+        let _ = std::fs::remove_dir_all(&new);
+        return Err(format!(
+            "{ZIP} did not hold yt-dlp.exe, so it was not kept."
+        ));
+    }
+    std::fs::write(new.join(STAMP), want).map_err(|e| format!("{}: {e}", new.display()))?;
+    let dir = tools.join("yt-dlp");
+    let old = tools.join("yt-dlp.old");
+    let _ = std::fs::remove_dir_all(&old);
+    if dir.exists() {
+        std::fs::rename(&dir, &old).map_err(|_| {
+            let _ = std::fs::remove_dir_all(&new);
+            "yt-dlp is busy, looking something up or downloading. Try again when it has finished."
+                .to_string()
+        })?;
+    }
+    std::fs::rename(&new, &dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let _ = std::fs::remove_dir_all(&old);
+    let _ = std::fs::remove_file(old_copy());
+    Ok(Some(own_copy()))
+}
+
+/// Unpacks `zip` into the folder `into` with Windows' own zip folders,
+/// showing nothing. On a thread of its own, as the Shell wants a
+/// single-threaded apartment.
+fn unzip(zip: &Path, into: &Path) -> Result<(), String> {
+    use windows::core::{IUnknown, Interface};
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
+    };
+    use windows::Win32::UI::Shell::{
+        BHID_EnumItems, FileOperation, IEnumShellItems, IFileOperation, IShellItem,
+        SHCreateItemFromParsingName, FOF_NO_UI,
+    };
+    let (zip, into) = (zip.to_path_buf(), into.to_path_buf());
+    let work = move || -> Result<(), String> {
+        let item = |p: &Path| -> windows::core::Result<IShellItem> {
+            let w = crate::wide(&p.display().to_string());
+            unsafe { SHCreateItemFromParsingName(PCWSTR(w.as_ptr()), None) }
+        };
+        let fail = |e: windows::core::Error| format!("{ZIP} could not be unpacked: {e}");
+        unsafe {
+            let from = item(&zip).map_err(fail)?;
+            let to = item(&into).map_err(fail)?;
+            let all: IEnumShellItems = from.BindToHandler(None, &BHID_EnumItems).map_err(fail)?;
+            let op: IFileOperation =
+                CoCreateInstance(&FileOperation, None, CLSCTX_ALL).map_err(fail)?;
+            op.SetOperationFlags(FOF_NO_UI).map_err(fail)?;
+            op.CopyItems(&all.cast::<IUnknown>().map_err(fail)?, &to)
+                .map_err(fail)?;
+            op.PerformOperations().map_err(fail)?;
+            if op.GetAnyOperationsAborted().map_err(fail)?.as_bool() {
+                return Err(format!("Unpacking {ZIP} was stopped part way."));
+            }
+        }
+        Ok(())
+    };
+    std::thread::spawn(move || {
+        let com = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) }.is_ok();
+        let r = work();
+        if com {
+            unsafe { CoUninitialize() };
+        }
+        r
+    })
+    .join()
+    .unwrap_or_else(|_| Err(format!("{ZIP} could not be unpacked.")))
 }
 
 /// The hash for `name` in a `<hash>  <name>` list.
@@ -113,10 +220,23 @@ fn expected_hash(sums: &str, name: &str) -> Option<String> {
     })
 }
 
+fn is_ours(exe: &Path) -> bool {
+    exe == own_copy() || exe == old_copy()
+}
+
+/// When our copy was last checked: its stamp, or the old single exe.
+fn checked(exe: &Path) -> PathBuf {
+    if exe == own_copy() {
+        exe.with_file_name(STAMP)
+    } else {
+        exe.to_path_buf()
+    }
+}
+
 /// True for our own copy when it is due an update.
 pub fn stale(exe: &Path) -> bool {
-    exe == own_copy()
-        && std::fs::metadata(exe)
+    is_ours(exe)
+        && std::fs::metadata(checked(exe))
             .and_then(|m| m.modified())
             .ok()
             .and_then(|t| SystemTime::now().duration_since(t).ok())
@@ -336,6 +456,19 @@ fn run(
 /// `yt-dlp -U` on our own copy. A failed update is not a reason to stop.
 /// What yt-dlp said, when it said why it could not update.
 pub fn update(exe: &Path, stop: &AtomicBool) -> Result<(), String> {
+    if is_ours(exe) {
+        let Some(want) = latest_hash(stop)? else {
+            return Ok(());
+        };
+        let stamp = own_copy().with_file_name(STAMP);
+        let have = std::fs::read_to_string(&stamp).unwrap_or_default();
+        if exe == own_copy() && have.trim() == want {
+            // Touched, so an up-to-date copy is not checked every time.
+            let _ = std::fs::write(&stamp, &want);
+            return Ok(());
+        }
+        return fetch_build(&want, stop, &mut |_, _| {}).map(|_| ());
+    }
     match run(exe, &["-U".to_string()], stop, &mut |_| {}) {
         Ok(Some((true, _))) => {
             // Touch the file, so an up-to-date copy is not checked every time.
@@ -662,6 +795,100 @@ pub fn title(exe: &Path, url: &str, whole: bool, stop: &AtomicBool) -> Option<St
         .filter(|t| !t.is_empty())
 }
 
+/// The address of a video's sound, to listen without downloading (log
+/// entry 3, Q3): about 5 seconds, most of it yt-dlp starting. M4A, which
+/// Media Foundation plays, over plain HTTP. Good for some hours. None if
+/// stopped.
+pub fn sound_address(exe: &Path, url: &str, stop: &AtomicBool) -> Result<Option<String>, String> {
+    let args: Vec<String> = [
+        "--ignore-config",
+        "--encoding",
+        "utf-8",
+        "--no-playlist",
+        "--no-warnings",
+        "--no-colors",
+        "-f",
+        "bestaudio[ext=m4a][protocol^=http]/bestaudio[acodec^=mp4a][protocol^=http]/best[ext=mp4][protocol^=http]",
+        "-g",
+        "--",
+        url,
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let mut found = None;
+    let Some((ok, errors)) = run(exe, &args, stop, &mut |l| {
+        if found.is_none() && l.starts_with("http") {
+            found = Some(l.trim().to_string());
+        }
+    })?
+    else {
+        return Ok(None);
+    };
+    match found {
+        Some(address) if ok => Ok(Some(address)),
+        _ => Err(explain(&errors, &site(url))),
+    }
+}
+
+/// Searches YouTube through yt-dlp, for when asking YouTube directly fails:
+/// slower, about 15 seconds, but kept up to date by yt-dlp.
+pub fn search(
+    exe: &Path,
+    query: &str,
+    stop: &AtomicBool,
+) -> Result<Option<Vec<crate::youtube::Video>>, String> {
+    let args: Vec<String> = [
+        "--ignore-config",
+        "--encoding",
+        "utf-8",
+        "--flat-playlist",
+        "--no-warnings",
+        "--no-colors",
+        "-J",
+        "--",
+        &format!("ytsearch20:{query}"),
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let mut json = String::new();
+    let Some((ok, errors)) = run(exe, &args, stop, &mut |l| json.push_str(l))? else {
+        return Ok(None);
+    };
+    if !ok {
+        return Err(explain(&errors, "YouTube"));
+    }
+    let v: serde_json::Value = serde_json::from_str(&json)
+        .map_err(|e| format!("yt-dlp's search results could not be read: {e}"))?;
+    Ok(Some(search_results(&v)))
+}
+
+fn search_results(v: &serde_json::Value) -> Vec<crate::youtube::Video> {
+    let text = |x: &serde_json::Value| x.as_str().unwrap_or_default().to_string();
+    v["entries"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|e| {
+            let id = e["id"].as_str().filter(|id| id.len() == 11)?.to_string();
+            let secs = e["duration"].as_f64().unwrap_or(0.0);
+            Some(crate::youtube::Video {
+                id,
+                title: text(&e["title"]),
+                channel: text(&e["channel"]),
+                channel_id: text(&e["channel_id"]),
+                length: if secs > 0.0 {
+                    crate::listen::clock(secs)
+                } else {
+                    String::new()
+                },
+                ..Default::default()
+            })
+        })
+        .collect()
+}
+
 /// A list from yt-dlp's `-J --flat-playlist` answer; None for one video.
 fn playlist_of(v: &serde_json::Value) -> Option<Playlist> {
     if v["_type"].as_str() != Some("playlist") {
@@ -912,13 +1139,14 @@ fn boxes(data: &[u8], start: usize, end: usize) -> Vec<Mp4Box> {
 
 /// YouTube's separate picture file carries an edit list (`edts`) that shifts
 /// it by the B-frame delay, and Media Foundation's MP4 reader then delivers
-/// no frames at all (Video Scribe, log entry 13). In our own downloaded copy
+/// no frames at all (Video Scribe, log entry 13). Some sound files carry one
+/// too, with the same result. In our own downloaded copy
 /// the box is renamed `free`, which every reader skips. Returns the shift in
 /// seconds, so that a time t on the video's clock is t + shift to Media
 /// Foundation.
 pub fn drop_edit_list(path: &Path) -> Result<f64, String> {
     use std::io::{Read, Seek, SeekFrom, Write};
-    let fail = |e: std::io::Error| format!("The downloaded picture could not be prepared: {e}");
+    let fail = |e: std::io::Error| format!("The downloaded file could not be prepared: {e}");
     let mut f = std::fs::OpenOptions::new()
         .read(true)
         .write(true)
@@ -981,6 +1209,41 @@ pub fn drop_edit_list(path: &Path) -> Result<f64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The folder build fetched, checked, unpacked and run, then checked
+    /// again as up to date. Needs the network; point LOCALAPPDATA at a
+    /// scratch folder.
+    #[test]
+    #[ignore]
+    fn fetches_the_folder_build() {
+        let stop = AtomicBool::new(false);
+        let exe = fetch(&stop, &mut |_, _| {}).unwrap().unwrap();
+        assert_eq!(exe, own_copy());
+        assert!(exe.with_file_name("_internal").is_dir());
+        let started = std::time::Instant::now();
+        let out = Command::new(&exe).arg("--version").output().unwrap();
+        println!(
+            "yt-dlp {} answered in {:.1} s",
+            String::from_utf8_lossy(&out.stdout).trim(),
+            started.elapsed().as_secs_f64()
+        );
+        assert!(out.status.success());
+        assert!(!stale(&exe));
+        update(&exe, &stop).unwrap();
+        assert!(exe.is_file());
+    }
+
+    #[test]
+    fn search_results_from_ytdlp_are_read() {
+        let v: serde_json::Value = serde_json::from_str(
+            r#"{"entries":[{"id":"WhWc3b3KhnY","title":"Spring","channel":"Blender Studio",
+                "channel_id":"UCz75RVbH8q2jdBJ4SnwuZZQ","duration":465.0},{"id":"UCnotavideo00"}]}"#,
+        )
+        .unwrap();
+        let r = search_results(&v);
+        assert_eq!(r.len(), 1);
+        assert_eq!(r[0].line(), "Spring: Blender Studio, 7:45");
+    }
 
     #[test]
     fn progress_lines_parse() {

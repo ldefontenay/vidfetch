@@ -44,6 +44,36 @@ pub fn to_srt(cues: &[Cue]) -> String {
     out
 }
 
+/// The cues as text to read (log entry 3, idea 8): running on, in
+/// paragraphs at each pause of 2 seconds or more, or each minute, each
+/// starting with its time, "[1:23]". Repeated lines are said once.
+pub fn as_text(cues: &[Cue]) -> String {
+    let mut out = String::new();
+    let mut started = f64::MIN;
+    let mut last_end = f64::MIN;
+    let mut last_line = String::new();
+    for (start, end, text) in cues {
+        let line = text.replace('\n', " ");
+        if line == last_line {
+            last_end = *end;
+            continue;
+        }
+        if start - last_end >= 2.0 || start - started >= 60.0 {
+            if !out.is_empty() {
+                out += "\n\n";
+            }
+            out += &format!("[{}] ", crate::listen::clock(*start));
+            started = *start;
+        } else {
+            out.push(' ');
+        }
+        out += &line;
+        last_line = line;
+        last_end = *end;
+    }
+    out
+}
+
 /// Every cue as (start, end, lines), WebVTT or SubRip.
 fn raw_cues(text: &str) -> Vec<(f64, f64, Vec<String>)> {
     let mut out = Vec::new();
@@ -157,5 +187,19 @@ mod tests {
         assert_eq!(cues[0].0, 3601.25);
         assert!(to_srt(&cues).contains("01:00:01,250 --> 01:00:02,000"));
         assert!(parse("WEBVTT\n").is_empty());
+    }
+
+    #[test]
+    fn captions_read_as_text_in_paragraphs() {
+        let cues = vec![
+            (0.0, 2.0, "Hello".to_string()),
+            (2.0, 4.0, "there.".to_string()),
+            (4.0, 5.0, "there.".to_string()),
+            (9.0, 10.0, "After a\npause".to_string()),
+        ];
+        assert_eq!(
+            as_text(&cues),
+            "[0:00] Hello there.\n\n[0:09] After a pause"
+        );
     }
 }

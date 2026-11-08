@@ -52,27 +52,95 @@ pub fn when(t: SystemTime) -> String {
     )
 }
 
-pub fn item_text(e: &Entry) -> String {
-    format!("{}: {}, {}", e.name, e.holds(), when(e.made))
+/// The line in the list; with `category`, the category it is in too,
+/// unless that is Uncategorised.
+pub fn item_text(e: &Entry, category: bool) -> String {
+    if category && !library::means_uncategorised(&e.category) {
+        format!(
+            "{}: {}, in {}, {}",
+            e.name,
+            e.holds(),
+            e.category,
+            when(e.made)
+        )
+    } else {
+        format!("{}: {}, {}", e.name, e.holds(), when(e.made))
+    }
 }
 
 /// Fills the list box `lb` with `entries`, choosing the one at `path`, else
-/// the one at `at`, else the last.
-pub fn fill(lb: HWND, entries: &[Entry], path: Option<&Path>, at: usize) {
+/// the one at `at`, else the last. `category`: say each one's category.
+pub fn fill(lb: HWND, entries: &[Entry], path: Option<&Path>, at: usize, category: bool) {
+    let lines: Vec<String> = entries.iter().map(|e| item_text(e, category)).collect();
+    let i = path.and_then(|p| entries.iter().position(|e| e.path == p));
+    fill_lines(lb, &lines, i.unwrap_or(at));
+}
+
+/// Fills the list box `lb` with `lines`, choosing the one at `at`, or the
+/// last.
+pub fn fill_lines(lb: HWND, lines: &[String], at: usize) {
     unsafe {
         SendMessageW(lb, LB_RESETCONTENT, None, None);
-        for e in entries {
-            let t = wide(&item_text(e));
+        for l in lines {
+            let t = wide(l);
             SendMessageW(lb, LB_ADDSTRING, None, Some(LPARAM(t.as_ptr() as isize)));
         }
-        if entries.is_empty() {
+        if lines.is_empty() {
             return;
         }
-        let i = path
-            .and_then(|p| entries.iter().position(|e| e.path == p))
-            .unwrap_or(at.min(entries.len() - 1));
-        SendMessageW(lb, LB_SETCURSEL, Some(WPARAM(i)), None);
+        SendMessageW(
+            lb,
+            LB_SETCURSEL,
+            Some(WPARAM(at.min(lines.len() - 1))),
+            None,
+        );
     }
+}
+
+/// Puts `text` on the clipboard. False if Windows would not have it.
+pub fn copy(owner: HWND, text: &str) -> bool {
+    use windows::Win32::Foundation::{HANDLE, HGLOBAL};
+    use windows::Win32::System::DataExchange::{
+        CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
+    };
+    use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+    let w = wide(text);
+    unsafe {
+        if OpenClipboard(Some(owner)).is_err() {
+            return false;
+        }
+        let ok = (|| {
+            EmptyClipboard().ok()?;
+            let g: HGLOBAL = GlobalAlloc(GMEM_MOVEABLE, w.len() * 2).ok()?;
+            let p = GlobalLock(g) as *mut u16;
+            if p.is_null() {
+                return None;
+            }
+            std::ptr::copy_nonoverlapping(w.as_ptr(), p, w.len());
+            let _ = GlobalUnlock(g);
+            // CF_UNICODETEXT; the clipboard owns the memory from here.
+            SetClipboardData(13, Some(HANDLE(g.0))).ok()?;
+            Some(())
+        })()
+        .is_some();
+        let _ = CloseClipboard();
+        ok
+    }
+}
+
+/// Opens a web address in the default browser. False if Windows could not.
+pub fn browse(url: &str) -> bool {
+    let r = unsafe {
+        ShellExecuteW(
+            None,
+            &HSTRING::from("open"),
+            &HSTRING::from(url),
+            PCWSTR::null(),
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        )
+    };
+    r.0 as isize > 32
 }
 
 /// Which item of the list box is chosen.

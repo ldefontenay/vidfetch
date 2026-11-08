@@ -1,0 +1,167 @@
+VidFetch - milestone 5: the YouTube window, playlists, and faster starts
+========================================================================
+
+Why: your answers to test-milestone-4 and log entry 4. Log entry 5 says what changed, what I
+tried, and has five new questions.
+
+How to start it: run
+C:\Users\ldefo\dev\VidFetch\target\release\vidfetch.exe
+
+Some steps need the network. Until VidFetch next updates yt-dlp, listening online still takes about
+5 seconds to start; section 6 brings in the faster yt-dlp.
+
+
+Section 1 - wording and greyed menu items
+-----------------------------------------
+
+1.1  Start VidFetch. Tab through the main window. Do you hear "Category", "Update playlist",
+     "Show queue" and "Show video in file explorer"?
+ANSWER: Yes
+
+1.2  Open each menu in turn: File, Download, YouTube, Category, Options. Is the wording shorter, as
+     you asked? Is anything still too long, or unclear?
+ANSWER: Much better. The only thing I would change is the "play next when one ends" option. Rather call it "continuous play".
+
+1.3  Choose a single video in the list, then open the Download menu. Are "Back" and "Update
+     playlist" greyed out, and does JAWS say so? Choose a playlist and open it again: is "Update
+     playlist" available now?
+ANSWER: Yes, working as expected.
+
+1.4  With nothing downloading, is "Stop download" greyed out? Now press the Update playlist button
+     on a single video: does it still say why it cannot, rather than being greyed?
+ANSWER: Yes
+
+ANYTHING ODD:
+No.
+
+Section 2 - the YouTube window
+------------------------------
+
+2.1  Press Ctrl+F and search for Blender open movie. Does a new window open, called "YouTube
+     results for Blender open movie", with the results in its list?
+ANSWER: Yes
+
+2.2  Tab through it. Do you hear the list, then Play, Download, Search and Close window, then
+     Status? Press Alt+V and Alt+G: are those the Video and Go menus?
+ANSWER: Yes
+
+2.3  Go to the end of the list and press Enter on "More". Do more videos come with the first press,
+     and is it said how many were added?
+ANSWER: Yes, perfect.
+
+2.4  Press Escape. Does the window close, back to the main window and your downloads, with the
+     Category box as you left it?
+ANSWER: yes
+
+2.5  Press Ctrl+H. Does Recently played open in the same YouTube window? Press Escape to close it.
+ANSWER: Yes
+
+ANYTHING ODD:
+The message in recently played says "14 things played lately, newest first. ". This sounds a bit unprofessional. Rather say "14 recently played items...".
+
+Section 3 - channels and their playlists
+----------------------------------------
+
+3.1  Press Ctrl+L. Do your channels' latest videos come this time, with no 404 or 500 problem?
+     Are only the ones new since you last looked marked "New"?
+ANSWER: Yes, very good.
+
+3.2  Press Ctrl+L again at once. Is it said "Nothing new since you last looked"?
+ANSWER: Yes
+
+3.3  Press Ctrl+Shift+L, choose a channel, and press Enter. Do its latest videos come?
+ANSWER: Yes
+
+3.4  Press End. Is the last line "Playlists of" the channel? Press Enter. Are its playlists listed,
+     each with how many videos it has?
+ANSWER: Yes, brilliant.
+
+3.5  Press Enter on a playlist. Are its videos listed in its order? Press Enter on one: does it
+     play?
+ANSWER: Yes
+
+3.6  Press Escape to close the Play window, then Backspace. Are you back on the playlists? Press
+     Ctrl+D on a playlist: is it asked whether to download the whole playlist? Press Cancel.
+ANSWER: Yes
+
+3.7  Choose a video from a channel you do not follow, and press Alt+V for the Video menu. Is
+     "Unfollow channel" greyed out, and "Follow channel" available? Press Escape.
+ANSWER: Yes
+
+ANYTHING ODD:
+No.
+I'm just wondering whether throughout the app, escape should perform a "stop" function and backspace a "back" function. This could avoid confusion. What do you think?
+
+Section 4 - the Play window
+---------------------------
+
+4.1  In the YouTube window, press Enter on a video. Is "Please wait" said, and nothing else until
+     it plays?
+ANSWER: It says please wait, and then announces the player window's controls, explaining what the arrows do etc. This is not necessary. It would be good if these controls weren't spoken.
+
+4.2  Tab to "Where playing is" and leave it there. Does JAWS read the time as it changes, or not?
+     Is that pleasant, or does it chatter? (Log entry 5, Q1.)
+ANSWER: Jaws behaves exactly as I would want it to behave, i.e. it doesn't constantly read the time out, but when I query the time with the say-line command, the current time is spoken and that eliminates confusion. Good as is.
+
+4.3  Press Up and Down. Does the volume move in steps of 5%?
+ANSWER: Yes.
+
+4.4  Press Page Down. Is only the next title said, not the current one first? Does the next video
+     start sooner than it did in milestone 4?
+ANSWER: Page up and page down behave exactly right. The videos still take about 5 seconds to load. Not a big problem, but would be nice if it could be a bit smoother.
+
+4.5  Press Shift+Up until twice the speed, then Shift+Down to the slowest. Is the sound clearer
+     than before, at both ends?
+ANSWER: Yes.
+
+4.6  Close the Play window. In the Options menu, choose "Cut silences when playing". Play a video
+     with pauses in it. Are the pauses cut down to about a second? Choose it again to turn it off.
+ANSWER: Yes, appears to work.
+
+4.7  Search for 1g4rGEA4g-U and press Enter on it, the video that played no sound last time. Does
+     it play now? It may take a few seconds longer the first time, as VidFetch fetches its sound
+     whole.
+ANSWER: It played, but took about two minutes. Is this expected? It would be good to set expectations for the user in the documentation, explaining what this type of video is and why the different approach is needed.
+I pressed ctrl+d to download it from the player window, and that worked very quicly, presumably because the sound had already been fetched.
+
+ANYTHING ODD:
+No.
+
+Section 5 - copying
+-------------------
+
+5.1  In the YouTube window, press Ctrl+I on a video for its description. Press Ctrl+C at once, with
+     nothing selected. Is it said that all the text was copied? Paste it in Notepad: is it all
+     there?
+ANSWER: Jaws announces "nothing selected" and nothing is copied to the clipboard.
+
+5.2  In the Options menu, choose "Offer copied web addresses". In your browser, copy the address of
+     a YouTube video, then come back to VidFetch with Alt+Tab. Are you asked whether to download
+     it? Press Not now. Turn the option off again if you prefer it off.
+ANSWER: It works. I would also like the option to just stream the sound in the player instead of downloading it. This option to stream the sound instead of downloading should also be available when pressing ctrl+n.
+
+ANYTHING ODD:
+Nothing odd, very pleased.
+
+
+Section 6 - the faster yt-dlp
+-----------------------------
+
+6.1  In the File menu, choose "Update yt-dlp". It downloads yt-dlp's faster build, about 24 MB. Is
+     it said that yt-dlp is up to date?
+ANSWER: Yes
+
+6.2  Play a video from YouTube. The first time, it may take about 30 seconds while Windows checks
+     the new files. Play another one. Does it start in about 2 seconds, rather than 5?
+ANSWER: Yes, all good.
+
+6.3  Download a video with Ctrl+D. Does it start sooner than before?
+ANSWER: Yes, I think so.
+
+ANYTHING ODD:
+No.
+
+Notes:
+The initial idea with this app was to create a very functional Youtube downloader. It has now evolved to something far more useful, i.e. an accessible interface for Youtube. I'm very pleased with it.
+Pleas adapt documentation and also anything in the app to reflect that its an accessible interface for Youtube which can act as a downloader for other video sites.
+With this in mind, please research any further features, enhancements or refinements that would be helpful to include before a first beta release.

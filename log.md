@@ -2,6 +2,266 @@
 
 Newest entry at the top. Each question is followed by an `ANSWER:` line.
 
+## Entry 5 — Your milestone 4 answers built: the YouTube window, playlists, faster starts (2026-11-08)
+
+Thank you for the test and the answers. Milestone 4 was pushed, as you said in Q6. Everything below
+is on a new branch, `m5-windows-and-fixes`, and the test is `test-milestone-5.txt`.
+
+### What changed
+
+- **The YouTube window (sections 3 and 5).** Search results, new videos, your channels, a
+  channel's videos and playlists, a playlist's videos, and Recently played now have a window of
+  their own. The main list holds only your downloads, and the Category box no longer clears
+  anything.
+  - The window stands in front of the main one, which waits behind it, as with a dialog box.
+    Downloads carry on.
+  - Enter, Ctrl+D, Ctrl+I, the context menu, and Escape or Backspace work as before. From the first
+    list, Escape closes the window.
+  - Its menus are Video (Alt+V), Go (Alt+G) and Help. The buttons are Play, Download, Search and
+    Close window.
+- **Channels (section 4).** YouTube's channel feeds now answer "404 not found" for every channel,
+  which is why Ctrl+L and Enter on a channel failed. VidFetch reads the channel's own Videos page
+  instead.
+  - "New" marks are exact now: VidFetch remembers the videos it listed last time.
+  - **A channel's playlists:** the last line of a channel's videos is "Playlists of ...". Enter
+    lists them, with how many videos each has. Enter on one shows its videos, and Ctrl+D downloads
+    it whole, after asking. A video's context menu also has "Show channel's playlists".
+- **More results (3.2).** The first press said "0 added" because VidFetch took the next-page key
+  of one of YouTube's filter buttons, not of the results. It takes the right one now.
+- **Wording (section 1).** The buttons, the Category box and every menu now use your shorter
+  wording, such as "Update playlist", "Show queue", "Show video in file explorer", "Select output
+  folder" and "Follow channel".
+- **Greyed menu items (section 1).** A menu item that cannot apply now is greyed out, such as
+  Update playlist on a single video or Stop download with nothing downloading. The buttons stay
+  as they were: they say why instead. CLAUDE.md records this.
+- **"Download video"** is in the YouTube window's menu rather than the main window's, as the main
+  list now holds only downloads. See Q3.
+- **The Play window (section 2).**
+  - Where playing is (2.1) now updates while it has focus. See Q1.
+  - The volume moves in steps of 5% (2.2).
+  - Page Down says only the next title (2.5).
+  - Enter says "Please wait" while the sound is coming. Page Down and Page Up say nothing extra,
+    and the 5-second message is gone (3.3).
+  - Faster and slower (2.3): the pieces the sound is cut into are longer, and the search for where
+    each joins the last now reaches past one pitch period of a low voice. Before, it did not, which
+    is the likely cause of the roughness at twice the speed and below. I cannot judge this by ear.
+  - Cut silences (your Q2) is in the Options menu, off. Each silence is cut down to a second.
+- **The video that would not play (section 3).** See "Findings" below; it is fixed.
+- **Ctrl+C (section 6)** copies the whole description or captions when nothing is selected. With
+  some text selected, it copies that, as before.
+- **Offer copied web addresses (your Q3)** is in the Options menu, off. When it is on, and you copy
+  a web address elsewhere and come back to VidFetch, it asks whether to download it.
+
+### Tried by me
+
+I used temporary settings, so yours were not touched. The automated checks and 53 unit tests pass.
+
+- The accessibility probe found no problems in the main window or in the YouTube window, which I
+  probed on four lists: your channels, a channel's videos, its playlists, and a playlist's videos.
+- Live from YouTube: a channel's 30 latest videos, its 29 playlists, and a playlist of 95 videos.
+- The sound file of the video that failed: VidFetch now notices that it gives no sound, and the
+  repaired copy plays all 284 seconds.
+- Fetching yt-dlp's faster build, checking it against its checksum, unpacking it, starting it, and
+  updating it.
+
+**Not tried:**
+
+- Anything by ear: the speed change, cut silences, and whether JAWS reads the moving "Where
+  playing is" box well.
+- Playing from the YouTube window, Page Down through a list, and the Play window fetching a silent
+  video whole. Each part is tested; I did not play anything through the real window.
+- Ctrl+C in the description box, the offer of a copied address, and Unfollow channel on a download.
+  I did not want to touch your clipboard again.
+- Your own yt-dlp being replaced by the faster build. That happens at its next update: after two
+  weeks, or with File, Update yt-dlp.
+
+### Findings
+
+- **Why 1g4rGEA4g-U had no sound.** YouTube's sound file for that video carries an "edit list", a
+  note at the start saying to skip the first few hundredths of a second. In this kind of file,
+  delivered in pieces, the note stops Windows' Media Foundation reading any sound at all: it read 0
+  seconds of a 284-second file. With the note removed, it reads all of it.
+  - VidFetch already removed this note from downloaded videos. It now does the same for sound-only
+    downloads.
+  - Listening online cannot change the file as it streams, so the Play window notices when nothing
+    plays. It then fetches the sound whole, about 4 MB for this video, removes the note, and plays
+    that.
+- **Starting faster (section 7).** yt-dlp spends most of its time starting itself up.
+  - **Done:** yt-dlp's single yt-dlp.exe unpacks itself into a temporary folder every time it runs.
+    Its own release also offers a ready-unpacked folder build, which VidFetch now fetches instead.
+    Here it starts in 1.0 seconds against 4.7, so listening online and downloads should start about
+    4 seconds sooner. It is the same yt-dlp, from the same release, checked the same way.
+    - The first start after each update is slow, 33 seconds here, while Windows Defender checks
+      its new files. See Q4.
+    - The folder build cannot update itself, so VidFetch updates it, by comparing the release's
+      checksum with the one it kept.
+  - **Done:** while one video plays from a list, VidFetch finds the next one's sound in the
+    background, so Page Down should start it at once.
+  - **Done:** a sound's address is kept for 3 hours, so playing the same video again starts at
+    once. YouTube's addresses last about 6 hours.
+  - **Not done, as it could upset YouTube:** making many connections at once, pretending to be
+    another kind of YouTube app, or working out YouTube's addresses without yt-dlp. Each of these
+    is a known way to be slowed down or blocked.
+- **The M&S Christmas advert (your Q1).** I found this year's advert, "The Home Of Christmas"
+  (Q1NywzDe0nM). On YouTube it has its original English sound and about 20 dubbed languages made by
+  YouTube, but no described track. I found no separate described version either. So audio
+  description stays not built until we find a video that has it.
+
+### Questions
+
+**Q1.** The "Where playing is" box now changes while it has focus. Does JAWS read it well, or does it
+chatter as the time changes? If it chatters, I will make it change only when you press T or move
+to it.
+
+ANSWER: Jaws behaves exactly as I would wish, see response in tests.
+
+**Q2.** The YouTube window stands in front, and the main window waits behind it. Is that right? The
+other way is two windows side by side, moving between them with Alt+Tab. That is more flexible, but
+easier to lose track of.
+
+ANSWER: Very good as it is.
+
+**Q3.** "Download video" is now only in the YouTube window. Does the main window need anything in its
+place? For instance, "Download again" for a download whose file has gone?
+
+ANSWER: No. But if a download's file has gone, it should be possible to download it again when pressing enter on it.
+
+**Q4.** After each yt-dlp update, about every two weeks, the first download or listen may take about
+30 seconds to start. Is that acceptable for starts about 4 seconds faster the rest of the time?
+
+ANSWER: Yes.
+
+**Q5.** After your test, shall I merge milestones 4 and 5 into `main` and push?
+
+ANSWER: Yes
+
+## Entry 4 — Search, channels, categories and the listening ideas built (2026-11-07)
+
+Thank you for your answers. Milestone 3 is merged into `main`. Everything below is on a new branch,
+`m4-search-channels`, and the test is `test-milestone-4.txt`. As you asked, I built as much as I
+could before your next test: your answers Q1 to Q8, and most of the ideas list.
+
+### What was built
+
+- **Search YouTube, Ctrl+F (Q2, Q3).** The results go in the main list, with each one's channel,
+  length and age. "More results" at the end fetches the next page.
+  - Enter listens online, in the Play window.
+  - Ctrl+D downloads, and Ctrl+I reads the description.
+  - Escape or Backspace goes back one list at a time, as in File Explorer.
+  - As agreed in option (c), the search asks YouTube directly, which takes about a second. When
+    that fails, yt-dlp searches instead.
+- **Following channels (Q4, Q5).** You can follow from three places: a search result, a download,
+  or a channel's address in New download, with the new "Follow the channel instead" button.
+  - Ctrl+L, New from your channels, lists their latest videos, newest first. Those that came out
+    since your last Ctrl+L start with "New".
+  - Ctrl+Shift+L, Your channels, lists the channels themselves. Enter shows a channel's videos;
+    Delete stops following it, after asking.
+  - Channels are checked only when you press Ctrl+L.
+- **Categories (Q6, Q7).** They work as in NoteFetch: folders in the output folder, with
+  Uncategorised for the rest.
+  - The first start moves your downloads into Uncategorised, and says so.
+  - "Category to show", Alt+C, is above the list. The Category menu is Alt+G.
+  - Ctrl+Shift+M moves a download into a category.
+  - New download has a Category box, with the category shown already chosen.
+- **The Play window** gains your ideas 1 to 4 and 6:
+  - It carries on where you stopped, for downloads and for videos online alike.
+  - Up and Down change the volume.
+  - Shift with Up and Down changes the speed, from half speed to three times as fast, a quarter at
+    a time. Voices keep their pitch.
+  - Page Down and Page Up go to the next or previous in the list, and "Play the next one at the
+    end" in the Options menu does it by itself.
+  - Ctrl with Page Down and Page Up goes from chapter to chapter, saying each name. End goes to 10
+    seconds before the end.
+  - While listening online, Ctrl+D downloads.
+- **Reading (ideas 7 and 8).** "Read its description", Ctrl+I, and "Read its captions as text" are
+  in the Download menu. The captions come as running text in paragraphs, each starting with its
+  time.
+- **Recently played, Ctrl+H (idea 9, the history half).** It lists the last 100 things you played,
+  downloads and videos online alike, each with where you stopped. Enter carries on, and Delete takes
+  one off the list without deleting the file.
+- **Deno (Q1)** is not needed yet, so nothing was built for it.
+
+Some decisions of mine, which you can change:
+
+- A place within 10 seconds of the start or the end is not remembered. A finished video starts
+  again from the beginning.
+- Speed is kept from one video to the next, and saved, so it is the same tomorrow.
+- A download started from search results says how to stop it, as Escape there goes back first.
+- Chapters are found the way YouTube finds them: times at the start of lines in the description,
+  starting at 0:00, with at least three chapters.
+
+### Tried by me
+
+I used temporary settings and copies of your Zoo and Blender downloads, so your own were not
+touched. The automated checks and 48 unit tests pass. The accessibility probe found no problems in
+the main window, New download, the Play window and the Search box.
+
+Through the real window, each of these worked:
+
+- Loose downloads moving into Uncategorised, with that said.
+- A new category, and Ctrl+D downloading into it.
+- A search with 20 results, then More results.
+- Listening: about 6 seconds to start. Page Down started the next result in about 5 seconds.
+- Following from all three places, then Ctrl+L, Your channels, and a channel's own videos.
+- Descriptions, captions as text, and Recently played, including carrying on and Delete.
+- Escape going back one list at a time.
+- Playing at twice the speed, in an automated test: 7 seconds of playing went 14 seconds into the
+  file, as it should.
+
+**Not tried:**
+
+- Anything by ear, including whether fast speech sounds good. Speed changes the sound itself, which
+  only you can judge.
+- Move to a category's menu, which I could not drive safely. I tried the moving underneath it.
+- Chapters on a real video: the reading of them is tested, but I did not find one with chapters to
+  try by hand.
+- Your real downloads being moved into Uncategorised. That happens the first time you start it.
+
+**Sorry:** during my test of "Copy its web address", I replaced what was on your clipboard with a
+YouTube address. If you had something there you needed, it is gone; I should have kept it.
+
+### Findings
+
+- **Listening online takes about 5 seconds to start.** Of that, yt-dlp takes almost all the time
+  finding the sound's address. The sound itself starts in under half a second. Jumping 5 minutes
+  ahead takes about 3 seconds.
+- **YouTube's second page of results is small.** It sometimes has only 4 videos rather than 20.
+  That is YouTube, not VidFetch.
+- **Audio-described sound (idea 5) is not built.** yt-dlp marks such a track "descriptive", but I
+  could not find a single YouTube video that has one, so I could not test it. See Q1.
+
+### Questions
+
+**Q1.** Audio-described sound: do you know a YouTube video that has a described track? With one, I
+can build it as an option: "Choose the described sound when there is one".
+
+ANSWER: I think this year's M&S Christmas add has one. See if you can find it.
+
+**Q2.** Skip silence (idea 10): should the Play window skip long silences, for instance any silence
+longer than 2 seconds, as an option that is off to begin with?
+
+ANSWER: Nice option to have, but should be off by default.
+
+**Q3.** Copy a link and be asked (idea 11): when you copy a YouTube address anywhere, should VidFetch,
+if it is running, offer to download it? It would be an option, off to begin with.
+
+ANSWER: Nice to have, but off by default.
+
+**Q4.** Favourites (the other half of idea 9): do you want to mark videos as favourites, beside
+Recently played? Or do categories, and following channels, already cover it?
+
+ANSWER: Already covered for now. Will consider adding later after using the app for a while and getting feedback.
+
+**Q5.** Speed goes from half speed to three times as fast, in steps of a quarter. Is that the right
+range and step?
+
+ANSWER: Good for now.
+
+**Q6.** May I push `main` and this branch to your GitHub repository? The last two milestones are
+not on GitHub yet.
+
+ANSWER: Yes, please push.
+
 ## Entry 3 — Your test answers built, and a plan for your feature requests (2026-11-07)
 
 Thank you for the test. Milestone 2 is merged into `main`. The changes below are on a new branch,

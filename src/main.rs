@@ -6,8 +6,11 @@
 mod addvideo;
 mod announce;
 mod captions;
+mod channels;
+mod chapters;
 mod config;
 mod downloads;
+mod history;
 mod job;
 mod library;
 mod listen;
@@ -15,10 +18,13 @@ mod media;
 mod message;
 mod namebox;
 mod net;
+mod places;
 mod player;
 mod queue;
+mod stretch;
 mod tags;
 mod ui;
+mod youtube;
 mod ytdlp;
 
 use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};

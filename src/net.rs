@@ -51,6 +51,28 @@ pub fn download(
     stop: &AtomicBool,
     progress: &mut dyn FnMut(u64, u64),
 ) -> Result<Option<Vec<u8>>, String> {
+    request(host, path, None, stop, progress)
+}
+
+/// JSON sent to `https://{host}{path}`, and the answer: YouTube's own
+/// search and details (youtube.rs). None if `stop` is set on the way.
+pub fn post_json(
+    host: &str,
+    path: &str,
+    body: &str,
+    stop: &AtomicBool,
+) -> Result<Option<Vec<u8>>, String> {
+    request(host, path, Some(body.as_bytes()), stop, &mut |_, _| {})
+}
+
+/// A GET, or a POST of JSON when there is a `body`.
+fn request(
+    host: &str,
+    path: &str,
+    body: Option<&[u8]>,
+    stop: &AtomicBool,
+    progress: &mut dyn FnMut(u64, u64),
+) -> Result<Option<Vec<u8>>, String> {
     unsafe {
         let session = Handle(WinHttpOpen(
             &HSTRING::from(AGENT),
@@ -69,7 +91,7 @@ pub fn download(
         }
         let req = Handle(WinHttpOpenRequest(
             connect.0,
-            &HSTRING::from("GET"),
+            &HSTRING::from(if body.is_some() { "POST" } else { "GET" }),
             &HSTRING::from(path),
             PCWSTR::null(),
             PCWSTR::null(),
@@ -79,8 +101,21 @@ pub fn download(
         if req.0.is_null() {
             return Err(last_error("Could not create the request"));
         }
-        WinHttpSendRequest(req.0, None, None, 0, 0, 0)
-            .map_err(|_| last_error(&format!("Could not send the request to {host}")))?;
+        let sent = match body {
+            Some(b) => {
+                let headers: Vec<u16> = "Content-Type: application/json".encode_utf16().collect();
+                WinHttpSendRequest(
+                    req.0,
+                    Some(&headers),
+                    Some(b.as_ptr() as *const core::ffi::c_void),
+                    b.len() as u32,
+                    b.len() as u32,
+                    0,
+                )
+            }
+            None => WinHttpSendRequest(req.0, None, None, 0, 0, 0),
+        };
+        sent.map_err(|_| last_error(&format!("Could not send the request to {host}")))?;
         WinHttpReceiveResponse(req.0, std::ptr::null_mut())
             .map_err(|_| last_error(&format!("No answer from {host}")))?;
         let number = |query| {

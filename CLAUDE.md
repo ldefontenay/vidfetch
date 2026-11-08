@@ -16,11 +16,17 @@ newest entry at the top.
 
 Split off from a Video Scribe session on 2 November 2026; this repository is now worked on on its own.
 
-- Milestones 1 and 2 are on `main` (milestone 2 tested by the user, 7 November 2026). Milestone 3,
-  the answers to that test (the player, a playlist's videos in the list, the queue with titles kept
-  between runs), is on `m3-player-and-fixes`, awaiting `test-milestone-3.txt`.
-- Log entry 3 holds the plan for the user's feature requests (search, followed channels, categories,
-  more ideas) and questions Q1 to Q8; build nothing of those before the answers.
+- Milestones 1 to 3 are on `main`. Milestone 4 (search, channels, categories, listening) is on
+  `m4-search-channels`, tested and pushed. Milestone 5, the user's milestone 4 answers, is on
+  `m5-windows-and-fixes`, branched from it, awaiting `test-milestone-5.txt`. Log entry 5 has its
+  questions.
+- `src/ui/online.rs` is the YouTube window (IDD_BROWSE): search, new videos, channels, a channel's
+  videos and playlists, a playlist, recently played. It runs its own message loop in front of the
+  disabled main window and shares the main window's `App`. `src/ui/category.rs` holds the
+  categories. Both are children of `ui.rs` and use its private items.
+- yt-dlp is fetched as the release's folder build, `yt-dlp_win.zip`, into
+  `%LOCALAPPDATA%\VidFetch\tools\yt-dlp`, and VidFetch updates it itself by checksum. An older single
+  `tools\yt-dlp.exe` is still used until its next update replaces it.
 - The private repository is https://github.com/ldefontenay/vidfetch, created by the user, as the
   permission check refused it from Claude. Still ask before pushing.
 - The user now uses VidFetch for real: their settings are in `%APPDATA%\VidFetch` and yt-dlp in
@@ -45,6 +51,8 @@ modify them from a VidFetch session.
   plus an "ANYTHING ODD:" line in each section. Never put manual steps in chat.
 - Load the `accessible-windows-apps` skill before any UI work, and run its probe before asking the user to test.
 - Do not grey out a control to express a constraint: every control stays enabled and says what it did.
+  **Menu items are the exception**: the user asked for those that cannot apply to be greyed out as the
+  menu opens (milestone 4 test, section 1). Do it in the `WM_INITMENUPOPUP` handler.
 
 ## Non-negotiable constraints
 

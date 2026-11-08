@@ -2,6 +2,10 @@
 //! to save it, and what will happen. Video Scribe's Add a video window, with
 //! the choices that matter for a download in it rather than only in the
 //! Options menu, so they can be changed for the download about to start.
+//!
+//! The Category box says where the download goes, the category the list
+//! shows chosen to begin with (log entry 3, Q7). "Follow the channel instead"
+//! follows the channel of the address, a channel's own or a video's (Q4).
 
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HGLOBAL, HWND, LPARAM, WPARAM};
@@ -21,6 +25,8 @@ const IDC_A_PLAN: i32 = 1092;
 const IDC_A_FORMAT: i32 = 1093;
 const IDC_A_QUALITY: i32 = 1094;
 const IDC_A_CAPTIONS: i32 = 1095;
+const IDC_A_FOLLOW: i32 = 1096;
+const IDC_A_CATEGORY: i32 = 1097;
 
 const EN_SETFOCUS: u32 = 0x0100;
 const EN_CHANGE: u32 = 0x0300;
@@ -30,20 +36,38 @@ const BM_GETCHECK: u32 = 0x00F0;
 const BM_SETCHECK: u32 = 0x00F1;
 const CF_UNICODETEXT: u32 = 13;
 
+/// What the user chose to do with the address.
+pub enum Chosen {
+    /// Download it into the category named.
+    Download { url: String, category: String },
+    /// Follow the channel the address belongs to.
+    Follow(String),
+}
+
 struct State<'a> {
     cfg: &'a mut Config,
     /// What the address box starts with.
     text: String,
     /// A download is running, so this one will wait its turn.
     busy: bool,
-    chosen: Option<String>,
+    /// Uncategorised, then the user's categories; and the one chosen.
+    categories: Vec<String>,
+    category: usize,
+    chosen: Option<Chosen>,
 }
 
 /// Asks for an address, starting with `text`, or with a web address on the
-/// clipboard when `text` is empty. The address to download, or None when
-/// the user cancelled. Choices changed here are kept in `cfg`. `busy`: a
-/// download is running, so this one will go in the queue.
-pub fn show(owner: HWND, cfg: &mut Config, text: &str, busy: bool) -> Option<String> {
+/// clipboard when `text` is empty. What to do with it, or None when the user
+/// cancelled. Choices changed here are kept in `cfg`, except the category,
+/// which is for this download. `busy`: a download is running, so this one
+/// will go in the queue. `categories`: the user's own.
+pub fn show(
+    owner: HWND,
+    cfg: &mut Config,
+    text: &str,
+    busy: bool,
+    categories: &[String],
+) -> Option<Chosen> {
     let text = if text.is_empty() {
         clipboard()
             .filter(|c| ytdlp::parse_address(c).is_ok() && !c.contains('\n'))
@@ -51,10 +75,20 @@ pub fn show(owner: HWND, cfg: &mut Config, text: &str, busy: bool) -> Option<Str
     } else {
         text.to_string()
     };
+    let all: Vec<String> = std::iter::once(crate::library::UNCATEGORISED.to_string())
+        .chain(categories.iter().cloned())
+        .collect();
+    let category = cfg
+        .category
+        .as_deref()
+        .and_then(|c| all.iter().position(|x| x.eq_ignore_ascii_case(c)))
+        .unwrap_or(0);
     let mut state = State {
         cfg,
         text,
         busy,
+        categories: all,
+        category,
         chosen: None,
     };
     unsafe {
@@ -71,7 +105,7 @@ pub fn show(owner: HWND, cfg: &mut Config, text: &str, busy: bool) -> Option<Str
 }
 
 /// The text on the clipboard, if there is any.
-fn clipboard() -> Option<String> {
+pub fn clipboard() -> Option<String> {
     unsafe {
         OpenClipboard(None).ok()?;
         let text = (|| {
@@ -98,13 +132,20 @@ unsafe fn state<'a>(hwnd: HWND) -> Option<&'a mut State<'a>> {
     (GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut State).as_mut()
 }
 
-/// What will happen with this address and these choices.
-pub fn plan(cfg: &Config, address: Option<&str>, busy: bool) -> String {
+/// What will happen with this address and these choices, saved in the
+/// category `category`.
+pub fn plan(cfg: &Config, address: Option<&str>, busy: bool, category: &str) -> String {
     let mut lines = Vec::new();
     match address {
         None => lines.push(
             "Paste the web address of a video or a playlist, such as one from YouTube, into the \
              web address box."
+                .to_string(),
+        ),
+        Some(url) if crate::youtube::is_channel(url) => lines.push(
+            "From YouTube: a channel. Start downloading fetches every one of its videos, into a \
+             folder of its own; Follow the channel instead (Alt+F) keeps it in Your channels, \
+             where Ctrl+L shows what is new."
                 .to_string(),
         ),
         Some(url) => {
@@ -142,8 +183,8 @@ pub fn plan(cfg: &Config, address: Option<&str>, busy: bool) -> String {
             .to_string(),
     });
     lines.push(format!(
-        "Saved in {}, named after the title.",
-        cfg.output_folder().display()
+        "Saved in the category {category}, named after the title: the folder {}.",
+        cfg.output_folder().join(category).display()
     ));
     if cfg.captions {
         lines.push(
@@ -162,9 +203,14 @@ pub fn plan(cfg: &Config, address: Option<&str>, busy: bool) -> String {
     lines.join("\n\n")
 }
 
-fn update_plan(hwnd: HWND, cfg: &Config, busy: bool) {
+fn update_plan(hwnd: HWND, s: &State) {
     let address = ytdlp::parse_address(&get_text(hwnd, IDC_A_SOURCE)).ok();
-    set_text(hwnd, IDC_A_PLAN, &plan(cfg, address.as_deref(), busy));
+    let category = &s.categories[s.category];
+    set_text(
+        hwnd,
+        IDC_A_PLAN,
+        &plan(s.cfg, address.as_deref(), s.busy, category),
+    );
 }
 
 unsafe fn fill(hwnd: HWND, id: i32, items: &[&str], at: usize) {
@@ -203,11 +249,13 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
                     WPARAM(s.cfg.captions as usize),
                     LPARAM(0),
                 );
+                let names: Vec<&str> = s.categories.iter().map(String::as_str).collect();
+                fill(hwnd, IDC_A_CATEGORY, &names, s.category);
                 if s.busy {
                     set_text(hwnd, IDOK.0, "&Start when its turn comes");
                 }
                 set_text(hwnd, IDC_A_SOURCE, &s.text);
-                update_plan(hwnd, s.cfg, s.busy);
+                update_plan(hwnd, s);
             }
             focus(hwnd, IDC_A_SOURCE);
             // The whole address chosen, so typing or pasting replaces it.
@@ -219,19 +267,48 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
             let code = ((wparam.0 >> 16) & 0xFFFF) as u32;
             let Some(s) = state(hwnd) else { return 0 };
             match (id, code) {
-                (IDC_A_SOURCE, EN_CHANGE) => update_plan(hwnd, s.cfg, s.busy),
+                (IDC_A_SOURCE, EN_CHANGE) => update_plan(hwnd, s),
+                (IDC_A_CATEGORY, CBN_SELCHANGE) => {
+                    if let Some(i) =
+                        combo_at(hwnd, IDC_A_CATEGORY).filter(|&i| i < s.categories.len())
+                    {
+                        s.category = i;
+                    }
+                    update_plan(hwnd, s);
+                }
+                (IDC_A_FOLLOW, _) => match ytdlp::parse_address(&get_text(hwnd, IDC_A_SOURCE)) {
+                    Ok(url) if ytdlp::is_youtube(&url) => {
+                        s.chosen = Some(Chosen::Follow(url));
+                        let _ = EndDialog(hwnd, IDOK.0 as isize);
+                    }
+                    Ok(url) => {
+                        message::problem(
+                            hwnd,
+                            &format!(
+                                "VidFetch follows YouTube channels only, and {url} is not on \
+                                     YouTube. Copy the address of a YouTube channel, or of one of \
+                                     its videos."
+                            ),
+                        );
+                        focus(hwnd, IDC_A_SOURCE);
+                    }
+                    Err(why) => {
+                        message::problem(hwnd, &why);
+                        focus(hwnd, IDC_A_SOURCE);
+                    }
+                },
                 (IDC_A_PLAN, EN_SETFOCUS) => caret_to_start(hwnd, IDC_A_PLAN),
                 (IDC_A_FORMAT, CBN_SELCHANGE) => {
                     if let Some(f) = combo_at(hwnd, IDC_A_FORMAT).and_then(|i| FORMATS.get(i)) {
                         s.cfg.format = f.0;
                     }
-                    update_plan(hwnd, s.cfg, s.busy);
+                    update_plan(hwnd, s);
                 }
                 (IDC_A_QUALITY, CBN_SELCHANGE) => {
                     if let Some(q) = combo_at(hwnd, IDC_A_QUALITY).and_then(|i| QUALITIES.get(i)) {
                         s.cfg.lines = q.0;
                     }
-                    update_plan(hwnd, s.cfg, s.busy);
+                    update_plan(hwnd, s);
                 }
                 (IDC_A_CAPTIONS, _) => {
                     s.cfg.captions = SendDlgItemMessageW(
@@ -242,12 +319,15 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
                         LPARAM(0),
                     )
                     .0 == 1;
-                    update_plan(hwnd, s.cfg, s.busy);
+                    update_plan(hwnd, s);
                 }
                 (id, _) if id == IDOK.0 => {
                     match ytdlp::parse_address(&get_text(hwnd, IDC_A_SOURCE)) {
                         Ok(url) => {
-                            s.chosen = Some(url);
+                            s.chosen = Some(Chosen::Download {
+                                url,
+                                category: s.categories[s.category].clone(),
+                            });
                             let _ = EndDialog(hwnd, IDOK.0 as isize);
                         }
                         Err(why) => {
@@ -274,7 +354,7 @@ mod tests {
     #[test]
     fn the_plan_says_what_the_address_is() {
         let cfg = Config::default();
-        let p = |u: &str| plan(&cfg, Some(u), false);
+        let p = |u: &str| plan(&cfg, Some(u), false, "Uncategorised");
         assert!(p("https://youtu.be/_cMxraX_5RE").contains("one video"));
         assert!(p("https://www.youtube.com/watch?v=_cMxraX_5RE&list=PLx").contains("asks whether"));
         // A mix is not a playlist anyone made: the video alone.
@@ -283,14 +363,16 @@ mod tests {
                 .contains("one video")
         );
         assert!(p("https://www.youtube.com/playlist?list=PLx").contains("a playlist"));
-        assert!(plan(&cfg, None, false).contains("Paste"));
+        assert!(plan(&cfg, None, false, "Talks").contains("Paste"));
+        assert!(p("https://www.youtube.com/@BlenderStudio").contains("Follow the channel"));
         assert!(p("https://youtu.be/_cMxraX_5RE").contains("sound alone"));
         let video = Config {
             format: Format::Video,
             captions: true,
             ..Config::default()
         };
-        let said = plan(&video, Some("https://youtu.be/_cMxraX_5RE"), true);
+        let said = plan(&video, Some("https://youtu.be/_cMxraX_5RE"), true, "Talks");
+        assert!(said.contains("category Talks"));
         assert!(said.contains("720 lines") && said.contains("SRT") && said.contains("queue"));
     }
 }
