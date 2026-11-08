@@ -95,6 +95,9 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
             let shown = &*(lparam.0 as *const Shown);
             let _ = SetDlgItemTextW(hwnd, IDC_MESSAGE_LABEL, PCWSTR(shown.heading.as_ptr()));
             let _ = SetDlgItemTextW(hwnd, IDC_MESSAGE, PCWSTR(shown.body.as_ptr()));
+            if let Ok(edit) = GetDlgItem(Some(hwnd), IDC_MESSAGE) {
+                let _ = windows::Win32::UI::Shell::SetWindowSubclass(edit, Some(copy_all), 1, 0);
+            }
             focus_text_at_start(hwnd, IDC_MESSAGE);
             0 // focus set: on the message itself, that is the point
         }
@@ -121,6 +124,51 @@ unsafe fn focus_text_at_start(hwnd: HWND, id: i32) {
     }
 }
 
+/// Ctrl+C with nothing selected copies the whole message, as the user asked
+/// of descriptions and captions (milestone 4 test, section 6); with a
+/// selection, the edit copies that, as ever.
+unsafe extern "system" fn copy_all(
+    edit: HWND,
+    message: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+    _id: usize,
+    _data: usize,
+) -> windows::Win32::Foundation::LRESULT {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyState, VK_CONTROL, VK_MENU, VK_SHIFT};
+    let down =
+        |k: windows::Win32::UI::Input::KeyboardAndMouse::VIRTUAL_KEY| GetKeyState(k.0 as i32) < 0;
+    if message == WM_KEYDOWN
+        && wparam.0 as u8 == b'C'
+        && down(VK_CONTROL)
+        && !down(VK_MENU)
+        && !down(VK_SHIFT)
+    {
+        let (mut from, mut to) = (0u32, 0u32);
+        SendMessageW(
+            edit,
+            EM_GETSEL,
+            Some(WPARAM(&mut from as *mut u32 as usize)),
+            Some(LPARAM(&mut to as *mut u32 as isize)),
+        );
+        if from == to {
+            let len = GetWindowTextLengthW(edit).max(0) as usize;
+            let mut buf = vec![0u16; len + 1];
+            let n = GetWindowTextW(edit, &mut buf).max(0) as usize;
+            let text = String::from_utf16_lossy(&buf[..n]);
+            let said = if crate::downloads::copy(edit, &text) {
+                "Copied all the text."
+            } else {
+                "Windows would not let VidFetch use the clipboard. Try again."
+            };
+            crate::announce::say(edit, said);
+            return windows::Win32::Foundation::LRESULT(0);
+        }
+    }
+    windows::Win32::UI::Shell::DefSubclassProc(edit, message, wparam, lparam)
+}
+
+const EM_GETSEL: u32 = 0x00B0;
 const EM_SETSEL: u32 = 0x00B1;
 const EM_SCROLLCARET: u32 = 0x00B7;
 

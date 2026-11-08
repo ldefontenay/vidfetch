@@ -105,7 +105,7 @@ pub fn show(
 }
 
 /// The text on the clipboard, if there is any.
-fn clipboard() -> Option<String> {
+pub fn clipboard() -> Option<String> {
     unsafe {
         OpenClipboard(None).ok()?;
         let text = (|| {

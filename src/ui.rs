@@ -126,6 +126,8 @@ const WM_WELCOME: u32 = WM_APP + 13;
 const WM_SETTLE: u32 = WM_APP + 14;
 /// Offer what was left in the queue when VidFetch last closed.
 const WM_RESUME: u32 = WM_APP + 15;
+/// VidFetch has come to the front with a web address newly copied.
+const WM_OFFER: u32 = WM_APP + 16;
 
 thread_local! {
     /// While set, `say` only shows: a window in front says it instead.
@@ -187,6 +189,9 @@ struct App {
     online: Vec<online::Online>,
     /// The sounds' addresses found lately, by video.
     sounds: online::Sounds,
+    /// The clipboard's number when VidFetch last looked at it, so a copy is
+    /// offered only once.
+    clip_seen: u32,
     /// The YouTube channels followed.
     channels: Vec<channels::Channel>,
     /// What is being looked up online now: its number, to know its answer,
@@ -219,6 +224,7 @@ pub fn run(cfg: Config, welcome: bool) {
         browse: None,
         online: Vec::new(),
         sounds: Default::default(),
+        clip_seen: 0,
         channels: channels::load(),
         lookup: None,
         next_lookup: 0,
@@ -466,6 +472,20 @@ unsafe extern "system" fn dialog_proc(
             }
             1
         }
+        WM_ACTIVATE => {
+            if (wparam.0 & 0xFFFF) as u32 != WA_INACTIVE {
+                if let Some(app) = app(hwnd) {
+                    copied(hwnd, app);
+                }
+            }
+            0
+        }
+        WM_OFFER => {
+            if let Some(app) = app(hwnd) {
+                offer(hwnd, app);
+            }
+            1
+        }
         WM_INITMENUPOPUP => {
             if let Some(app) = app(hwnd) {
                 init_menu(hwnd, app, HMENU(wparam.0 as *mut _));
@@ -663,6 +683,49 @@ fn escape(hwnd: HWND) {
     };
     if !back(hwnd, app) {
         stop(hwnd);
+    }
+}
+
+/// A web address copied since VidFetch last looked, if offering them is on
+/// (log entry 4, Q3: "Nice to have, but off by default"): offered once
+/// VidFetch is in front, not while it is coming there.
+fn copied(hwnd: HWND, app: &mut App) {
+    let seq = unsafe { windows::Win32::System::DataExchange::GetClipboardSequenceNumber() };
+    if !app.cfg.offer_copied || seq == app.clip_seen || !in_front(hwnd) {
+        return;
+    }
+    app.clip_seen = seq;
+    unsafe {
+        let _ = PostMessageW(Some(hwnd), WM_OFFER, WPARAM(0), LPARAM(0));
+    }
+}
+
+/// Whether `text` is one web address, and nothing else.
+fn is_address(text: &str) -> bool {
+    let t = text.trim();
+    (t.starts_with("https://") || t.starts_with("http://"))
+        && t.len() > 10
+        && !t.contains(char::is_whitespace)
+}
+
+fn offer(hwnd: HWND, app: &mut App) {
+    let Some(url) = crate::addvideo::clipboard().filter(|t| is_address(t)) else {
+        return;
+    };
+    if !in_front(hwnd) {
+        return;
+    }
+    if message::ask(
+        hwnd,
+        &format!("You copied a web address:\n\n{url}\n\nDownload it?"),
+        "&Download...",
+        "&Not now",
+        false,
+    ) {
+        add(hwnd, app, &url);
+    } else {
+        say(hwnd, "Not downloaded.");
+        focus(hwnd, IDC_LIST);
     }
 }
 
