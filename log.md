@@ -113,27 +113,27 @@ I used temporary settings, so yours were not touched. The automated checks and 5
 chatter as the time changes? If it chatters, I will make it change only when you press T or move
 to it.
 
-ANSWER:
+ANSWER: Jaws behaves exactly as I would wish, see response in tests.
 
 **Q2.** The YouTube window stands in front, and the main window waits behind it. Is that right? The
 other way is two windows side by side, moving between them with Alt+Tab. That is more flexible, but
 easier to lose track of.
 
-ANSWER:
+ANSWER: Very good as it is.
 
 **Q3.** "Download video" is now only in the YouTube window. Does the main window need anything in its
 place? For instance, "Download again" for a download whose file has gone?
 
-ANSWER:
+ANSWER: No. But if a download's file has gone, it should be possible to download it again when pressing enter on it.
 
 **Q4.** After each yt-dlp update, about every two weeks, the first download or listen may take about
 30 seconds to start. Is that acceptable for starts about 4 seconds faster the rest of the time?
 
-ANSWER:
+ANSWER: Yes.
 
 **Q5.** After your test, shall I merge milestones 4 and 5 into `main` and push?
 
-ANSWER:
+ANSWER: Yes
 
 ## Entry 4 — Search, channels, categories and the listening ideas built (2026-11-07)
 
