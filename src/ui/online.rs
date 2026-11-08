@@ -183,6 +183,10 @@ pub enum Found {
     },
     Follow(Result<(String, String), String>),
     Unfollow(Result<(String, String), String>),
+    Listen {
+        url: String,
+        name: String,
+    },
     Describe {
         name: String,
         result: Result<String, String>,
@@ -677,6 +681,7 @@ pub fn found(hwnd: HWND, app: &mut App, lparam: LPARAM) {
             Ok((id, name)) => follow(hwnd, app, id, name),
             Err(why) => problem(hwnd, &format!("No channel was followed: {why}")),
         },
+        Found::Listen { url, name } => play_address(hwnd, app, url, name),
         Found::Unfollow(result) => match result {
             Ok((id, name)) => unfollow(hwnd, app, &Channel::named(&id, &name)),
             Err(why) => problem(hwnd, &format!("The channel could not be found: {why}")),
@@ -890,43 +895,43 @@ fn searched(
 
 /// The address of a video's sound, found on a thread, or at once if it was
 /// found lately: yt-dlp takes about 4 seconds.
-fn sound_of(app: &App, id: &str) -> mpsc::Receiver<Result<String, String>> {
+fn sound_of(app: &App, url: &str) -> mpsc::Receiver<Result<String, String>> {
     let (tx, rx) = mpsc::channel();
     let sounds = app.sounds.clone();
-    let id = id.to_string();
+    let url = url.to_string();
     std::thread::spawn(move || {
-        let _ = tx.send(find_sound(&sounds, &id));
+        let _ = tx.send(find_sound(&sounds, &url));
     });
     rx
 }
 
 /// Finds the next one's sound while this one plays, so it starts at once.
-fn prefetch(app: &App, id: &str) {
-    let fresh = match app.sounds.lock().unwrap().get(id) {
+fn prefetch(app: &App, url: &str) {
+    let fresh = match app.sounds.lock().unwrap().get(url) {
         Some(Sound::Finding) => true,
         Some(Sound::Found(_, when)) => when.elapsed() < FRESH,
         None => false,
     };
     if !fresh {
         let sounds = app.sounds.clone();
-        let id = id.to_string();
+        let url = url.to_string();
         std::thread::spawn(move || {
-            let _ = find_sound(&sounds, &id);
+            let _ = find_sound(&sounds, &url);
         });
     }
 }
 
-fn find_sound(sounds: &Sounds, id: &str) -> Result<String, String> {
+fn find_sound(sounds: &Sounds, url: &str) -> Result<String, String> {
     let started = Instant::now();
     loop {
         {
             let mut all = sounds.lock().unwrap();
-            match all.get(id) {
+            match all.get(url) {
                 Some(Sound::Found(a, when)) if when.elapsed() < FRESH => return Ok(a.clone()),
                 // Another thread is finding it: wait for that.
                 Some(Sound::Finding) if started.elapsed() < Duration::from_secs(60) => {}
                 _ => {
-                    all.insert(id.to_string(), Sound::Finding);
+                    all.insert(url.to_string(), Sound::Finding);
                     break;
                 }
             }
@@ -941,18 +946,17 @@ fn find_sound(sounds: &Sounds, id: &str) -> Result<String, String> {
         ),
         Some(exe) => {
             let stop = AtomicBool::new(false);
-            let url = format!("https://www.youtube.com/watch?v={id}");
-            ytdlp::sound_address(&exe, &url, &stop)
+            ytdlp::sound_address(&exe, url, &stop)
                 .and_then(|a| a.ok_or_else(|| "it was stopped.".to_string()))
         }
     };
     let mut all = sounds.lock().unwrap();
     match &r {
         Ok(a) => {
-            all.insert(id.to_string(), Sound::Found(a.clone(), Instant::now()));
+            all.insert(url.to_string(), Sound::Found(a.clone(), Instant::now()));
         }
         Err(_) => {
-            all.remove(id);
+            all.remove(url);
         }
     }
     r
@@ -971,11 +975,11 @@ fn track_at(hwnd: HWND, app: &mut App, i: usize) -> Option<listen::Track> {
         .find(|r| r.playable())
         .and_then(Row::video);
     if let Some(n) = next {
-        prefetch(app, &n.id);
+        prefetch(app, &n.url());
     }
     if let Some(v) = row.video() {
         history::record(&places::of_video(&v.id), &v.title);
-        let source = listen::Source::Coming(sound_of(app, &v.id));
+        let source = listen::Source::Coming(sound_of(app, &v.url()));
         let key = places::of_video(&v.id);
         let (name, video) = (v.title.clone(), Some(v.id.clone()));
         return Some(listen::Track {
@@ -983,6 +987,7 @@ fn track_at(hwnd: HWND, app: &mut App, i: usize) -> Option<listen::Track> {
             name,
             key,
             video,
+            page: Some(v.url()),
             has_next,
             has_previous,
             download: Some(Box::new(move || download_video(hwnd, &v))),
@@ -998,6 +1003,7 @@ fn track_at(hwnd: HWND, app: &mut App, i: usize) -> Option<listen::Track> {
         name: p.name.clone(),
         key: p.key.clone(),
         video: library::video_of(Config::past_path().as_deref(), &path),
+        page: None,
         has_next,
         has_previous,
         download: None,
@@ -1009,14 +1015,8 @@ fn track_at(hwnd: HWND, app: &mut App, i: usize) -> Option<listen::Track> {
 fn play_row(hwnd: HWND, app: &mut App, i: usize) {
     if let Some(Row::Played(p)) = top_row(app, Some(i)) {
         if p.video().is_none() && !std::path::Path::new(&p.key).exists() {
-            say(
-                hwnd,
-                &format!(
-                    "{} is no longer where it was: it was moved or deleted outside VidFetch. \
-                     Delete takes it off this list.",
-                    p.name
-                ),
-            );
+            let p = p.clone();
+            download_gone(hwnd, &p);
             return;
         }
     }
@@ -1066,6 +1066,149 @@ fn play_row(hwnd: HWND, app: &mut App, i: usize) {
     focus(hwnd, IDC_LIST);
 }
 
+/// Enter on a download whose file has gone: offers to download it again,
+/// if VidFetch knows where it came from (log entry 5, Q3).
+fn download_gone(hwnd: HWND, p: &Played) {
+    let path = PathBuf::from(&p.key);
+    let Some(id) = library::video_of(Config::past_path().as_deref(), &path) else {
+        say(
+            hwnd,
+            &format!(
+                "{} is no longer on this computer, and VidFetch does not know where it came \
+                 from. Delete takes it off this list.",
+                p.name
+            ),
+        );
+        return;
+    };
+    if !message::ask(
+        hwnd,
+        &format!(
+            "{} is no longer on this computer. Download it again?",
+            p.name
+        ),
+        "&Download again",
+        "&Cancel",
+        true,
+    ) {
+        say(hwnd, "Not downloaded.");
+        focus(hwnd, IDC_LIST);
+        return;
+    }
+    let Some(app) = (unsafe { super::app(hwnd) }) else {
+        return;
+    };
+    let main = main_of(hwnd, app);
+    let folder = path
+        .parent()
+        .filter(|f| f.is_dir())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| app.cfg.download_folder());
+    HUSH.with(|h| h.set(true));
+    submit(
+        main,
+        app,
+        format!("https://www.youtube.com/watch?v={id}"),
+        false,
+        None,
+        folder,
+    );
+    HUSH.with(|h| h.set(false));
+    say(hwnd, &get_text(main, IDC_STATUS));
+    focus(hwnd, IDC_LIST);
+}
+
+/// Listen without downloading, from New download or a copied address: its
+/// name is found first, while its sound is found alongside.
+pub fn listen_address(hwnd: HWND, app: &mut App, url: String) {
+    if ytdlp::is_youtube(&url) && ytdlp::video_id(&url).is_none() {
+        say(
+            hwnd,
+            "That address is a playlist or a channel, and listening plays one video. Press Ctrl+N \
+             to download it, or copy the address of one of its videos.",
+        );
+        return;
+    }
+    let url = match ytdlp::video_id(&url).filter(|_| ytdlp::is_youtube(&url)) {
+        Some(id) => format!("https://www.youtube.com/watch?v={id}"),
+        None => url,
+    };
+    let Some(exe) = ytdlp::find() else {
+        say(
+            hwnd,
+            "Listening needs yt-dlp, which VidFetch fetches the first time you download something.",
+        );
+        return;
+    };
+    say(hwnd, "Please wait.");
+    prefetch(app, &url);
+    look(hwnd, app, move |stop| {
+        let name = ytdlp::title(&exe, &url, false, stop).unwrap_or_else(|| url.clone());
+        if stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        Some(Found::Listen { url, name })
+    });
+}
+
+/// Plays one web address, on its own.
+fn play_address(hwnd: HWND, app: &mut App, url: String, name: String) {
+    let video = ytdlp::video_id(&url).filter(|_| ytdlp::is_youtube(&url));
+    let key = match &video {
+        Some(id) => {
+            let key = places::of_video(id);
+            history::record(&key, &name);
+            key
+        }
+        None => url.clone(),
+    };
+    let address = url.clone();
+    let track = listen::Track {
+        source: listen::Source::Coming(sound_of(app, &url)),
+        name: name.clone(),
+        key,
+        video,
+        page: Some(url),
+        has_next: false,
+        has_previous: false,
+        download: Some(Box::new(move || download_address(hwnd, &address))),
+    };
+    let mut l = listen::Listen {
+        track,
+        speed: app.cfg.speed,
+        play_next: false,
+        cut_silence: app.cfg.cut_silence,
+        step: None,
+    };
+    let r = listen::show(hwnd, &mut l);
+    let speed = l.speed;
+    let Some(app) = (unsafe { super::app(hwnd) }) else {
+        return;
+    };
+    keep_speed(app, speed);
+    match r {
+        Err(why) => problem(hwnd, &format!("{name} could not be played: {why}")),
+        Ok(()) => set_text(hwnd, IDC_STATUS, &format!("Stopped playing {name}.")),
+    }
+    focus(hwnd, IDC_LIST);
+}
+
+/// Ctrl+D while listening to a web address; what to say.
+fn download_address(hwnd: HWND, url: &str) -> String {
+    let Some(app) = (unsafe { super::app(hwnd) }) else {
+        return String::new();
+    };
+    let main = main_of(hwnd, app);
+    if !download_again(main, app, url) {
+        return "Not downloaded again.".into();
+    }
+    let folder = app.cfg.download_folder();
+    HUSH.with(|h| h.set(true));
+    submit(main, app, url.to_string(), false, None, folder);
+    HUSH.with(|h| h.set(false));
+    get_text(main, IDC_STATUS)
+}
+
 /// Ctrl+H: what was played lately.
 fn recently_played(hwnd: HWND, app: &mut App) {
     let all = history::load();
@@ -1091,9 +1234,9 @@ fn recently_played(hwnd: HWND, app: &mut App) {
             },
             replace,
             &format!(
-                "{} played lately, newest first. Enter carries on where you stopped; Delete \
-                 takes one off the list.",
-                count_of(n, "thing", "things")
+                "{}, newest first. Enter carries on where you stopped; Delete takes one off the \
+                 list.",
+                count_of(n, "recently played item", "recently played items")
             ),
         );
     });
@@ -1763,7 +1906,7 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
                 let left = if left == 0 {
                     "The list is empty now; Escape goes back.".to_string()
                 } else {
-                    format!("{} left.", count_of(left, "thing", "things"))
+                    format!("{} left.", count_of(left, "item", "items"))
                 };
                 say(
                     hwnd,

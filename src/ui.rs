@@ -134,9 +134,11 @@ thread_local! {
     static HUSH: Cell<bool> = const { Cell::new(false) };
 }
 
-const WELCOME: &str = "Welcome to VidFetch. It downloads videos and whole playlists from YouTube \
-and many other sites, as video or as sound only.\n\n\
-Copy the address of a video or a playlist in your browser, with Alt+D then Ctrl+C, then press \
+const WELCOME: &str = "Welcome to VidFetch, an accessible interface for YouTube, which can also \
+download from many other video sites.\n\n\
+Ctrl+F searches YouTube: Enter on a video listens to it, and Ctrl+D downloads it. Ctrl+L shows \
+what is new from the channels you follow, with no account needed.\n\n\
+To use an address instead, copy the address of a video or a playlist in your browser, with Alt+D then Ctrl+C, then press \
 Ctrl+N here: the address is already filled in, so Enter starts the download. Each download takes \
 its place in the list of downloads, where Enter plays it and the Applications key opens a menu of \
 what else can be done. A playlist gets a folder of its own: Enter on it shows its videos, and \
@@ -708,24 +710,14 @@ fn is_address(text: &str) -> bool {
         && !t.contains(char::is_whitespace)
 }
 
+/// Offers it in the New download window, which can download it, listen to
+/// it, or do nothing (milestone 5 test, 5.2).
 fn offer(hwnd: HWND, app: &mut App) {
     let Some(url) = crate::addvideo::clipboard().filter(|t| is_address(t)) else {
         return;
     };
-    if !in_front(hwnd) {
-        return;
-    }
-    if message::ask(
-        hwnd,
-        &format!("You copied a web address:\n\n{url}\n\nDownload it?"),
-        "&Download...",
-        "&Not now",
-        false,
-    ) {
+    if in_front(hwnd) {
         add(hwnd, app, &url);
-    } else {
-        say(hwnd, "Not downloaded.");
-        focus(hwnd, IDC_LIST);
     }
 }
 
@@ -786,6 +778,7 @@ fn file_track(app: &App, i: usize) -> Option<listen::Track> {
         name: e.name.clone(),
         key,
         video: library::video_of(Config::past_path().as_deref(), &e.path),
+        page: None,
         has_next: app.entries[i + 1..].iter().any(file),
         has_previous: app.entries[..i].iter().any(file),
         download: None,
@@ -1025,6 +1018,7 @@ fn add(hwnd: HWND, app: &mut App, text: &str) {
     }
     match chosen {
         Some(crate::addvideo::Chosen::Follow(url)) => online::follow_address(hwnd, app, url),
+        Some(crate::addvideo::Chosen::Listen(url)) => online::listen_address(hwnd, app, url),
         Some(crate::addvideo::Chosen::Download { url, category }) => {
             let whole = ytdlp::is_youtube(&url)
                 && ytdlp::video_id(&url).is_some()
@@ -1715,10 +1709,9 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
         IDM_PLAY_NEXT => {
             app.cfg.play_next = !app.cfg.play_next;
             if app.cfg.play_next {
-                "At the end of one, the Play window now goes on to the next in the list."
-                    .to_string()
+                "Continuous play is on: at the end of one, the next in the list plays.".to_string()
             } else {
-                "At the end of one, the Play window now stops.".to_string()
+                "Continuous play is off: at the end of one, playing stops.".to_string()
             }
         }
         id if in_list(IDM_SPEED, SPEEDS.len()) => {
@@ -2005,8 +1998,8 @@ pub fn pick_folder(owner: HWND, start: Option<&Path>, title: &str) -> Option<Pat
 
 fn about() -> String {
     format!(
-        "VidFetch, version {}.\n\nDownloads videos and playlists from YouTube and many other \
-         sites, with a screen reader first. Free and open source, under the MIT licence.\n\n\
+        "VidFetch, version {}.\n\nAn accessible interface for YouTube, which can also download \
+         from many other video sites, with a screen reader first. Free and open source, under the MIT licence.\n\n\
          By Laurent Cadet de Fontenay, with assistance from Claude. Downloads by yt-dlp \
          (Unlicense), fetched from its own page on GitHub; picture and sound put together by \
          Windows' own Media Foundation.\n\nThe help (F1) has the details.",

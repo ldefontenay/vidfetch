@@ -13,8 +13,11 @@ kbd { font-family: inherit; font-weight: bold; }
 <p>Version {{VERSION}}, a test version.</p>
 
 <h2>What it does</h2>
-<p>VidFetch downloads videos, and whole playlists, from YouTube and many other sites, as sound
-only to begin with, or as video if you choose. Each download is saved in the output folder, named after its title. A playlist
+<p>VidFetch is an accessible interface for YouTube, made for screen reader users first. You can
+search YouTube, listen without downloading, follow channels without an account, go through a
+channel's videos and playlists, and read descriptions. It can also download from YouTube and from
+many other video sites, videos and whole playlists, as sound only to begin with, or as video if you
+choose. Each download is saved in the output folder, named after its title. A playlist
 gets a folder of its own, and fetching it again later brings only its new videos.</p>
 
 <h2>Downloading a video or a playlist</h2>
@@ -88,7 +91,7 @@ with the chapter.</li>
 from half speed to three times as fast, with voices kept at their own pitch. The speed is kept for
 the next one, and is also in the Options menu.</li>
 <li><kbd>Page Down</kbd> and <kbd>Page Up</kbd>: the next or the previous in the list, saying only
-its name. With <strong>Play next when one ends</strong> ticked in the Options menu, the next starts
+its name. With <strong>Continuous play</strong> ticked in the Options menu, the next starts
 by itself. From YouTube, the next one's sound is found while this one plays, so it starts at
 once.</li>
 <li><kbd>Ctrl+Page Down</kbd> and <kbd>Ctrl+Page Up</kbd>: the next chapter, or back to the start
@@ -104,8 +107,17 @@ is on, every silence is cut down to a second; where playing is still counts the 
 <p>The Play window plays the sound only, of a video too. To see a video's picture, choose
 <strong>Open video using default media player</strong> in its context menu or the Download menu,
 which plays it in the program Windows plays it with.</p>
-<p>A few YouTube videos give Windows no sound when listened to straight from YouTube. The Play
-window notices, fetches the sound whole, which takes a few seconds, and plays that.</p>
+<p>What the keys do is also in the <strong>Keys</strong> box (<kbd>Alt+K</kbd>) of the Play window.</p>
+<p>A few YouTube videos cannot be streamed, because YouTube's sound file for them carries a note
+that stops Windows reading it as it arrives. VidFetch finds this out when no sound comes, says so,
+fetches the whole of the sound first, and then plays it. That takes a few seconds longer than usual,
+the first time on any day; everything else works as usual. A download of such a video is not
+affected.</p>
+
+<h2>Listening to an address</h2>
+<p>In New download (<kbd>Ctrl+N</kbd>), <strong>Listen without downloading</strong>
+(<kbd>Alt+L</kbd>) plays the sound of the video whose address you gave, from YouTube or another
+site, in the Play window. <kbd>Ctrl+D</kbd> there downloads it after all.</p>
 
 <h2>The YouTube window</h2>
 <p>What comes from YouTube has a window of its own, in front of the main one, which waits behind it.
@@ -152,7 +164,8 @@ downloads it whole, after asking.</p>
 <h2>Recently played</h2>
 <p><kbd>Ctrl+H</kbd> lists, in the YouTube window, the last hundred things you played, downloads and videos online alike,
 newest first, each with where you stopped. <kbd>Enter</kbd> carries on from there; <kbd>Delete</kbd>
-takes one off the list, and deletes nothing.</p>
+takes one off the list, and deletes nothing. <kbd>Enter</kbd> on a download whose file has gone
+offers to download it again, if it came from YouTube.</p>
 
 <h2>Categories</h2>
 <p>Categories are folders inside the output folder, so File Explorer shows the same as VidFetch.
@@ -207,8 +220,8 @@ or deleting a download in VidFetch does the same to its captions.</p>
 <p><strong>Show captions</strong>, in the Download menu and the context menu, shows a download's
 saved captions as running text, in paragraphs, each starting with its time, such as [1:23], to read
 with the arrow keys.</p>
-<p>In the captions, a description, or any other message, <kbd>Ctrl+C</kbd> with nothing selected
-copies all the text. With some text selected, it copies that.</p>
+<p>In the captions, a description, or any other message, <strong>Copy all text</strong>
+(<kbd>Alt+O</kbd>) copies all of it. To copy a part, select it and press <kbd>Ctrl+C</kbd>.</p>
 
 <h2>The main window</h2>
 <p>The list of downloads, most recent first, shows each file and playlist in the output folder,
@@ -254,9 +267,9 @@ browser.</li>
 <li><strong>Category</strong>: New category, Rename category and Delete category; Move to category
 (<kbd>Ctrl+Shift+M</kbd>).</li>
 <li><strong>Options</strong>: Download as; Picture quality; Number playlist files in order; Save
-captions file; Playing speed; Play next when one ends; Cut silences when playing; Offer copied web
-addresses, which, when you copy a web address elsewhere and come back to VidFetch, asks whether to
-download it. Each choice is saved at once and said.</li>
+captions file; Playing speed; Continuous play; Cut silences when playing; Offer copied web
+addresses, which, when you copy a web address elsewhere and come back to VidFetch, opens New
+download with it, where you can download it or listen to it. Each choice is saved at once and said.</li>
 <li><strong>Help</strong>: this page (<kbd>F1</kbd>), and About VidFetch.</li>
 </ul>
 
