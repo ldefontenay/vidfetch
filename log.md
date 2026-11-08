@@ -90,6 +90,8 @@ built around NVDA, so a program that works well with JAWS has a place of its own
    first, only if it became necessary. It may become necessary during the beta, and it would be
    better built before than after. It would be one more program started, an exception to the rule
    that only yt-dlp is.
+Comment: Happy to go with Deno implementation now if that can prevent things from breaking soon. Is there also any functionality that could be gained by using Deno now?
+
 5. Clearer messages for what beta testers will meet: age-restricted videos, "confirm you are not a
    bot", live streams and upcoming premieres. Live streams are the unknown one, as VidFetch only
    takes sound over plain web requests.
@@ -126,25 +128,27 @@ Sources: the pages linked above; [FreeTube on GitHub](https://github.com/FreeTub
 
 **Q1.** Escape and Backspace: shall I make the change recommended above?
 
-ANSWER:
+ANSWER: Yes
 
 **Q2.** Which of A, B and C would you like before the beta? For example "all of A, B1 to B3, C1, C3".
 
-ANSWER:
+ANSWER: all of a and b. in c, I'm happy to do those later, unless you think that some should be included.
 
 **Q3.** The name VidFetch sounds like a downloader. Keep it, or would you like another name for the
 beta? If so, have you one in mind, or shall I suggest some?
 
-ANSWER:
+ANSWER: Please suggest some.
 
 **Q4.** Should the beta be public on GitHub, or shared privately with a few testers first? The
 repository is private now.
 
-ANSWER:
+ANSWER: Public on Github.
 
 **Q5.** After your test of this milestone, shall I merge it into `main` and push?
 
-ANSWER:
+ANSWER: Yes.
+
+Question: Bearing in mind the existing programmes doing a similar job, where does this app add value? Should I rather use the best of what's already available and maybe contribute to it?
 
 ## Entry 5 — Your milestone 4 answers built: the YouTube window, playlists, faster starts (2026-11-08)
 
