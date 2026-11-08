@@ -80,6 +80,8 @@ impl Video {
 pub struct Results {
     pub videos: Vec<Video>,
     pub more: Option<String>,
+    /// A playlist's own title, on its first page.
+    pub title: String,
 }
 
 /// A playlist on a channel's Playlists tab.
@@ -356,7 +358,15 @@ pub fn playlist_videos(id: &str, more: Option<&str>, stop: &AtomicBool) -> Resul
     };
     let v = post("/youtubei/v1/browse?prettyPrint=false", body, stop)?;
     let (videos, _, more) = lockups(&v, "", "", now());
-    Ok(Results { videos, more })
+    let title = v["metadata"]["playlistMetadataRenderer"]["title"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    Ok(Results {
+        videos,
+        more,
+        title,
+    })
 }
 
 fn channel_name(v: &serde_json::Value) -> String {

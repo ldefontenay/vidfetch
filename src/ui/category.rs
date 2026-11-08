@@ -267,7 +267,7 @@ pub fn move_chosen(hwnd: HWND, app: &mut App) {
     if app.inside.is_some() {
         say(
             hwnd,
-            "A playlist's videos move with it: Escape goes back to the playlist, then Ctrl+Shift+M \
+            "A playlist's videos move with it: Backspace goes back to the playlist, then Ctrl+Shift+M \
              moves it.",
         );
         return;

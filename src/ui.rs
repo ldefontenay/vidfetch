@@ -186,7 +186,7 @@ struct App {
     main: Option<HWND>,
     /// The YouTube window, while it is open.
     browse: Option<HWND>,
-    /// The lists the YouTube window shows, the last on top; Escape goes back
+    /// The lists the YouTube window shows, the last on top; Backspace goes back
     /// one at a time.
     online: Vec<online::Online>,
     /// The sounds' addresses found lately, by video.
@@ -622,7 +622,7 @@ fn chosen(hwnd: HWND, app: &App) -> Option<library::Entry> {
         say(
             hwnd,
             if app.inside.is_some() {
-                "There are no videos in this playlist's folder. Escape goes back to all downloads."
+                "There are no videos in this playlist's folder. Backspace goes back to all downloads."
             } else {
                 "There is nothing in the list of downloads. Press Ctrl+N to download a video or a \
                  playlist."
@@ -633,7 +633,7 @@ fn chosen(hwnd: HWND, app: &App) -> Option<library::Entry> {
 }
 
 /// Shows the videos of the playlist `e` in the list, in its order (milestone
-/// 2 test, section 5). Escape or Backspace goes back.
+/// 2 test, section 5). Backspace goes back.
 fn open_playlist(hwnd: HWND, app: &mut App, e: &library::Entry) {
     app.inside = Some(e.path.clone());
     app.entries = library::videos_in(&e.path);
@@ -649,7 +649,7 @@ fn open_playlist(hwnd: HWND, app: &mut App, e: &library::Entry) {
     say(
         hwnd,
         &format!(
-            "The playlist {}: {videos}. Enter plays the chosen one; Escape goes back to all \
+            "The playlist {}: {videos}. Enter plays the chosen one; Backspace goes back to all \
              downloads.",
             e.name
         ),
@@ -677,15 +677,10 @@ fn back(hwnd: HWND, app: &mut App) -> bool {
     true
 }
 
-/// Escape: goes back from a playlist's videos, else stops the download
-/// running.
+/// Escape always stops the download running, even while a playlist's videos
+/// are shown; Backspace goes back (log entry 6, Q1).
 fn escape(hwnd: HWND) {
-    let Some(app) = (unsafe { app(hwnd) }) else {
-        return;
-    };
-    if !back(hwnd, app) {
-        stop(hwnd);
-    }
+    stop(hwnd);
 }
 
 /// A web address copied since VidFetch last looked, if offering them is on
@@ -787,7 +782,7 @@ fn file_track(app: &App, i: usize) -> Option<listen::Track> {
 
 /// Plays the download at `at` in the list in the Play window, which goes on
 /// to the next or previous one with Page Down and Page Up, skipping
-/// playlists; the list follows, so Escape lands on the one last played.
+/// playlists; the list follows, so Backspace lands on the one last played.
 fn play(hwnd: HWND, at: usize) {
     let Some(app) = (unsafe { app(hwnd) }) else {
         return;
@@ -983,7 +978,7 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
         items
     };
     if app.inside.is_some() {
-        items.push((IDM_BACK, "&Back\tEscape"));
+        items.push((IDM_BACK, "&Back\tBackspace"));
     } else {
         items.push((IDM_MOVE, "Mo&ve to category...\tCtrl+Shift+M"));
     }
@@ -1863,7 +1858,7 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
                 refresh(hwnd, app);
                 if app.entries.is_empty() {
                     said += if app.inside.is_some() {
-                        " No videos are left in this playlist's folder: Escape goes back to all \
+                        " No videos are left in this playlist's folder: Backspace goes back to all \
                          downloads."
                     } else {
                         " The list is empty now: press Ctrl+N to download something."

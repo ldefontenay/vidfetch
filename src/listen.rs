@@ -50,12 +50,21 @@ const IDC_L_FORWARD: i32 = 1063;
 const IDC_L_KEYS: i32 = 1064;
 
 /// What the keys do, in a box to read, not said as the window opens.
-const KEYS: &str = "Left and Right arrows: 2 seconds back or forward.\r\nHome: the start. End: 10 \
-                    seconds before the end.\r\nT: where playing is.\r\nUp and Down arrows: \
-                    volume.\r\nShift with Up and Down: speed.\r\nPage Down and Page Up: the next \
-                    or previous in the list.\r\nCtrl with Page Down and Page Up: the next or \
-                    previous chapter.\r\nCtrl+D: download, when listening online.\r\nEscape: \
-                    close.";
+const KEYS: &str = "Left and Right arrows: move 2 seconds back or forward.\r\n\
+                    Home: start of video. End: move to 10 seconds before the end.\r\n\
+                    T: time elapsed.\r\n\
+                    Up and Down arrows: adjust volume.\r\n\
+                    Shift with Up and Down arrows: adjust speed.\r\n\
+                    Page Down and Page Up: skip to next or previous video in the list.\r\n\
+                    Ctrl Page Down and Page Up: jump to next or previous chapter.\r\n\
+                    Ctrl+D: download video, when listening online.\r\n\
+                    Tab out of this help box to make sure these keys work reliably.\r\n\
+                    Escape: close.";
+
+/// The timer that quietens the window's opening, how often, and how many times.
+const HUSH_TIMER: usize = 77;
+const HUSH_MS: u32 = 220;
+const HUSHES: u32 = 4;
 
 /// Seconds a button skips, and an arrow key.
 const SKIP: f64 = 10.0;
@@ -124,6 +133,8 @@ struct State<'a, 'b> {
     /// Say the name as it starts: it came by Page Down, or at the end of
     /// the one before.
     stepped: bool,
+    /// How many times the opening has been quietened.
+    hushed: u32,
     /// The file played instead, after a source gave no sound.
     whole: bool,
 }
@@ -147,6 +158,7 @@ pub fn show(owner: HWND, listen: &mut Listen) -> Result<(), String> {
         listen,
         shown: String::new(),
         stepped: false,
+        hushed: 0,
         whole: false,
     };
     unsafe {
@@ -271,8 +283,9 @@ fn show_where(hwnd: HWND, s: &mut State) {
     }
 }
 
-/// Starts the player just opened, from where the user stopped before, and
-/// says what it is.
+/// Starts the player just opened, from where the user stopped before. Nothing
+/// is said (milestone 6 test, 2.1: "absolutely nothing announced"), except
+/// the name of what Page Down or Page Up moved to.
 fn start(hwnd: HWND, s: &mut State) {
     let Some(p) = &s.player else { return };
     let from = places::get(&s.listen.track.key).filter(|&at| p.secs() <= 0.0 || at < p.secs());
@@ -281,28 +294,24 @@ fn start(hwnd: HWND, s: &mut State) {
     }
     p.play();
     show_where(hwnd, s);
-    let Some(p) = &s.player else { return };
-    let resume = from.map(|at| {
-        format!(
-            "Carrying on from {}, where you stopped. Home goes to the start.",
-            clock(at)
-        )
-    });
-    let name = s.stepped.then(|| format!("{}.", s.listen.track.name));
-    let came = matches!(s.listen.track.source, Source::Coming(_));
-    let said: Vec<String> = if s.stepped || came {
-        // The name was said as it was chosen, or the window's title said it;
-        // the sound itself says the rest.
-        name.into_iter().chain(resume).collect()
-    } else {
-        let long = (p.secs() > 0.0).then(|| format!("{} long.", clock(p.secs())));
-        let speed = ((p.speed() - 1.0).abs() >= 0.01)
-            .then(|| format!("{}.", capital(&speed_words(p.speed()))));
-        let first = resume.unwrap_or_else(|| "Playing from the start.".into());
-        std::iter::once(first).chain(long).chain(speed).collect()
-    };
-    if !said.is_empty() {
-        say(hwnd, &said.join(" "));
+    if s.stepped {
+        say(hwnd, &format!("{}.", s.listen.track.name));
+    }
+}
+
+/// JAWS reads a window as it opens and nothing tells it not to, so what it is
+/// reading is stopped, a few times as it may start late; then, if the sound
+/// is still being found, "Please wait", the only thing said.
+fn hush_opening(hwnd: HWND, s: &mut State) {
+    crate::announce::hush();
+    s.hushed += 1;
+    if s.hushed >= HUSHES {
+        unsafe {
+            let _ = KillTimer(Some(hwnd), HUSH_TIMER);
+        }
+        if s.player.is_none() {
+            say(hwnd, "Please wait.");
+        }
     }
 }
 
@@ -749,17 +758,21 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
             title(hwnd, s);
             set_text(hwnd, IDC_L_KEYS, KEYS);
             SetTimer(Some(hwnd), TIMER, TICK_MS, None);
+            SetTimer(Some(hwnd), HUSH_TIMER, HUSH_MS, None);
             focus(hwnd, IDC_L_PLAY);
             if s.player.is_some() {
                 start(hwnd, s);
             } else {
                 show_where(hwnd, s);
-                say(hwnd, "Please wait.");
             }
             0
         }
         WM_TIMER => {
-            tick(hwnd, state(hwnd));
+            if wparam.0 == HUSH_TIMER {
+                hush_opening(hwnd, state(hwnd));
+            } else {
+                tick(hwnd, state(hwnd));
+            }
             0
         }
         WM_COMMAND => {

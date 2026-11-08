@@ -2,10 +2,9 @@
 //! followed, those channels, a channel's videos and playlists, a playlist's
 //! videos, and what was played lately (log entry 3, plans 1 and 2; idea 9).
 //! One list, one set of keys, whatever it shows: Enter plays, Ctrl+D
-//! downloads, the context menu has the rest, and Escape or Backspace goes
-//! back one list at a time, as in File Explorer (Q2: "Yes. Also great that
-//! you thought of implementing backspace."), closing the window from the
-//! first.
+//! downloads, the context menu has the rest, Backspace goes back one list
+//! at a time, as in File Explorer, closing the window from the first, and
+//! Escape closes the window from any list (log entry 6, Q1).
 //!
 //! These lists were in the main window at first, under its Category box,
 //! which then made no sense and cleared them when changed; the user asked
@@ -181,6 +180,8 @@ pub enum Found {
         more: bool,
         result: Result<youtube::Results, String>,
     },
+    /// A channel to show: its id and name.
+    OpenChannel(Result<(String, String), String>),
     Follow(Result<(String, String), String>),
     Unfollow(Result<(String, String), String>),
     Listen {
@@ -209,6 +210,7 @@ fn label(o: &Online) -> String {
             "Playlists of {}, as the channel sho&ws them:",
             plain(&c.name)
         ),
+        Shows::Playlist(p) if p.title.is_empty() => "Videos in the playlist, sho&wn in its order:".into(),
         Shows::Playlist(p) => format!(
             "Videos in the playlist {}, sho&wn in its order:",
             plain(&p.title)
@@ -225,6 +227,7 @@ fn title(o: &Online) -> String {
         Shows::Channels => "Your channels".into(),
         Shows::Channel(c) => c.name.clone(),
         Shows::Playlists(c) => format!("Playlists of {}", c.name),
+        Shows::Playlist(p) if p.title.is_empty() => "Playlist".into(),
         Shows::Playlist(p) => p.title.clone(),
         Shows::History => "Recently played".into(),
     };
@@ -468,8 +471,7 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
     }
 }
 
-/// Escape: stops a lookup, else goes back one list, closing the window from
-/// the first.
+/// Escape: stops a lookup, else closes the window, from whichever list.
 fn escape(hwnd: HWND, app: &mut App) {
     if stop_looking(hwnd, app) {
         if app.online.last().is_some_and(|o| o.loading) {
@@ -477,7 +479,7 @@ fn escape(hwnd: HWND, app: &mut App) {
         }
         return;
     }
-    back(hwnd, app);
+    close(hwnd, app);
 }
 
 /// Stops the lookup going on, if any, and says so.
@@ -673,9 +675,17 @@ pub fn found(hwnd: HWND, app: &mut App, lparam: LPARAM) {
                 app,
                 &format!(
                     "The videos of {} could not be listed: {why}",
-                    playlist.title
+                    if playlist.title.is_empty() {
+                        "that playlist"
+                    } else {
+                        &playlist.title
+                    }
                 ),
             ),
+        },
+        Found::OpenChannel(result) => match result {
+            Ok((id, name)) => show_channel(hwnd, app, Channel::named(&id, &name)),
+            Err(why) => not_found(hwnd, app, &format!("That channel could not be found: {why}")),
         },
         Found::Follow(result) => match result {
             Ok((id, name)) => follow(hwnd, app, id, name),
@@ -747,7 +757,7 @@ fn start_search(hwnd: HWND, app: &mut App, query: String) {
         let worked = direct.as_ref().is_ok_and(|r| !r.videos.is_empty());
         let (result, slow) = match (worked, exe) {
             (false, Some(exe)) => match ytdlp::search(&exe, &query, stop) {
-                Ok(Some(videos)) => (Ok(youtube::Results { videos, more: None }), true),
+                Ok(Some(videos)) => (Ok(youtube::Results { videos, ..Default::default() }), true),
                 Ok(None) => return None,
                 Err(e) => (direct.and(Err(e)), true),
             },
@@ -885,7 +895,7 @@ fn searched(
             loading: false,
         },
         &format!(
-            "{} found for {query}. Enter plays the sound; Ctrl+D downloads; Escape goes back.{slow}",
+            "{} found for {query}. Enter plays the sound; Ctrl+D downloads.{slow}",
             count_of(n, "video", "videos")
         ),
     );
@@ -1122,11 +1132,7 @@ fn download_gone(hwnd: HWND, p: &Played) {
 /// name is found first, while its sound is found alongside.
 pub fn listen_address(hwnd: HWND, app: &mut App, url: String) {
     if ytdlp::is_youtube(&url) && ytdlp::video_id(&url).is_none() {
-        say(
-            hwnd,
-            "That address is a playlist or a channel, and listening plays one video. Press Ctrl+N \
-             to download it, or copy the address of one of its videos.",
-        );
+        open_address(hwnd, app, url);
         return;
     }
     let url = match ytdlp::video_id(&url).filter(|_| ytdlp::is_youtube(&url)) {
@@ -1148,6 +1154,34 @@ pub fn listen_address(hwnd: HWND, app: &mut App, url: String) {
             return None;
         }
         Some(Found::Listen { url, name })
+    });
+}
+
+/// A playlist's or channel's address: opens its list of videos in the YouTube
+/// window, to play or download from (milestone 6 test, 3.4).
+fn open_address(hwnd: HWND, app: &mut App, url: String) {
+    if let Some(id) = ytdlp::list_id(&url) {
+        let playlist = Playlist {
+            id,
+            ..Playlist::default()
+        };
+        open(hwnd, app, move |b, app| show_playlist(b, app, playlist));
+        return;
+    }
+    open(hwnd, app, move |b, app| {
+        waiting(
+            b,
+            app,
+            Shows::Channel(Channel::named("", "the channel")),
+            "Finding the channel.",
+        );
+        look(b, app, move |stop| {
+            let r = youtube::channel_of(&url, stop);
+            if stop.load(Ordering::Relaxed) {
+                return None;
+            }
+            Some(Found::OpenChannel(r))
+        });
     });
 }
 
@@ -1510,7 +1544,7 @@ fn playlists_found(hwnd: HWND, app: &mut App, channel: Channel, list: Vec<Playli
         }
         say(
             hwnd,
-            &format!("{} has no playlists. Escape goes back.", channel.name),
+            &format!("{} has no playlists. Backspace goes back.", channel.name),
         );
         return;
     }
@@ -1538,7 +1572,11 @@ fn show_playlist(hwnd: HWND, app: &mut App, playlist: Playlist) {
         hwnd,
         app,
         Shows::Playlist(playlist.clone()),
-        &format!("Getting the videos of {}.", playlist.title),
+        &if playlist.title.is_empty() {
+            "Getting the playlist's videos.".to_string()
+        } else {
+            format!("Getting the videos of {}.", playlist.title)
+        },
     );
     look(hwnd, app, move |stop| {
         let result = youtube::playlist_videos(&playlist.id, None, stop);
@@ -1553,7 +1591,10 @@ fn show_playlist(hwnd: HWND, app: &mut App, playlist: Playlist) {
     });
 }
 
-fn playlist_found(hwnd: HWND, app: &mut App, playlist: Playlist, mut r: youtube::Results) {
+fn playlist_found(hwnd: HWND, app: &mut App, mut playlist: Playlist, mut r: youtube::Results) {
+    if playlist.title.is_empty() {
+        playlist.title = std::mem::take(&mut r.title);
+    }
     let n = r.videos.len();
     // YouTube offers a next page even when every video is listed.
     if count_in(&playlist.count).is_some_and(|all| n >= all) {
@@ -1826,7 +1867,7 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
             Some((_, Row::Playlists(c))) => show_playlists(hwnd, app, c),
             Some((_, Row::Playlist(p))) => show_playlist(hwnd, app, p),
             Some((_, Row::More(t))) => more(hwnd, app, t),
-            None => say(hwnd, "The list is empty. Escape goes back."),
+            None => say(hwnd, "The list is empty. Backspace goes back."),
         },
         IDM_DOWNLOAD => match row {
             Some((_, Row::Channel(c))) | Some((_, Row::Playlists(c))) => download_all(
@@ -1904,7 +1945,7 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
                 show_top(hwnd, app);
                 let left = app.online.last().map_or(0, |o| o.rows.len());
                 let left = if left == 0 {
-                    "The list is empty now; Escape goes back.".to_string()
+                    "The list is empty now; Backspace goes back.".to_string()
                 } else {
                     format!("{} left.", count_of(left, "item", "items"))
                 };
@@ -1999,7 +2040,7 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
         choose_under(lb, x, y);
     }
     let Some((_, row)) = chosen_row(hwnd, app) else {
-        say(hwnd, "The list is empty. Escape goes back.");
+        say(hwnd, "The list is empty. Backspace goes back.");
         return;
     };
     let shown_channel = matches!(app.online.last().map(|o| &o.shows), Some(Shows::Channel(_)));
