@@ -47,8 +47,8 @@ playlists"). One small Win32 program, a screen reader first, no installer.
 
 Video Scribe's main window: the list of downloads (files and playlist folders in the output folder,
 most recent first), Open (Enter: plays a file, opens a playlist's folder), New download (Ctrl+N),
-Update the playlist (Ctrl+U), Show the queue (Ctrl+Q), Rename (F2), Show in File Explorer, Delete (to
-the Recycle Bin), Status. New download takes the address from the clipboard, and has Download as,
+Update playlist (Ctrl+U), Show queue (Ctrl+Q), Rename (F2), Show video in file explorer, Delete (to
+the Recycle Bin), Status. What comes from YouTube has a window of its own (decision 16). New download takes the address from the clipboard, and has Download as,
 Picture quality and Save captions in it.
 
 ## 4. Decisions
@@ -68,12 +68,13 @@ Picture quality and Save captions in it.
 8. Enter on a playlist shows its videos in the same list; Escape goes back (milestone 2 test, 5).
 9. The queue shows titles (log entry 2, Q2: "Yes."), and is kept between runs, with a question at the
    start and Empty the queue in the Download menu (Q3).
-10. Search results and channels are shown in the main list, Escape and Backspace going back one list
-    at a time: "Consistent with Windows Explorer" (log entry 3, Q2).
+10. Escape and Backspace go back one list at a time: "Consistent with Windows Explorer" (log entry 3,
+    Q2). Search results and channels were in the main list at first; see decision 16.
 11. Search asks YouTube directly (InnerTube, `youtube.rs`), falling back to yt-dlp; listening gets the
     sound's address from yt-dlp (`-g`), about 5 seconds, then streams it (Q3, option c).
 12. Following from a search result, from a download, and from a channel address in New download (Q4).
-    Channels are checked only when the user presses Ctrl+L, through their public feeds (Q5).
+    Channels are checked only when the user presses Ctrl+L (Q5), through their Videos page, as their
+    public feeds now answer 404 (milestone 4 test, section 4). New is what was not listed last time.
 13. Categories as NoteFetch has them: folders in the output folder, the rest in Uncategorised, the
     existing downloads moved there once (Q6). New download has a Category box, the category shown
     chosen (Q7).
@@ -81,6 +82,18 @@ Picture quality and Save captions in it.
 15. Order of work: search, channels, resume, speed and volume, categories, then the rest of the ideas
     list (Q8). Built in milestone 4: all but audio-described sound, skip silence and the clipboard
     watch.
+16. The YouTube window: search, new videos, channels, a channel's videos and playlists, a playlist,
+    and recently played, in a window of their own in front of the main one: "its own window to avoid
+    confusion" (milestone 4 test, sections 3 and 5).
+17. Menu items that cannot apply are greyed out as the menu opens; buttons never are (milestone 4
+    test, section 1). Shorter menu wording, as the user gave it.
+18. Cut silences and Offer copied web addresses are options, off: "Nice option to have, but should be
+    off by default." (Log entry 4, Q2 and Q3.)
+19. yt-dlp is fetched as its release's folder build, which starts in 1 second against 5, and VidFetch
+    updates it by checksum (milestone 4 test, section 7). Nothing that might upset YouTube: no extra
+    connections, no other client pretended, no addresses worked out without yt-dlp.
+20. Audio-described sound waits for a video that has a described track: the M&S advert of 2026 has
+    none (log entry 4, Q1).
 
 ## 5. Milestones
 
@@ -96,8 +109,11 @@ Picture quality and Save captions in it.
    Built 7 November 2026; tried by Claude (log entry 3).
    Tested by the user 7 November 2026 and merged.
 4. **Search, channels, categories and the listening ideas** (branch `m4-search-channels`):
-   decisions 10 to 15. Built 7 November 2026; tried by Claude (log entry 4); awaiting
-   `test-milestone-4.txt`.
-5. A private GitHub repository: done, https://github.com/ldefontenay/vidfetch (log entry 1, Q6). Next, a
+   decisions 10 to 15. Built 7 November 2026; tried by Claude (log entry 4); tested by the user and
+   pushed.
+5. **The milestone 4 test's answers** (branch `m5-windows-and-fixes`): decisions 16 to 20, channel
+   playlists, the silent video fixed, Ctrl+C, faster speeds. Built 8 November 2026; tried by Claude
+   (log entry 5); awaiting `test-milestone-5.txt`.
+6. A private GitHub repository: done, https://github.com/ldefontenay/vidfetch (log entry 1, Q6). Next, a
    release like NoteFetch's with its guide online. Needs a LICENSE file, which the repository does not
    have yet.
