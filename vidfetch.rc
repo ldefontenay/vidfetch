@@ -105,6 +105,10 @@ END
 #define IDC_S_SORT          1132
 #define IDC_S_LENGTH        1133
 #define IDC_S_SHORTS        1134
+#define IDM_IMPORT          2063
+#define IDM_BACKUP          2064
+#define IDM_DENO            2065
+#define IDM_NEWER           2066
 #define IDM_RELATED         2055
 #define IDM_COMMENTS        2056
 #define IDM_TRANSCRIPT      2057
@@ -200,6 +204,10 @@ BEGIN
         MENUITEM "Select &output folder...", IDM_FOLDER
         MENUITEM "Open library in file &explorer", IDM_EXPLORER
         MENUITEM "&Update yt-dlp", IDM_UPDATE_YTDLP
+        MENUITEM "Fetch &Deno, which helps with YouTube...", IDM_DENO
+        MENUITEM SEPARATOR
+        MENUITEM "&Import channels from a file...", IDM_IMPORT
+        MENUITEM "Save a &backup of your channels...", IDM_BACKUP
         MENUITEM SEPARATOR
         MENUITEM "E&xit\tAlt+F4", IDM_EXIT
     END
@@ -272,6 +280,7 @@ BEGIN
     POPUP "&Help"
     BEGIN
         MENUITEM "&Help\tF1", IDM_HELP
+        MENUITEM "Check for a &newer version", IDM_NEWER
         MENUITEM "&About VidFetch", IDM_ABOUT
     END
 END

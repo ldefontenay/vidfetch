@@ -55,6 +55,9 @@ pub fn when(t: SystemTime) -> String {
 /// The line in the list; with `category`, the category it is in too,
 /// unless that is Uncategorised.
 pub fn item_text(e: &Entry, category: bool) -> String {
+    if e.is_gone() {
+        return format!("{}: {}. Enter downloads it again.", e.name, e.holds());
+    }
     if category && !library::means_uncategorised(&e.category) {
         format!(
             "{}: {}, in {}, {}",

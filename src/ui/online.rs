@@ -1338,7 +1338,7 @@ fn play_row(hwnd: HWND, app: &mut App, i: usize) {
     if let Some(Row::Played(p)) = top_row(app, Some(i)) {
         if p.video().is_none() && !std::path::Path::new(&p.key).exists() {
             let p = p.clone();
-            download_gone(hwnd, &p);
+            download_gone_file(hwnd, &PathBuf::from(&p.key), &p.name);
             return;
         }
     }
@@ -1390,25 +1390,20 @@ fn play_row(hwnd: HWND, app: &mut App, i: usize) {
 
 /// Enter on a download whose file has gone: offers to download it again,
 /// if VidFetch knows where it came from (log entry 5, Q3).
-fn download_gone(hwnd: HWND, p: &Played) {
-    let path = PathBuf::from(&p.key);
-    let Some(id) = library::video_of(Config::past_path().as_deref(), &path) else {
+pub fn download_gone_file(hwnd: HWND, path: &std::path::Path, name: &str) {
+    let Some(id) = library::video_of(Config::past_path().as_deref(), path) else {
         say(
             hwnd,
             &format!(
-                "{} is no longer on this computer, and VidFetch does not know where it came \
-                 from. Delete takes it off this list.",
-                p.name
+                "{name} is no longer on this computer, and VidFetch does not know where it came \
+                 from. Delete takes it off this list."
             ),
         );
         return;
     };
     if !message::ask(
         hwnd,
-        &format!(
-            "{} is no longer on this computer. Download it again?",
-            p.name
-        ),
+        &format!("{name} is no longer on this computer. Download it again?"),
         "&Download again",
         "&Cancel",
         true,

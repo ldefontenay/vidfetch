@@ -61,6 +61,74 @@ fn tools() -> PathBuf {
     local_dir().join("tools")
 }
 
+/// Deno, which yt-dlp uses to answer YouTube's JavaScript, when it was fetched.
+fn deno() -> PathBuf {
+    tools().join("deno").join("deno.exe")
+}
+
+pub fn has_deno() -> bool {
+    deno().is_file()
+}
+
+/// Fetches Deno from its own releases on GitHub, checked against its
+/// published checksum, into VidFetch's tools folder. yt-dlp starts it;
+/// VidFetch never does (log entry 3; log entry 6, A4). None if stopped.
+pub fn fetch_deno(
+    stop: &AtomicBool,
+    progress: &mut dyn FnMut(u64, u64),
+) -> Result<Option<()>, String> {
+    const FILE: &str = "deno-x86_64-pc-windows-msvc.zip";
+    let base = format!("/denoland/deno/releases/latest/download/{FILE}");
+    let Some(sum) = net::download(
+        "github.com",
+        &format!("{base}.sha256sum"),
+        stop,
+        &mut |_, _| {},
+    )?
+    else {
+        return Ok(None);
+    };
+    let sum = String::from_utf8_lossy(&sum).to_string();
+    let Some(want) = hash_in(&sum) else {
+        return Err("Deno's published checksum could not be read.".into());
+    };
+    let Some(zip) = net::download("github.com", &base, stop, progress)? else {
+        return Ok(None);
+    };
+    if net::hex(&net::sha256(&zip)) != want {
+        return Err(
+            "The Deno that was downloaded does not match its published checksum, so it was not \
+             kept. Try again."
+                .into(),
+        );
+    }
+    let tools = tools();
+    std::fs::create_dir_all(&tools).map_err(|e| format!("{}: {e}", tools.display()))?;
+    let zip_path = tools.join(FILE);
+    std::fs::write(&zip_path, &zip).map_err(|e| format!("{}: {e}", zip_path.display()))?;
+    let new = tools.join("deno.new");
+    let _ = std::fs::remove_dir_all(&new);
+    std::fs::create_dir_all(&new).map_err(|e| format!("{}: {e}", new.display()))?;
+    let unpacked = unzip(&zip_path, &new);
+    let _ = std::fs::remove_file(&zip_path);
+    unpacked?;
+    if !new.join("deno.exe").is_file() {
+        let _ = std::fs::remove_dir_all(&new);
+        return Err(format!("{FILE} did not hold deno.exe, so it was not kept."));
+    }
+    let dir = tools.join("deno");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::rename(&new, &dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    Ok(Some(()))
+}
+
+/// The SHA-256 in a checksum file, in lower case, whatever else it says.
+fn hash_in(text: &str) -> Option<String> {
+    text.split(|c: char| !c.is_ascii_hexdigit())
+        .find(|t| t.len() == 64)
+        .map(str::to_lowercase)
+}
+
 /// Our own copy: the folder build, unpacked.
 fn own_copy() -> PathBuf {
     tools().join("yt-dlp").join("yt-dlp.exe")
@@ -394,7 +462,16 @@ fn run(
     line: &mut dyn FnMut(&str),
 ) -> Result<Option<(bool, Vec<String>)>, String> {
     let job = Job::new();
+    let helper: Vec<String> = if has_deno() {
+        vec![
+            "--js-runtimes".to_string(),
+            format!("deno:{}", deno().display()),
+        ]
+    } else {
+        Vec::new()
+    };
     let mut child = Command::new(exe)
+        .args(&helper)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -1085,7 +1162,34 @@ fn last_error(errors: &[String]) -> String {
 fn explain(errors: &[String], site: &str) -> String {
     let last = last_error(errors);
     let lower = last.to_lowercase();
-    let hint = if lower.contains("requested format is not available") && site != "YouTube" {
+    let hint = if lower.contains("confirm your age")
+        || lower.contains("age-restricted")
+        || lower.contains("age restricted")
+    {
+        " YouTube shows this video only to people signed in and old enough, and VidFetch does \
+         not sign in."
+    } else if lower.contains("not a bot") {
+        " YouTube has asked this computer to prove it is not a robot, which usually passes in an \
+         hour or so. Try again later."
+    } else if lower.contains("premieres in")
+        || lower.contains("will begin")
+        || lower.contains("upcoming")
+    {
+        " It has not started yet. Try again once it has."
+    } else if lower.contains("is live") || lower.contains("live stream") {
+        " VidFetch cannot take a live stream while it is live. Once it has ended, YouTube usually \
+         keeps it as an ordinary video."
+    } else if !has_deno()
+        && (lower.contains("js runtime")
+            || lower.contains("javascript")
+            || lower.contains("challenge"))
+    {
+        " YouTube now wants a small program, Deno, to answer it. Choose Fetch Deno in the File \
+         menu, then try again."
+    } else if lower.contains("requested format is not available") && site == "YouTube" {
+        " If it is a live stream, VidFetch cannot take it while it is live. If not, Update yt-dlp \
+         in the File menu may help, or Fetch Deno, in the same menu."
+    } else if lower.contains("requested format is not available") {
         // Our formats ask for plain HTTP only (formats()).
         " This site offers the video only as a stream in pieces, which VidFetch cannot put \
          together without FFmpeg. Look for a download link to the video file itself, and paste \

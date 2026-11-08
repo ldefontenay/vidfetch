@@ -158,6 +158,8 @@ pub enum Kind {
         videos: usize,
         url: String,
     },
+    /// Downloaded once; the file has gone.
+    Gone,
 }
 
 /// One thing in the list: a downloaded file, or a playlist's folder.
@@ -188,7 +190,17 @@ impl Entry {
             // (milestone 2 test, 5.5).
             Kind::Playlist { videos: 1, .. } => "playlist, 1 video".into(),
             Kind::Playlist { videos, .. } => format!("playlist, {videos} videos"),
+            Kind::Gone => "no longer on this computer".into(),
         }
+    }
+
+    pub fn is_gone(&self) -> bool {
+        matches!(self.kind, Kind::Gone)
+    }
+
+    /// Whether it is one file there to play.
+    pub fn is_file(&self) -> bool {
+        matches!(self.kind, Kind::Video | Kind::Sound)
     }
 
     pub fn is_playlist(&self) -> bool {
@@ -464,12 +476,12 @@ fn read_past(record: &Path) -> Vec<Past> {
         .collect()
 }
 
-/// Saved under a temporary name first; files gone since are left out. Failing
-/// to save only means a later download is not noticed as a repeat.
+/// Saved under a temporary name first; files gone since stay, for the main
+/// list to offer them again. Failing to save only means a later download is
+/// not noticed as a repeat.
 fn write_past(record: &Path, past: &[Past]) {
     let v: Vec<serde_json::Value> = past
         .iter()
-        .filter(|p| p.file.exists())
         .map(|p| {
             serde_json::json!({
                 "key": p.key,
@@ -496,6 +508,53 @@ pub fn already(record: &Path, key: &str, format: &str, lines: u32) -> Option<Pat
         .into_iter()
         .find(|p| p.key == key && p.format == format && p.lines == lines && p.file.exists())
         .map(|p| p.file)
+}
+
+/// Downloads from YouTube whose files have gone from outside VidFetch: the
+/// main list shows them last, and Enter downloads them again (milestone 6
+/// test, 4.2). Not a playlist's videos, which updating the playlist leaves
+/// out on purpose; not one downloaded since under another name or format.
+pub fn gone(record: &Path, output: &Path, only: Option<&str>) -> Vec<Entry> {
+    let past = read_past(record);
+    let mut seen = std::collections::HashSet::new();
+    past.iter()
+        .filter(|p| !p.file.exists() && seen.insert(p.file.clone()))
+        .filter(|p| !past.iter().any(|o| o.key == p.key && o.file.exists()))
+        .filter(|p| video_of(Some(record), &p.file).is_some())
+        .filter_map(|p| {
+            let dir = p.file.parent()?;
+            if !dir.is_dir() || read_record(dir).is_some() {
+                return None;
+            }
+            let wanted = match only {
+                Some(c) => dir == output.join(c),
+                None => dir.parent() == Some(output),
+            };
+            wanted.then(|| Entry {
+                name: p
+                    .file
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned(),
+                category: dir
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned(),
+                path: p.file.clone(),
+                kind: Kind::Gone,
+                made: SystemTime::UNIX_EPOCH,
+            })
+        })
+        .collect()
+}
+
+/// Forgets a download, deleted on purpose or taken off the list.
+pub fn forget_file(record: &Path, file: &Path) {
+    let mut past = read_past(record);
+    past.retain(|p| p.file != file);
+    write_past(record, &past);
 }
 
 /// Remembers a single download just saved. Lines are 0 for sound.

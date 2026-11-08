@@ -582,7 +582,15 @@ pub fn channel_page(channel_id: &str, stop: &AtomicBool) -> Result<(String, Resu
         stop,
     )?;
     let name = channel_name(&v);
-    let (videos, _, more) = lockups(&v, &name, channel_id, now());
+    let (videos, _, _) = lockups(&v, &name, channel_id, now());
+    // The grid's own last item: other keys on the page are for side panels.
+    let mut grids = Vec::new();
+    found_under(&v, "richGridRenderer", &mut grids);
+    let more = grids
+        .first()
+        .and_then(|g| g["contents"].as_array()?.last())
+        .and_then(|last| last.get("continuationItemRenderer"))
+        .and_then(token_in);
     if name.is_empty() && videos.is_empty() {
         return Err(format!(
             "YouTube said nothing about the channel {channel_id}. It may have been removed."
@@ -849,6 +857,79 @@ pub fn ago(now: i64, then: i64) -> String {
 mod tests {
     use super::*;
 
+    fn words(text: &str) -> Query {
+        Query {
+            text: text.into(),
+            ..Query::default()
+        }
+    }
+
+    /// Everything new asked of YouTube, against the real thing.
+    #[test]
+    #[ignore]
+    fn youtube_answers_the_new_questions() {
+        let stop = AtomicBool::new(false);
+        let found = |what| {
+            search(
+                &Query {
+                    text: "blender".into(),
+                    what,
+                    ..Query::default()
+                },
+                None,
+                &stop,
+            )
+            .unwrap()
+        };
+        let channels = found(SearchFor::Channels);
+        println!(
+            "channels {} {:?}",
+            channels.channels.len(),
+            channels.channels.first()
+        );
+        assert!(!channels.channels.is_empty());
+        let playlists = found(SearchFor::Playlists);
+        println!(
+            "playlists {} {:?}",
+            playlists.playlists.len(),
+            playlists.playlists.first()
+        );
+        assert!(!playlists.playlists.is_empty());
+        let r = related("aqz-KE-bpKQ", None, &stop).unwrap();
+        println!("related {} more {}", r.videos.len(), r.more.is_some());
+        assert!(!r.videos.is_empty());
+        let m = related("aqz-KE-bpKQ", r.more.as_deref(), &stop).unwrap();
+        println!("related next {}", m.videos.len());
+        assert!(!m.videos.is_empty());
+        let c = comments("aqz-KE-bpKQ", &stop).unwrap();
+        println!("comments: {}", c.chars().take(300).collect::<String>());
+        assert!(c.matches(":\n").count() > 40);
+        let (name, page) = channel_page("UCSMOQeBJ2RAnuFungnQOxLg", &stop).unwrap();
+        println!(
+            "channel {name} {} more {}",
+            page.videos.len(),
+            page.more.is_some()
+        );
+        let channel = crate::channels::Channel::named("UCSMOQeBJ2RAnuFungnQOxLg", &name);
+        let older = channel_more(&channel, page.more.as_deref().unwrap(), &stop).unwrap();
+        println!(
+            "older {} {:?}",
+            older.videos.len(),
+            older.videos.first().map(|v| v.line())
+        );
+        assert!(!older.videos.is_empty());
+        let s = channel_search(&channel, "geometry", None, &stop).unwrap();
+        println!(
+            "channel search {} more {}",
+            s.videos.len(),
+            s.more.is_some()
+        );
+        assert!(!s.videos.is_empty());
+        let p = playlist_videos("PLuaAWflRSLYNAo4ER_MVItiLkDm6TaJNV", None, &stop).unwrap();
+        println!("playlist {:?} {}", p.title, p.videos.len());
+        assert!(!p.title.is_empty());
+    }
+
     #[test]
     fn search_filters_are_youtubes_own() {
         let q = |what, newest, length| Query {
@@ -995,10 +1076,10 @@ mod tests {
     #[ignore]
     fn live_youtube() {
         let stop = AtomicBool::new(false);
-        let r = search("blender open movie", None, &stop).unwrap();
+        let r = search(&words("blender open movie"), None, &stop).unwrap();
         assert!(r.videos.len() > 5, "{r:?}");
         println!("{}", r.videos[0].line());
-        let more = search("", r.more.as_deref(), &stop).unwrap();
+        let more = search(&words(""), r.more.as_deref(), &stop).unwrap();
         assert!(!more.videos.is_empty());
         let (id, name) = channel_of("https://www.youtube.com/@BlenderStudio", &stop).unwrap();
         assert_eq!(id, "UCz75RVbH8q2jdBJ4SnwuZZQ");
