@@ -120,6 +120,7 @@ Picture quality and Save captions in it.
    box, Copy all text, Listen without downloading, the silent video through yt-dlp, downloading a gone
    file again. Built 8 November 2026; awaiting `test-milestone-6.txt`. Log entry 6 proposes what comes
    before a first beta.
-7. A private GitHub repository: done, https://github.com/ldefontenay/vidfetch (log entry 1, Q6). Next, a
-   release like NoteFetch's with its guide online. Needs a LICENSE file, which the repository does not
-   have yet.
+7. **Towards a first beta** (branch `m7-beta`): the user's milestone 6 answers and all of A and B in
+   log entry 6, Q2. Built 8 November 2026; awaiting `test-milestone-7.txt`. Log entry 7.
+8. A public GitHub release, like NoteFetch's with its guide online (log entry 6, Q4: "Public on Github").
+   The repository is https://github.com/ldefontenay/vidfetch, private until the user confirms.

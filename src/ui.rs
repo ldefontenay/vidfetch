@@ -348,6 +348,14 @@ unsafe extern "system" fn dialog_proc(
             if app(hwnd).is_some_and(|a| a.welcome) {
                 let _ = PostMessageW(Some(hwnd), WM_WELCOME, WPARAM(0), LPARAM(0));
             }
+            if let Some(a) = app(hwnd).filter(|a| !a.welcome) {
+                let now = crate::youtube::now();
+                if now - a.cfg.looked_for_newer > 7 * 86_400 {
+                    a.cfg.looked_for_newer = now;
+                    a.cfg.save();
+                    look_for_newer(hwnd, false);
+                }
+            }
             if app(hwnd).is_some_and(|a| !a.resume.is_empty()) {
                 let _ = PostMessageW(Some(hwnd), WM_RESUME, WPARAM(0), LPARAM(0));
             }
