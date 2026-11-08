@@ -1,18 +1,21 @@
 //! Playing faster or slower without the voice going higher or lower (log
 //! entry 3, idea 2): WSOLA, waveform-similarity overlap-add. The sound is cut
-//! into overlapping pieces of about 20 milliseconds; each piece is taken from
+//! into overlapping pieces of about 30 milliseconds; each piece is taken from
 //! further on (faster) or further back (slower) than the last, at the place
 //! within a few milliseconds that best continues it, and the pieces are faded
 //! into one another. Speech stays clear up to about twice as fast.
 //!
 //! Samples are 16-bit, interleaved, `channels` to a frame.
 
-/// Frames in one piece, about 21 ms at 48 kHz, and the step between pieces.
-const PIECE: usize = 1024;
+/// Frames in one piece, 32 ms at 48 kHz, and the step between pieces. At 21
+/// ms, with a search of 5 ms, 2x and the slowest speeds were rough
+/// (milestone 4 test, 2.3): a low voice's pitch period is 8 to 12 ms, so the
+/// search could not reach the place that continued it in step.
+const PIECE: usize = 1536;
 const HOP: usize = PIECE / 2;
 /// How far either side of its place a piece may be taken from, to continue
-/// the last one best.
-const SEARCH: usize = 256;
+/// the last one best: 12 ms, more than a low voice's pitch period.
+const SEARCH: usize = 576;
 
 pub struct Stretch {
     channels: usize,
