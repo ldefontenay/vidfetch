@@ -9,7 +9,9 @@
 //!
 //! It can play faster or slower without changing the voice (stretch.rs), and
 //! sets its own volume in Windows' volume mixer, which Windows keeps for next
-//! time (log entry 3, ideas 2 and 4).
+//! time (log entry 3, ideas 2 and 4). It can cut every silence down to a
+//! second (log entry 4, Q2: "Nice option to have, but should be off by
+//! default").
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -39,6 +41,17 @@ enum Command {
     Volume(u32),
     Quit,
 }
+
+/// Why playing failed when the source gave no sound at all, though it said
+/// how long it was: a YouTube sound file whose edit list stops Media
+/// Foundation reading it (milestone 4 test, section 3). The Play window then
+/// fetches the file whole and plays it without the edit list.
+pub const NO_SOUND: &str = "It gave no sound at all.";
+
+/// Below this, a sample is silence: about -45 dB.
+const QUIET: i16 = 184;
+/// How much of a silence is kept when silences are cut, in frames: a second.
+const KEPT_QUIET: usize = RATE as usize;
 
 /// The slowest and fastest speeds, and the step between them.
 pub const SLOWEST: f64 = 0.5;
@@ -78,8 +91,8 @@ pub struct Player {
 
 impl Player {
     /// A player for `source`, a file or a web address, paused at the start,
-    /// to play at `speed`.
-    pub fn open(source: &str, speed: f64) -> Result<Player, String> {
+    /// to play at `speed`; `cut_silence`: every silence cut to a second.
+    pub fn open(source: &str, speed: f64, cut_silence: bool) -> Result<Player, String> {
         let secs = {
             let s = source.to_string();
             std::thread::spawn(move || {
@@ -96,7 +109,7 @@ impl Player {
         let theirs = shared.clone();
         let speed = speed.clamp(SLOWEST, FASTEST);
         let thread = std::thread::spawn(move || {
-            if let Err(why) = run(&source, speed, receive, &theirs) {
+            if let Err(why) = run(&source, speed, cut_silence, secs, receive, &theirs) {
                 theirs.playing.store(false, Ordering::Relaxed);
                 *theirs.failed.lock().unwrap() = Some(why);
             }
@@ -242,6 +255,8 @@ struct Out {
     data: Vec<Vec<u8>>,
     /// Which buffers Windows has and has not finished with.
     queued: Vec<bool>,
+    /// The source said how long it is.
+    secs_known: bool,
 }
 
 const HEADER: u32 = std::mem::size_of::<WAVEHDR>() as u32;
@@ -284,6 +299,7 @@ impl Out {
                 .map(|_| vec![0u8; BLOCK * CHANNELS as usize * 2])
                 .collect(),
             queued: vec![false; BUFFERS],
+            secs_known: false,
         })
     }
 
@@ -388,6 +404,12 @@ struct Run<'a> {
     marks: VecDeque<(u64, f64)>,
     /// The last mark already played.
     anchor: (u64, f64),
+    /// Silences are cut to a second, and how long the one now has lasted, in
+    /// frames.
+    cut_silence: bool,
+    quiet: usize,
+    /// What is kept of each piece decoded.
+    kept: Vec<i16>,
 }
 
 impl Run<'_> {
@@ -400,6 +422,28 @@ impl Run<'_> {
         self.written = 0;
         self.marks.clear();
         self.anchor = (0, self.base);
+        self.quiet = 0;
+    }
+
+    /// The frames of `piece` to play, with each silence cut to a second. The
+    /// frames cut still count as sound used, so where playing is stays true.
+    fn keep(&mut self, piece: &[i16]) -> usize {
+        let per = CHANNELS as usize;
+        self.kept.clear();
+        let mut cut = 0;
+        for frame in piece.chunks_exact(per) {
+            if self.cut_silence && frame.iter().all(|s| s.unsigned_abs() < QUIET as u16) {
+                self.quiet += 1;
+                if self.quiet > KEPT_QUIET {
+                    cut += 1;
+                    continue;
+                }
+            } else {
+                self.quiet = 0;
+            }
+            self.kept.extend_from_slice(frame);
+        }
+        cut
     }
 
     /// Where in the sound playing is, in seconds.
@@ -496,11 +540,14 @@ const BROKEN_OFF: &str = "\u{1}broken off";
 fn run(
     source: &str,
     speed: f64,
+    cut_silence: bool,
+    secs: f64,
     commands: Receiver<Command>,
     shared: &Shared,
 ) -> Result<(), String> {
     let _session = media::Session::start()?;
-    let out = Out::open()?;
+    let mut out = Out::open()?;
+    out.secs_known = secs > 1.0;
     shared.volume.store(out.volume, Ordering::Relaxed);
     let mut run = Run {
         out,
@@ -515,8 +562,13 @@ fn run(
         written: 0,
         marks: VecDeque::new(),
         anchor: (0, 0.0),
+        cut_silence,
+        quiet: 0,
+        kept: Vec::with_capacity(BLOCK * CHANNELS as usize),
     };
     let mut playing = false;
+    // Whether any sound came at all, to tell a source that gives none.
+    let mut heard = false;
     let per = CHANNELS as usize;
     loop {
         if !playing {
@@ -543,7 +595,12 @@ fn run(
             let start = (at * RATE as f64).round() as i64;
             // Seeking lands near the place, not on it.
             let skip = (first - start).clamp(0, (s.len() / per) as i64) as usize;
-            run.stretch.push(&s[skip * per..]);
+            heard |= !s.is_empty();
+            let cut = run.keep(&s[skip * per..]);
+            run.used += cut as f64;
+            let kept = std::mem::take(&mut run.kept);
+            run.stretch.push(&kept);
+            run.kept = kept;
             let before = run.pending.len();
             run.stretch.pull(&mut run.pending);
             run.used += ((run.pending.len() - before) / per) as f64 * run.stretch.speed();
@@ -556,6 +613,9 @@ fn run(
         match decoded {
             Err(why) if why != BROKEN_OFF => return Err(why),
             Err(_) => {}
+            Ok(_) if !heard && run.out.secs_known && run.base + 1.0 < secs => {
+                return Err(NO_SOUND.into())
+            }
             Ok(_) => {
                 // The last of it, then play out what is queued.
                 run.send(true);
@@ -601,7 +661,7 @@ mod on_a_file {
     #[ignore]
     fn plays_pauses_and_skips() {
         let path = std::env::var("VF_TEST_SOUND").unwrap();
-        let p = Player::open(&path, 1.0).unwrap();
+        let p = Player::open(&path, 1.0, false).unwrap();
         assert!(p.secs() > 70.0);
         let wait = |ms| std::thread::sleep(Duration::from_millis(ms));
         p.play();
@@ -640,7 +700,7 @@ mod on_a_file {
     #[ignore]
     fn plays_faster() {
         let path = std::env::var("VF_TEST_SOUND").unwrap();
-        let mut p = Player::open(&path, 1.0).unwrap();
+        let mut p = Player::open(&path, 1.0, false).unwrap();
         assert_eq!(p.set_speed(2.1), 2.0);
         p.seek(10.0);
         p.play();
@@ -650,13 +710,62 @@ mod on_a_file {
         assert!(p.volume() <= 100);
     }
 
+    /// A file that gives no sound, such as VF_TEST_NO_SOUND: said so.
+    #[test]
+    #[ignore]
+    fn says_when_there_is_no_sound() {
+        let path = std::env::var("VF_TEST_NO_SOUND").unwrap();
+        let p = Player::open(&path, 1.0, false).unwrap();
+        p.play();
+        std::thread::sleep(Duration::from_millis(1500));
+        assert_eq!(p.take_failure().as_deref(), Some(NO_SOUND));
+    }
+
+    /// Silences cut: a silence of 3 seconds plays as 1, and where playing is
+    /// still moves on by all 3.
+    #[test]
+    fn silences_are_cut_to_a_second() {
+        let commands = channel().1;
+        let shared = Shared::default();
+        let mut run = Run {
+            out: match Out::open() {
+                Ok(o) => o,
+                // No sound device on this machine: nothing to try.
+                Err(_) => return,
+            },
+            commands: &commands,
+            shared: &shared,
+            base: 0.0,
+            paused: false,
+            next: None,
+            stretch: Stretch::new(2, 1.0),
+            pending: Vec::new(),
+            used: 0.0,
+            written: 0,
+            marks: VecDeque::new(),
+            anchor: (0, 0.0),
+            cut_silence: true,
+            quiet: 0,
+            kept: Vec::new(),
+        };
+        let quiet = vec![3i16; RATE as usize * 3 * 2];
+        let cut = run.keep(&quiet);
+        assert_eq!(cut, RATE as usize * 2);
+        assert_eq!(run.kept.len(), RATE as usize * 2);
+        let loud = vec![9000i16; 200];
+        assert_eq!(run.keep(&loud), 0);
+        assert_eq!(run.quiet, 0);
+        run.cut_silence = false;
+        assert_eq!(run.keep(&quiet), 0);
+    }
+
     /// A web address, such as yt-dlp's `-g` gives: slower to start than a
     /// file. `VF_TEST_STREAM=<address> cargo test streams -- --ignored`.
     #[test]
     #[ignore]
     fn streams_from_a_web_address() {
         let url = std::env::var("VF_TEST_STREAM").unwrap();
-        let p = Player::open(&url, 1.0).unwrap();
+        let p = Player::open(&url, 1.0, false).unwrap();
         let wait = |ms| std::thread::sleep(Duration::from_millis(ms));
         p.play();
         let started = std::time::Instant::now();

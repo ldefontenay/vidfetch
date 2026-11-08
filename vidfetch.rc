@@ -10,9 +10,13 @@
 //    menu bar titles answer Alt+letter too, so they count (a unit test in
 //    ui.rs checks this). Main window, in use:
 //      Menus:     f File, d Download, y YouTube, g Category, o Options, h Help
-//      Controls:  c Category to show, w Downloads (or what the list shows),
-//                 p Play, n New download, u Update the playlist, q Queue,
-//                 r Rename, x Show in File Explorer, l Delete, t Status
+//      Controls:  c Category, w Downloads (or a playlist's videos),
+//                 p Play, n New download, u Update playlist, q Show queue,
+//                 r Rename, x Show video in file explorer, l Delete, t Status
+//    The YouTube window, in use:
+//      Menus:     v Video, g Go, h Help
+//      Controls:  w the list, p Play (or Open, or m Fetch more), d Download,
+//                 s Search, c Close window, t Status
 // 3. Every control reads correctly on its own. JAWS does not announce group
 //    headings, so no label may depend on one, or on any other control.
 
@@ -56,6 +60,7 @@ END
 #define IDD_ADD             108
 #define IDD_QUEUE           109
 #define IDD_PLAY            110
+#define IDD_BROWSE          111
 
 #define IDC_CATEGORY        1002
 #define IDC_LIST_LABEL      1003
@@ -88,8 +93,12 @@ END
 #define IDC_L_PLAY          1061
 #define IDC_L_BACK          1062
 #define IDC_L_FORWARD       1063
+#define IDC_B_DOWNLOAD      1120
+#define IDC_B_SEARCH        1121
+#define IDC_B_CLOSE         1122
 
 #define IDR_MENU            200
+#define IDR_BROWSE          201
 
 // Menu commands, in step with ui.rs. The lists of choices are filled in as
 // they open, from the numbers in ui.rs.
@@ -114,10 +123,15 @@ END
 #define IDM_UNFOLLOW        2044
 #define IDM_COPY            2045
 #define IDM_BROWSER         2046
+#define IDM_CHANNEL         2047
+#define IDM_PLAYLISTS       2053
+#define IDM_CLOSE           2054
 #define IDM_NEW_CATEGORY    2050
 #define IDM_RENAME_CATEGORY 2051
 #define IDM_DELETE_CATEGORY 2052
 #define IDM_PLAY_NEXT       2060
+#define IDM_CUT_SILENCE     2061
+#define IDM_OFFER_COPIED    2062
 #define IDM_HISTORY         2048
 #define IDM_CAPTIONS_TEXT   2049
 #define IDM_ADD             2023
@@ -132,10 +146,9 @@ END
 // What has been downloaded, and what can be done to the one chosen. Enter
 // plays it, or shows a playlist's videos in the same list, where Escape goes
 // back; F2 renames and Delete deletes, from the list, which also has a
-// context menu (Shift+F10 or the Applications key). The same list shows
-// YouTube's search results and the channels followed, over the downloads,
-// until Escape. The list's label is set at run time to say which list it
-// is, always with W as its letter. Every command is in the menus too.
+// context menu (Shift+F10 or the Applications key). What comes from YouTube
+// has a window of its own, IDD_BROWSE. The list's label is set at run time
+// to say which list it is, always with W as its letter. Every command is in the menus too.
 // Delete is the last button, before the Status box, so overshooting by one
 // stop cannot reach it.
 IDD_MAIN DIALOGEX 0, 0, 400, 264
@@ -145,7 +158,7 @@ CAPTION "VidFetch"
 MENU IDR_MENU
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT      "&Category to show:", -1, 7, 9, 70, 8
+    LTEXT      "&Category:", -1, 7, 9, 70, 8
     COMBOBOX   IDC_CATEGORY, 80, 7, 313, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_GROUP | WS_TABSTOP
 
     LTEXT      "Do&wnloads, most recent first:", IDC_LIST_LABEL, 7, 25, 386, 8
@@ -154,10 +167,10 @@ BEGIN
 
     DEFPUSHBUTTON "&Play  Enter", IDC_OPEN, 7, 162, 190, 14, WS_GROUP | WS_TABSTOP
     PUSHBUTTON "&New download...  Ctrl+N", IDC_ADD, 203, 162, 190, 14, WS_TABSTOP
-    PUSHBUTTON "&Update the playlist  Ctrl+U", IDC_UPDATE, 7, 182, 190, 14, WS_TABSTOP
-    PUSHBUTTON "Show the &queue...  Ctrl+Q", IDC_QUEUE, 203, 182, 190, 14, WS_TABSTOP
+    PUSHBUTTON "&Update playlist  Ctrl+U", IDC_UPDATE, 7, 182, 190, 14, WS_TABSTOP
+    PUSHBUTTON "Show &queue...  Ctrl+Q", IDC_QUEUE, 203, 182, 190, 14, WS_TABSTOP
     PUSHBUTTON "&Rename...  F2", IDC_RENAME, 7, 202, 190, 14, WS_TABSTOP
-    PUSHBUTTON "Show in File E&xplorer", IDC_SHOW, 203, 202, 190, 14, WS_TABSTOP
+    PUSHBUTTON "Show video in file e&xplorer", IDC_SHOW, 203, 202, 190, 14, WS_TABSTOP
     PUSHBUTTON "De&lete...  Delete", IDC_DELETE, 7, 222, 190, 14, WS_TABSTOP
 
     LTEXT      "S&tatus:", -1, 7, 246, 30, 8
@@ -171,56 +184,54 @@ BEGIN
     POPUP "&File"
     BEGIN
         MENUITEM "&New download...\tCtrl+N", IDM_ADD
-        MENUITEM "Choose the &output folder...", IDM_FOLDER
-        MENUITEM "Show the output folder in File &Explorer", IDM_EXPLORER
-        MENUITEM "&Update yt-dlp, the web video downloader", IDM_UPDATE_YTDLP
+        MENUITEM "Select &output folder...", IDM_FOLDER
+        MENUITEM "Open library in file &explorer", IDM_EXPLORER
+        MENUITEM "&Update yt-dlp", IDM_UPDATE_YTDLP
         MENUITEM SEPARATOR
         MENUITEM "E&xit\tAlt+F4", IDM_EXIT
     END
-    // For the download chosen in the list.
+
     POPUP "&Download"
     BEGIN
-        MENUITEM "&Play, or show a playlist's videos\tEnter", IDM_OPEN
-        MENUITEM "&Open in the default player", IDM_EXTERNAL
-        MENUITEM "&Back, from a playlist's videos or what YouTube found\tEscape", IDM_BACK
-        MENUITEM "&Update the playlist, fetching its new videos\tCtrl+U", IDM_UPDATE
-        MENUITEM "Do&wnload the video chosen, from YouTube\tCtrl+D", IDM_DOWNLOAD
-        MENUITEM "Read its descr&iption\tCtrl+I", IDM_DESCRIBE
-        MENUITEM "Read its &captions as text", IDM_CAPTIONS_TEXT
-        MENUITEM "Recently pla&yed\tCtrl+H", IDM_HISTORY
+        MENUITEM "&Open playlist / play video\tEnter", IDM_OPEN
+        MENUITEM "Open video using default media &player", IDM_EXTERNAL
+        MENUITEM "&Back\tEscape", IDM_BACK
+        MENUITEM "&Update playlist\tCtrl+U", IDM_UPDATE
+        MENUITEM "Show d&escription\tCtrl+I", IDM_DESCRIBE
+        MENUITEM "Show &captions", IDM_CAPTIONS_TEXT
         MENUITEM SEPARATOR
-        MENUITEM "Show the &queue...\tCtrl+Q", IDM_QUEUE
-        MENUITEM "&Empty the queue...", IDM_CLEAR_QUEUE
-        MENUITEM "S&top the current download\tEscape", IDM_STOP
+        MENUITEM "Show &queue...\tCtrl+Q", IDM_QUEUE
+        MENUITEM "E&mpty queue...", IDM_CLEAR_QUEUE
+        MENUITEM "S&top download\tEscape", IDM_STOP
         MENUITEM SEPARATOR
         MENUITEM "&Rename...\tF2", IDM_RENAME
-        MENUITEM "Mo&ve to a category...\tCtrl+Shift+M", IDM_MOVE
-        MENUITEM "Show in File E&xplorer", IDM_SHOW
+        MENUITEM "Mo&ve to category...\tCtrl+Shift+M", IDM_MOVE
+        MENUITEM "Show video in file e&xplorer", IDM_SHOW
         MENUITEM "&Delete...\tDelete", IDM_DELETE
     END
-    // Searching YouTube, and the channels followed, shown in the main list.
+
     POPUP "&YouTube"
     BEGIN
         MENUITEM "&Search YouTube...\tCtrl+F", IDM_SEARCH
-        MENUITEM "&New from your channels\tCtrl+L", IDM_NEW_VIDEOS
+        MENUITEM "&New videos from channels\tCtrl+L", IDM_NEW_VIDEOS
         MENUITEM "&Your channels\tCtrl+Shift+L", IDM_CHANNELS
+        MENUITEM "&Recently played\tCtrl+H", IDM_HISTORY
         MENUITEM SEPARATOR
-        MENUITEM "&Follow the channel of the one chosen", IDM_FOLLOW
-        MENUITEM "Stop following the channel chosen (&unfollow)...", IDM_UNFOLLOW
-        MENUITEM "&Copy the web address of the one chosen", IDM_COPY
-        MENUITEM "Open it in the &browser", IDM_BROWSER
+        MENUITEM "&Follow channel", IDM_FOLLOW
+        MENUITEM "&Unfollow channel...", IDM_UNFOLLOW
+        MENUITEM "&Copy web address", IDM_COPY
+        MENUITEM "Open in &browser", IDM_BROWSER
     END
-    // Categories, as in NoteFetch: folders in the output folder.
+
     POPUP "Cate&gory"
     BEGIN
         MENUITEM "&New category...", IDM_NEW_CATEGORY
-        MENUITEM "&Rename the category shown...", IDM_RENAME_CATEGORY
-        MENUITEM "&Delete the category shown...", IDM_DELETE_CATEGORY
+        MENUITEM "&Rename category...", IDM_RENAME_CATEGORY
+        MENUITEM "&Delete category...", IDM_DELETE_CATEGORY
         MENUITEM SEPARATOR
-        MENUITEM "&Move the download chosen to a category...\tCtrl+Shift+M", IDM_MOVE
+        MENUITEM "&Move to category...\tCtrl+Shift+M", IDM_MOVE
     END
-    // The lists are filled in as they open; their items have no mnemonics,
-    // so typing a letter moves to the first item starting with it.
+
     POPUP "&Options"
     BEGIN
         POPUP "&Download as"
@@ -231,19 +242,82 @@ BEGIN
         BEGIN
             MENUITEM "-", 2200
         END
-        MENUITEM "&Number the files of a playlist in its order", IDM_NUMBER
-        MENUITEM "Save &captions as a file beside each download", IDM_CAPTIONS
+        MENUITEM "&Number playlist files in order", IDM_NUMBER
+        MENUITEM "Save &captions file", IDM_CAPTIONS
         POPUP "Playing &speed"
         BEGIN
             MENUITEM "-", 2300
         END
-        MENUITEM "Play the ne&xt one in the list when one ends", IDM_PLAY_NEXT
+        MENUITEM "Play ne&xt when one ends", IDM_PLAY_NEXT
+        MENUITEM "Cut si&lences when playing", IDM_CUT_SILENCE
+        MENUITEM "Offer copied &web addresses", IDM_OFFER_COPIED
     END
+
     POPUP "&Help"
     BEGIN
         MENUITEM "&Help\tF1", IDM_HELP
         MENUITEM "&About VidFetch", IDM_ABOUT
     END
+END
+
+// The YouTube window's menus (online.rs). Items that cannot apply to the row
+// chosen are greyed out as a menu opens.
+IDR_BROWSE MENU
+BEGIN
+    POPUP "&Video"
+    BEGIN
+        MENUITEM "&Play or open\tEnter", IDM_OPEN
+        MENUITEM "&Download\tCtrl+D", IDM_DOWNLOAD
+        MENUITEM "Show d&escription\tCtrl+I", IDM_DESCRIBE
+        MENUITEM "Show &channel", IDM_CHANNEL
+        MENUITEM "Show channel's p&laylists", IDM_PLAYLISTS
+        MENUITEM "&Follow channel", IDM_FOLLOW
+        MENUITEM "&Unfollow channel...", IDM_UNFOLLOW
+        MENUITEM "Cop&y web address", IDM_COPY
+        MENUITEM "Open in &browser", IDM_BROWSER
+        MENUITEM "&Remove from list\tDelete", IDM_DELETE
+    END
+
+    POPUP "&Go"
+    BEGIN
+        MENUITEM "&Search YouTube...\tCtrl+F", IDM_SEARCH
+        MENUITEM "&New videos from channels\tCtrl+L", IDM_NEW_VIDEOS
+        MENUITEM "&Your channels\tCtrl+Shift+L", IDM_CHANNELS
+        MENUITEM "&Recently played\tCtrl+H", IDM_HISTORY
+        MENUITEM SEPARATOR
+        MENUITEM "&Back\tBackspace", IDM_BACK
+        MENUITEM "&Close window", IDM_CLOSE
+    END
+
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&Help\tF1", IDM_HELP
+    END
+END
+
+// The YouTube window (online.rs): search results, new videos, channels, a
+// channel's videos and playlists, a playlist's videos, and what was played
+// lately, one list at a time. Its title and the list's label are set at run
+// time to say which list it is; the Enter button says what Enter does to
+// the row chosen. Escape and Backspace go back one list, closing the window
+// from the first.
+IDD_BROWSE DIALOGEX 0, 0, 400, 224
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "YouTube - VidFetch"
+MENU IDR_BROWSE
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "&What YouTube found:", IDC_LIST_LABEL, 7, 7, 386, 8
+    LISTBOX    IDC_LIST, 7, 17, 386, 140,
+               LBS_NOTIFY | LBS_WANTKEYBOARDINPUT | LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_HSCROLL | WS_BORDER | WS_GROUP | WS_TABSTOP
+
+    DEFPUSHBUTTON "&Play  Enter", IDC_OPEN, 7, 164, 190, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "&Download  Ctrl+D", IDC_B_DOWNLOAD, 203, 164, 190, 14, WS_TABSTOP
+    PUSHBUTTON "&Search...  Ctrl+F", IDC_B_SEARCH, 7, 184, 190, 14, WS_TABSTOP
+    PUSHBUTTON "&Close window", IDC_B_CLOSE, 203, 184, 190, 14, WS_TABSTOP
+
+    LTEXT      "S&tatus:", -1, 7, 206, 30, 8
+    EDITTEXT   IDC_STATUS, 40, 204, 353, 12, ES_AUTOHSCROLL | ES_READONLY | WS_GROUP | WS_TABSTOP
 END
 
 IDD_MESSAGE DIALOGEX 0, 0, 304, 244

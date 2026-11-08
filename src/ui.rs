@@ -2,9 +2,9 @@
 //! control is a real Win32 control that a screen reader already knows. Video
 //! Scribe's main window, without the describing.
 //!
-//! Its list shows the downloads, a playlist's videos, or what comes from
-//! YouTube (online.rs); the Category to show box picks the category
-//! (category.rs).
+//! Its list shows the downloads, or a playlist's videos; the Category box
+//! picks the category (category.rs). What comes from YouTube has a window of
+//! its own (online.rs).
 
 mod category;
 mod online;
@@ -88,6 +88,8 @@ const IDM_NEW_CATEGORY: i32 = 2050;
 const IDM_RENAME_CATEGORY: i32 = 2051;
 const IDM_DELETE_CATEGORY: i32 = 2052;
 const IDM_PLAY_NEXT: i32 = 2060;
+const IDM_CUT_SILENCE: i32 = 2061;
+const IDM_OFFER_COPIED: i32 = 2062;
 const IDM_HISTORY: i32 = 2048;
 const IDM_CAPTIONS_TEXT: i32 = 2049;
 const IDM_ADD: i32 = 2023;
@@ -176,9 +178,15 @@ struct App {
     entries: Vec<library::Entry>,
     /// The file or folder to choose in the list next time it is filled.
     select: Option<PathBuf>,
-    /// Lists from YouTube shown over the downloads, the last on top; Escape
-    /// goes back one at a time.
+    /// The main window, for the YouTube window to reach.
+    main: Option<HWND>,
+    /// The YouTube window, while it is open.
+    browse: Option<HWND>,
+    /// The lists the YouTube window shows, the last on top; Escape goes back
+    /// one at a time.
     online: Vec<online::Online>,
+    /// The sounds' addresses found lately, by video.
+    sounds: online::Sounds,
     /// The YouTube channels followed.
     channels: Vec<channels::Channel>,
     /// What is being looked up online now: its number, to know its answer,
@@ -207,7 +215,10 @@ pub fn run(cfg: Config, welcome: bool) {
         inside: None,
         entries: Vec::new(),
         select: None,
+        main: None,
+        browse: None,
         online: Vec::new(),
+        sounds: Default::default(),
         channels: channels::load(),
         lookup: None,
         next_lookup: 0,
@@ -287,6 +298,7 @@ unsafe extern "system" fn dialog_proc(
         WM_INITDIALOG => {
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, lparam.0);
             if let Some(app) = app(hwnd) {
+                app.main = Some(hwnd);
                 category::fill(hwnd, app);
                 name_list(hwnd, app);
                 refresh(hwnd, app);
@@ -415,10 +427,8 @@ unsafe extern "system" fn dialog_proc(
             let Some(app) = app(hwnd) else { return -1 };
             if key == VK_DELETE.0 {
                 command(hwnd, app, IDM_DELETE);
-            } else if key == VK_BACK.0 && (app.inside.is_some() || !app.online.is_empty()) {
-                if !online::back(hwnd, app) {
-                    back(hwnd, app);
-                }
+            } else if key == VK_BACK.0 && app.inside.is_some() {
+                back(hwnd, app);
             } else {
                 return -1;
             }
@@ -530,11 +540,6 @@ fn list(hwnd: HWND) -> HWND {
 /// Fills the list again from the output folder, or from the playlist's folder
 /// it shows, keeping the one chosen, or choosing the one a job just saved.
 fn refresh(hwnd: HWND, app: &mut App) {
-    // A list from YouTube is shown: the downloads are filled in on the way
-    // back to them.
-    if !app.online.is_empty() {
-        return;
-    }
     let lb = list(hwnd);
     let at = downloads::chosen(lb);
     let path = app
@@ -558,13 +563,12 @@ fn refresh(hwnd: HWND, app: &mut App) {
 /// The list's label says which list it is: a screen reader reads it as the
 /// list's name.
 fn name_list(hwnd: HWND, app: &App) {
-    let label = match (&app.inside, app.online.last()) {
-        (_, Some(o)) => online::label(o),
-        (Some(folder), None) => format!(
+    let label = match &app.inside {
+        Some(folder) => format!(
             "Do&wnloads in the playlist {}, in its order:",
             folder.file_name().unwrap_or_default().to_string_lossy()
         ),
-        (None, None) => match &app.cfg.category {
+        None => match &app.cfg.category {
             Some(c) => format!("Do&wnloads in {c}, most recent first:"),
             None => "Do&wnloads, most recent first:".to_string(),
         },
@@ -574,18 +578,11 @@ fn name_list(hwnd: HWND, app: &App) {
 
 /// The Enter button says what Enter does to the one chosen.
 fn name_enter(hwnd: HWND, app: &App) {
-    if !app.online.is_empty() {
-        let text = online::enter_words(app, downloads::chosen(list(hwnd)));
-        if get_text(hwnd, IDC_OPEN) != text {
-            set_text(hwnd, IDC_OPEN, text);
-        }
-        return;
-    }
     let playlist = downloads::chosen(list(hwnd))
         .and_then(|i| app.entries.get(i))
         .is_some_and(|e| e.is_playlist());
     let text = if playlist {
-        "Show the &playlist's videos  Enter"
+        "O&pen playlist  Enter"
     } else {
         "&Play  Enter"
     };
@@ -658,13 +655,13 @@ fn back(hwnd: HWND, app: &mut App) -> bool {
     true
 }
 
-/// Escape: stops a lookup online, else goes back from a list from YouTube or
-/// a playlist's videos, else stops the download running.
+/// Escape: goes back from a playlist's videos, else stops the download
+/// running.
 fn escape(hwnd: HWND) {
     let Some(app) = (unsafe { app(hwnd) }) else {
         return;
     };
-    if !online::stop_looking(hwnd, app) && !online::back(hwnd, app) && !back(hwnd, app) {
+    if !back(hwnd, app) {
         stop(hwnd);
     }
 }
@@ -714,58 +711,69 @@ fn read_captions(hwnd: HWND, e: &library::Entry) {
     focus(hwnd, IDC_LIST);
 }
 
-/// Plays the download at `at` in the list in the Play window, then the next
-/// or previous one if asked, skipping playlists.
-fn play(hwnd: HWND, mut at: usize) {
-    loop {
-        let Some(app) = (unsafe { app(hwnd) }) else {
-            return;
-        };
-        let Some(e) = app.entries.get(at).cloned() else {
-            return;
-        };
-        let file = |e: &library::Entry| !e.is_playlist();
-        let next = (at + 1..app.entries.len()).find(|&i| file(&app.entries[i]));
-        let previous = (0..at).rev().find(|&i| file(&app.entries[i]));
-        let source = e.path.display().to_string();
-        crate::history::record(&crate::places::of_file(&e.path), &e.name);
-        let mut l = listen::Listen {
-            source: &source,
-            name: &e.name,
-            key: crate::places::of_file(&e.path),
-            speed: app.cfg.speed,
-            has_next: next.is_some(),
-            has_previous: previous.is_some(),
-            play_next: app.cfg.play_next,
-            download: None,
-            video: library::video_of(Config::past_path().as_deref(), &e.path),
-        };
-        let outcome = listen::show(hwnd, &mut l);
-        let speed = l.speed;
-        let Some(app) = (unsafe { self::app(hwnd) }) else {
-            return;
-        };
-        keep_speed(app, speed);
-        let to = match outcome {
-            Err(why) => {
-                message::problem(hwnd, &why);
-                None
-            }
-            Ok(listen::Outcome::Next) => next,
-            Ok(listen::Outcome::Previous) => previous,
-            Ok(listen::Outcome::Closed) => None,
-        };
-        let Some(to) = to else {
-            focus(hwnd, IDC_LIST);
-            return;
-        };
-        // The list follows, so Escape lands on the one last played.
-        at = to;
+/// What the Play window needs for the download at `i` in the list, if it
+/// is a file.
+fn file_track(app: &App, i: usize) -> Option<listen::Track> {
+    let e = app.entries.get(i).filter(|e| !e.is_playlist())?;
+    let file = |e: &library::Entry| !e.is_playlist();
+    let key = crate::places::of_file(&e.path);
+    crate::history::record(&key, &e.name);
+    Some(listen::Track {
+        source: listen::Source::Ready(e.path.display().to_string()),
+        name: e.name.clone(),
+        key,
+        video: library::video_of(Config::past_path().as_deref(), &e.path),
+        has_next: app.entries[i + 1..].iter().any(file),
+        has_previous: app.entries[..i].iter().any(file),
+        download: None,
+    })
+}
+
+/// Plays the download at `at` in the list in the Play window, which goes on
+/// to the next or previous one with Page Down and Page Up, skipping
+/// playlists; the list follows, so Escape lands on the one last played.
+fn play(hwnd: HWND, at: usize) {
+    let Some(app) = (unsafe { app(hwnd) }) else {
+        return;
+    };
+    let Some(track) = file_track(app, at) else {
+        return;
+    };
+    let (speed, play_next, cut) = (app.cfg.speed, app.cfg.play_next, app.cfg.cut_silence);
+    let mut step = move |next: bool| -> Option<listen::Track> {
+        let app = unsafe { self::app(hwnd) }?;
+        let lb = list(hwnd);
+        let at = downloads::chosen(lb)?;
+        let file = |i: &usize| !app.entries[*i].is_playlist();
+        let to = if next {
+            (at + 1..app.entries.len()).find(file)
+        } else {
+            (0..at).rev().find(file)
+        }?;
         unsafe {
-            SendMessageW(list(hwnd), LB_SETCURSEL, Some(WPARAM(at)), None);
+            SendMessageW(lb, LB_SETCURSEL, Some(WPARAM(to)), None);
         }
         name_enter(hwnd, app);
+        file_track(app, to)
+    };
+    let mut l = listen::Listen {
+        track,
+        speed,
+        play_next,
+        cut_silence: cut,
+        step: Some(&mut step),
+    };
+    let r = listen::show(hwnd, &mut l);
+    let speed = l.speed;
+    drop(l);
+    let Some(app) = (unsafe { self::app(hwnd) }) else {
+        return;
+    };
+    keep_speed(app, speed);
+    if let Err(why) = r {
+        message::problem(hwnd, &why);
     }
+    focus(hwnd, IDC_LIST);
 }
 
 /// The running job is filling this playlist's folder, so it and its videos
@@ -861,6 +869,26 @@ fn resume(hwnd: HWND, app: &mut App) {
     }
 }
 
+/// A right click chooses the row it is on, as in File Explorer.
+fn choose_under(lb: HWND, x: i32, y: i32) {
+    let mut p = windows::Win32::Foundation::POINT { x, y };
+    unsafe {
+        let _ = windows::Win32::Graphics::Gdi::ScreenToClient(lb, &mut p);
+        let r = SendMessageW(
+            lb,
+            LB_ITEMFROMPOINT,
+            None,
+            Some(LPARAM(
+                ((p.y as isize & 0xFFFF) << 16) | (p.x as isize & 0xFFFF),
+            )),
+        )
+        .0;
+        if (r >> 16) & 0xFFFF == 0 {
+            SendMessageW(lb, LB_SETCURSEL, Some(WPARAM((r & 0xFFFF) as usize)), None);
+        }
+    }
+}
+
 /// The context menu of the list, for the download chosen, or the one under
 /// the mouse.
 fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
@@ -871,57 +899,46 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
     );
     let mouse = (x, y) != (-1, -1);
     if mouse {
-        // A right click chooses the download it is on, as in File Explorer.
-        let mut p = windows::Win32::Foundation::POINT { x, y };
-        unsafe {
-            let _ = windows::Win32::Graphics::Gdi::ScreenToClient(lb, &mut p);
-            let r = SendMessageW(
-                lb,
-                LB_ITEMFROMPOINT,
-                None,
-                Some(LPARAM(
-                    ((p.y as isize & 0xFFFF) << 16) | (p.x as isize & 0xFFFF),
-                )),
-            )
-            .0;
-            if (r >> 16) & 0xFFFF == 0 {
-                SendMessageW(lb, LB_SETCURSEL, Some(WPARAM((r & 0xFFFF) as usize)), None);
-            }
-        }
-    }
-    if !app.online.is_empty() {
-        online::context_menu(hwnd, app, mouse.then_some((x, y)));
-        return;
+        choose_under(lb, x, y);
     }
     let Some(e) = chosen(hwnd, app) else {
         return;
     };
     let mut items = if e.is_playlist() {
         vec![
-            (IDM_OPEN, "Show its &videos\tEnter"),
-            (IDM_UPDATE, "&Update the playlist\tCtrl+U"),
-            (IDM_EXTERNAL, "&Open the folder in File Explorer"),
+            (IDM_OPEN, "&Open playlist\tEnter"),
+            (IDM_UPDATE, "&Update playlist\tCtrl+U"),
+            (IDM_EXTERNAL, "Open folder in file &explorer"),
         ]
     } else {
-        vec![
-            (IDM_OPEN, "&Play\tEnter"),
-            (IDM_EXTERNAL, "&Open in the default player"),
-            (IDM_DESCRIBE, "Read its descr&iption\tCtrl+I"),
-            (IDM_CAPTIONS_TEXT, "Read its &captions as text"),
-            (IDM_FOLLOW, "&Follow its channel"),
-        ]
+        let mut items = vec![
+            (IDM_OPEN, "&Play video\tEnter"),
+            (IDM_EXTERNAL, "Open video using default &media player"),
+        ];
+        if online::knows_video(&e) {
+            items.extend([
+                (IDM_DESCRIBE, "Show d&escription\tCtrl+I"),
+                (IDM_FOLLOW, "&Follow channel"),
+            ]);
+        }
+        if !library::captions_of(&e.path).is_empty() {
+            items.push((IDM_CAPTIONS_TEXT, "Show &captions"));
+        }
+        items
     };
     if app.inside.is_some() {
-        items.push((IDM_BACK, "&Back to all downloads\tEscape"));
+        items.push((IDM_BACK, "&Back\tEscape"));
     } else {
-        items.push((IDM_MOVE, "Mo&ve to a category...\tCtrl+Shift+M"));
+        items.push((IDM_MOVE, "Mo&ve to category...\tCtrl+Shift+M"));
+    }
+    if e.is_playlist() || online::knows_video(&e) {
+        items.push((IDM_COPY, "Cop&y web address"));
     }
     items.extend([
-        (IDM_COPY, "Cop&y its web address"),
         (0, ""),
-        (IDM_RENAME, "&Rename\tF2"),
-        (IDM_SHOW, "Show in File E&xplorer"),
-        (IDM_DELETE, "&Delete\tDelete"),
+        (IDM_RENAME, "&Rename...\tF2"),
+        (IDM_SHOW, "Show in file e&xplorer"),
+        (IDM_DELETE, "&Delete...\tDelete"),
     ]);
     if let Some(id) = downloads::context_menu(hwnd, lb, mouse.then_some((x, y)), &items) {
         command(hwnd, app, id);
@@ -1106,11 +1123,12 @@ fn begin(hwnd: HWND, app: &mut App, mut q: Queued, quiet: bool) -> bool {
     save_queue(app);
     if quiet {
         set_text(hwnd, IDC_STATUS, "Starting the next download in the queue.");
-    } else if !app.online.is_empty() {
-        // Escape goes back from the list shown; focus stays on it.
+    } else if app.browse.is_some() {
+        // Said by the YouTube window, which stays in front.
         say(
             hwnd,
-            "Started downloading. To stop it, go back to your downloads and press Escape.",
+            "Started downloading. It carries on when you close this window; Escape in the main \
+             window stops it.",
         );
     } else {
         say(hwnd, "Started. Press Escape to stop.");
@@ -1202,11 +1220,11 @@ fn job_event(hwnd: HWND, app: &mut App, event: Event) {
             report,
         } => {
             // Enter plays what the list shows, which is not the download
-            // while a list from YouTube is shown.
-            if !app.online.is_empty() {
+            // while the YouTube window is in front.
+            if app.browse.is_some() {
                 said = said.replace(
                     " Press Enter to play it.",
-                    " It is in your downloads, where Escape goes back.",
+                    " It is in your downloads, in the main window.",
                 );
             }
             app.select = Some(path);
@@ -1434,8 +1452,9 @@ fn submenu(menu: HMENU, pos: i32) -> HMENU {
     unsafe { GetSubMenu(menu, pos) }
 }
 
-/// A menu is about to open: tick what is chosen, and fill the lists of
-/// choices. Nothing is greyed out.
+/// A menu is about to open: tick what is chosen, fill the lists of choices,
+/// and grey out what cannot apply now, as the user asked (milestone 4 test,
+/// section 1). The buttons are never greyed: they say why instead.
 fn init_menu(hwnd: HWND, app: &mut App, menu: HMENU) {
     let bar = unsafe { GetMenu(hwnd) };
     let options = submenu(bar, OPTIONS_MENU);
@@ -1463,6 +1482,44 @@ fn init_menu(hwnd: HWND, app: &mut App, menu: HMENU) {
     tick(IDM_NUMBER, cfg.number);
     tick(IDM_CAPTIONS, cfg.captions);
     tick(IDM_PLAY_NEXT, cfg.play_next);
+    tick(IDM_CUT_SILENCE, cfg.cut_silence);
+    tick(IDM_OFFER_COPIED, cfg.offer_copied);
+    let e = downloads::chosen(list(hwnd)).and_then(|i| app.entries.get(i));
+    let file = e.is_some_and(|e| !e.is_playlist());
+    let playlist = e.is_some_and(|e| e.is_playlist());
+    let video = file && e.is_some_and(online::knows_video);
+    let enable = |id: i32, on: bool| unsafe {
+        let _ = EnableMenuItem(
+            menu,
+            id as u32,
+            MF_BYCOMMAND | if on { MF_ENABLED } else { MF_GRAYED },
+        );
+    };
+    enable(IDM_OPEN, e.is_some());
+    enable(IDM_EXTERNAL, e.is_some());
+    enable(IDM_BACK, app.inside.is_some());
+    enable(IDM_UPDATE, playlist || app.inside.is_some());
+    enable(IDM_DESCRIBE, video);
+    enable(
+        IDM_CAPTIONS_TEXT,
+        file && e.is_some_and(|e| !library::captions_of(&e.path).is_empty()),
+    );
+    enable(IDM_CLEAR_QUEUE, !app.queue.is_empty());
+    enable(IDM_STOP, app.job.is_some());
+    enable(IDM_UPDATE_YTDLP, app.job.is_none());
+    for id in [IDM_RENAME, IDM_SHOW, IDM_DELETE] {
+        enable(id, e.is_some());
+    }
+    enable(IDM_MOVE, e.is_some() && app.inside.is_none());
+    enable(IDM_FOLLOW, video);
+    enable(IDM_UNFOLLOW, video && !app.channels.is_empty());
+    enable(IDM_COPY, video || playlist);
+    enable(IDM_BROWSER, video || playlist);
+    enable(IDM_CHANNELS, !app.channels.is_empty());
+    enable(IDM_NEW_VIDEOS, !app.channels.is_empty());
+    for id in [IDM_RENAME_CATEGORY, IDM_DELETE_CATEGORY] {
+        enable(id, cfg.category.is_some());
+    }
 }
 
 /// A speed as the Options menu says it: "Normal", "1.25 times as fast".
@@ -1539,20 +1596,12 @@ fn shortcut(key: u16) -> Option<i32> {
 /// and said out loud, as the menu closes without a word.
 fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
     let in_list = |first: i32, len: usize| (first..first + len as i32).contains(&id);
-    if !app.online.is_empty() {
-        if let Some(done) = online::command(hwnd, app, id) {
-            return done;
-        }
-    } else if online::download_command(hwnd, app, id) {
+    if online::download_command(hwnd, app, id) {
         return true;
     }
     let said = match id {
         IDM_MOVE => {
             category::move_chosen(hwnd, app);
-            return true;
-        }
-        IDM_HISTORY => {
-            online::recently_played(hwnd, app);
             return true;
         }
         IDM_CAPTIONS_TEXT => {
@@ -1566,7 +1615,7 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
                 say(
                     hwnd,
                     &format!(
-                        "Made the category {name}. Choose it in the Category to show box, Alt+C, \
+                        "Made the category {name}. Choose it in the Category box, Alt+C, \
                          to show it and download into it; Ctrl+Shift+M moves a download into it."
                     ),
                 );
@@ -1581,6 +1630,24 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
         IDM_DELETE_CATEGORY => {
             category::delete(hwnd, app);
             return true;
+        }
+        IDM_CUT_SILENCE => {
+            app.cfg.cut_silence = !app.cfg.cut_silence;
+            if app.cfg.cut_silence {
+                "The Play window now cuts every silence down to a second.".to_string()
+            } else {
+                "The Play window now plays silences as they are.".to_string()
+            }
+        }
+        IDM_OFFER_COPIED => {
+            app.cfg.offer_copied = !app.cfg.offer_copied;
+            if app.cfg.offer_copied {
+                "When you copy a web address and come back to VidFetch, it now offers to \
+                 download it."
+                    .to_string()
+            } else {
+                "VidFetch no longer offers web addresses you copy.".to_string()
+            }
         }
         IDM_PLAY_NEXT => {
             app.cfg.play_next = !app.cfg.play_next;

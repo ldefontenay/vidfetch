@@ -1006,13 +1006,14 @@ fn boxes(data: &[u8], start: usize, end: usize) -> Vec<Mp4Box> {
 
 /// YouTube's separate picture file carries an edit list (`edts`) that shifts
 /// it by the B-frame delay, and Media Foundation's MP4 reader then delivers
-/// no frames at all (Video Scribe, log entry 13). In our own downloaded copy
+/// no frames at all (Video Scribe, log entry 13). Some sound files carry one
+/// too, with the same result. In our own downloaded copy
 /// the box is renamed `free`, which every reader skips. Returns the shift in
 /// seconds, so that a time t on the video's clock is t + shift to Media
 /// Foundation.
 pub fn drop_edit_list(path: &Path) -> Result<f64, String> {
     use std::io::{Read, Seek, SeekFrom, Write};
-    let fail = |e: std::io::Error| format!("The downloaded picture could not be prepared: {e}");
+    let fail = |e: std::io::Error| format!("The downloaded file could not be prepared: {e}");
     let mut f = std::fs::OpenOptions::new()
         .read(true)
         .write(true)

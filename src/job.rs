@@ -279,6 +279,15 @@ fn fetch(
     };
     let mut note = None;
     let step = |what: &'static str| progress_of(post, before, what);
+    // Some of YouTube's sound files carry an edit list too, and Media
+    // Foundation then reads no sound from them at all (milestone 4 test,
+    // section 3: "no samples were processed by the sink"). Dropping it costs
+    // the first few hundredths of a second of the encoder's lead-in.
+    if let Some(snd) = sound.or(both).or(Some(first)) {
+        if matches!(ext(&snd.path).as_str(), "m4a" | "mp4") && !snd.picture {
+            ytdlp::drop_edit_list(&snd.path)?;
+        }
+    }
     let file = match s.format {
         Format::Video => match (picture, sound, both) {
             (Some(pic), Some(snd), _) => {

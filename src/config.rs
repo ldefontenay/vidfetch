@@ -19,6 +19,11 @@ pub struct Config {
     pub speed: f64,
     /// At the end of one, the Play window goes on to the next in the list.
     pub play_next: bool,
+    /// The Play window cuts every silence down to a second (log entry 4, Q2).
+    pub cut_silence: bool,
+    /// A web address copied anywhere is offered for downloading as VidFetch
+    /// comes to the front (log entry 4, Q3).
+    pub offer_copied: bool,
     /// The category the list shows, and new downloads go into: None for all
     /// of them, with new downloads in Uncategorised.
     pub category: Option<String>,
@@ -84,6 +89,8 @@ impl Default for Config {
             captions: false,
             speed: 1.0,
             play_next: false,
+            cut_silence: false,
+            offer_copied: false,
             category: None,
         }
     }
@@ -167,6 +174,8 @@ impl Config {
                     }
                 }
                 "play the next one at the end" => cfg.play_next = yes,
+                "cut silences" => cfg.cut_silence = yes,
+                "offer copied web addresses" => cfg.offer_copied = yes,
                 "category shown" if !value.is_empty() => cfg.category = Some(value.to_string()),
                 _ => {}
             }
@@ -185,6 +194,8 @@ impl Config {
              save captions = {}\r\n\
              playing speed = {}\r\n\
              play the next one at the end = {}\r\n\
+             cut silences = {}\r\n\
+             offer copied web addresses = {}\r\n\
              category shown = {}\r\n",
             self.output_folder
                 .as_ref()
@@ -196,6 +207,8 @@ impl Config {
             yn(self.captions),
             self.speed,
             yn(self.play_next),
+            yn(self.cut_silence),
+            yn(self.offer_copied),
             self.category.as_deref().unwrap_or_default(),
         )
     }
@@ -248,6 +261,8 @@ mod tests {
             captions: true,
             speed: 1.75,
             play_next: true,
+            cut_silence: true,
+            offer_copied: true,
             category: Some("Talks".into()),
         };
         assert_eq!(Config::parse(&cfg.to_text()), cfg);
