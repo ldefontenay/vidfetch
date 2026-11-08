@@ -27,6 +27,7 @@ const IDC_A_QUALITY: i32 = 1094;
 const IDC_A_CAPTIONS: i32 = 1095;
 const IDC_A_FOLLOW: i32 = 1096;
 const IDC_A_CATEGORY: i32 = 1097;
+const IDC_A_LISTEN: i32 = 1098;
 
 const EN_SETFOCUS: u32 = 0x0100;
 const EN_CHANGE: u32 = 0x0300;
@@ -42,6 +43,8 @@ pub enum Chosen {
     Download { url: String, category: String },
     /// Follow the channel the address belongs to.
     Follow(String),
+    /// Play its sound in the Play window, without downloading it.
+    Listen(String),
 }
 
 struct State<'a> {
@@ -276,6 +279,16 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
                     }
                     update_plan(hwnd, s);
                 }
+                (IDC_A_LISTEN, _) => match ytdlp::parse_address(&get_text(hwnd, IDC_A_SOURCE)) {
+                    Ok(url) => {
+                        s.chosen = Some(Chosen::Listen(url));
+                        let _ = EndDialog(hwnd, IDOK.0 as isize);
+                    }
+                    Err(why) => {
+                        message::problem(hwnd, &why);
+                        focus(hwnd, IDC_A_SOURCE);
+                    }
+                },
                 (IDC_A_FOLLOW, _) => match ytdlp::parse_address(&get_text(hwnd, IDC_A_SOURCE)) {
                     Ok(url) if ytdlp::is_youtube(&url) => {
                         s.chosen = Some(Chosen::Follow(url));

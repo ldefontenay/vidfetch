@@ -17,6 +17,7 @@ use crate::wide;
 const IDD_MESSAGE: u16 = 101;
 const IDC_MESSAGE: i32 = 1017;
 const IDC_MESSAGE_LABEL: i32 = 1018;
+const IDC_MESSAGE_COPY: i32 = 1019;
 
 // The heading's letter takes focus back to the text; nothing else in the
 // window uses a letter, so any first letter will do.
@@ -107,10 +108,30 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
                 let _ = EndDialog(hwnd, id as isize);
                 return 1;
             }
+            if id == IDC_MESSAGE_COPY {
+                if let Ok(edit) = GetDlgItem(Some(hwnd), IDC_MESSAGE) {
+                    copy_whole(edit);
+                }
+                return 1;
+            }
             0
         }
         _ => 0,
     }
+}
+
+/// Copies all of the text, and says so.
+unsafe fn copy_whole(edit: HWND) {
+    let len = GetWindowTextLengthW(edit).max(0) as usize;
+    let mut buf = vec![0u16; len + 1];
+    let n = GetWindowTextW(edit, &mut buf).max(0) as usize;
+    let text = String::from_utf16_lossy(&buf[..n]);
+    let said = if crate::downloads::copy(edit, &text) {
+        "Copied all the text."
+    } else {
+        "Windows would not let VidFetch use the clipboard. Try again."
+    };
+    crate::announce::say(edit, said);
 }
 
 /// Focus on the text with the caret at its start, so the arrow keys read from
@@ -126,7 +147,9 @@ unsafe fn focus_text_at_start(hwnd: HWND, id: i32) {
 
 /// Ctrl+C with nothing selected copies the whole message, as the user asked
 /// of descriptions and captions (milestone 4 test, section 6); with a
-/// selection, the edit copies that, as ever.
+/// selection, the edit copies that, as ever. JAWS keeps Ctrl+C to itself
+/// when nothing is selected, and says so (milestone 5 test, 5.1), which is
+/// why the window also has a Copy all text button.
 unsafe extern "system" fn copy_all(
     edit: HWND,
     message: u32,
@@ -152,16 +175,7 @@ unsafe extern "system" fn copy_all(
             Some(LPARAM(&mut to as *mut u32 as isize)),
         );
         if from == to {
-            let len = GetWindowTextLengthW(edit).max(0) as usize;
-            let mut buf = vec![0u16; len + 1];
-            let n = GetWindowTextW(edit, &mut buf).max(0) as usize;
-            let text = String::from_utf16_lossy(&buf[..n]);
-            let said = if crate::downloads::copy(edit, &text) {
-                "Copied all the text."
-            } else {
-                "Windows would not let VidFetch use the clipboard. Try again."
-            };
-            crate::announce::say(edit, said);
+            copy_whole(edit);
             return windows::Win32::Foundation::LRESULT(0);
         }
     }

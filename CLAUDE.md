@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # VidFetch
 
-A small Windows app that downloads videos and whole playlists from YouTube and other sites, as video
-(MP4) or sound only (M4A or MP3), with a screen reader first. It is a subset of
-[Video Scribe](../videoscribe) without the describing: the same window, list of downloads, yt-dlp
-handling and Media Foundation code, plus playlists.
+A small Windows app: an accessible interface for YouTube (search, listen, follow channels, playlists,
+download), with a screen reader first, which can also download from other video sites, as video (MP4)
+or sound only (M4A or MP3). It began as a subset of [Video Scribe](../videoscribe) and shares its
+window, list of downloads, yt-dlp handling and Media Foundation code.
 
 **`PLAN.md` is the source of truth** for decisions and milestones. `log.md` holds findings and questions,
 newest entry at the top.
@@ -16,10 +16,9 @@ newest entry at the top.
 
 Split off from a Video Scribe session on 2 November 2026; this repository is now worked on on its own.
 
-- Milestones 1 to 3 are on `main`. Milestone 4 (search, channels, categories, listening) is on
-  `m4-search-channels`, tested and pushed. Milestone 5, the user's milestone 4 answers, is on
-  `m5-windows-and-fixes`, branched from it, awaiting `test-milestone-5.txt`. Log entry 5 has its
-  questions.
+- Milestones 1 to 5 are on `main`, tested and pushed. Milestone 6, the user's milestone 5 answers, is
+  on `m6-beta`, awaiting `test-milestone-6.txt`. Log entry 6 has its questions and the proposals for
+  a first beta.
 - `src/ui/online.rs` is the YouTube window (IDD_BROWSE): search, new videos, channels, a channel's
   videos and playlists, a playlist, recently played. It runs its own message loop in front of the
   disabled main window and shares the main window's `App`. `src/ui/category.rs` holds the

@@ -1,0 +1,99 @@
+VidFetch - milestone 6: your answers to milestone 5
+===================================================
+
+Why: your answers to test-milestone-5 and log entry 5. Log entry 6 says what changed, and has the
+list of what could come before a first beta, with five questions.
+
+How to start it: run
+C:\Users\ldefo\dev\VidFetch\target\release\vidfetch.exe
+
+
+Section 1 - wording
+-------------------
+
+1.1  Press Alt+O for the Options menu. Is the item now "Continuous play"? Press Escape.
+ANSWER: Yes
+
+1.2  Press Ctrl+H. Does it say "recently played items"? Press Escape.
+ANSWER: Yes
+
+1.3  In the Help menu, choose About VidFetch. Does it say an accessible interface for YouTube? Press
+     Enter.
+ANSWER: Yes
+
+ANYTHING ODD:
+No.
+
+Section 2 - the Play window
+---------------------------
+
+2.1  Press Enter on a download. Are the explanations of the keys no longer read as the window opens?
+ANSWER: Yes. Could we have the player start with absolutely nothing announced by jaws? Just "please wait" when streaming?
+
+2.2  Press Alt+K. Are you in a Keys box, and can you read it line by line with the arrow keys?
+ANSWER: Yes. Please modify the message as follows:
+Left and Right arrows: move 2 seconds back or forward.
+Home: start of video. End: move to 10 seconds before the end.
+T: time elapsed.
+Up and Down arrows: adjust volume.
+Shift with Up and Down arrows: adjust speed.
+Page Down and Page Up: skip to next or previous video in the list.
+Ctrl Page Down and Page Up: jump to next or previous chapter.
+Ctrl+D: download video, when listening online.
+Tab out of this help box to make sure these keys work reliably.
+Escape: close.
+
+2.3  Press Alt+P to go back to Play or pause. Do the Left and Right arrows still move through the
+     sound? Press Escape.
+ANSWER: Yes. Note that alt+p does activate the play/pause button, but does not put focus there. That's ok. It also means that arrow keys and pgdn and pgup don't work in a message box, which is normal.
+
+ANYTHING ODD:
+No.
+
+Section 3 - listening without downloading
+-----------------------------------------
+
+3.1  Press Ctrl+N. Type or paste https://www.youtube.com/watch?v=1g4rGEA4g-U and press Alt+L, Listen
+     without downloading. Is "Please wait" said, and is it then said that the sound is being fetched
+     first? Does it play within about 15 seconds, rather than two minutes?
+ANSWER: Yes
+
+3.2  Press Escape, then do 3.1 again. Does it start sooner this time?
+ANSWER: Yes
+
+3.3  Press Ctrl+N, give the address of a video on another site, one you know, and press Alt+L. Does
+     it play? Press Ctrl+D: does it start downloading? Press Escape.
+ANSWER: Please suggest a video to test with.
+
+3.4  Press Ctrl+N, give the address of a YouTube playlist (one with "playlist?list=" in it), and
+     press Alt+L. Is it said that listening plays one video?
+ANSWER: Yes, but nothing played. Is that expected? The address was https://www.youtube.com/playlist?list=PLuaAWflRSLYNAo4ER_MVItiLkDm6TaJNV
+Ideal behaviour would actually be for alt+l to open the playlist or channel with a list of its videos, that can then be streamed or downloaded.
+
+3.5  In the Options menu, choose "Offer copied web addresses". In your browser, copy a video's
+     address and come back with Alt+Tab. Does New download open with the address in it? Press
+     Escape. Turn the option off again if you prefer it off.
+ANSWER: Yes.
+
+ANYTHING ODD:
+No.
+
+Section 4 - copying, and a download that has gone
+-------------------------------------------------
+
+4.1  Press Ctrl+F, search for something, and press Ctrl+I on a video. Press Alt+O, Copy all text. Is
+     it said that the text was copied? Paste it in Notepad: is it all there? Close Notepad without
+     saving.
+ANSWER: Yes
+
+4.2  Back in VidFetch, choose a download from YouTube that you do not need and have played. Delete
+     it in File Explorer rather than in VidFetch, as Delete in VidFetch may make it forget where it
+     came from. Press Ctrl+H, choose it, and press Enter. Are you asked whether to download it again?
+     Press Download again. Does it come back, in the same category?
+ANSWER: Yes. Please also implement this to work in the main list of videos.
+
+ANYTHING ODD:
+No.
+
+Question:
+When downloading a playlist with longer videos, could things be speeded up by starting the next download while processing the one that has just landed? i.e. during the stage where it says "taking out the sound"?

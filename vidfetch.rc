@@ -38,7 +38,7 @@ BEGIN
         BLOCK "040904B0"
         BEGIN
             VALUE "CompanyName",      "Laurent Cadet de Fontenay"
-            VALUE "FileDescription",  "Downloads videos and playlists"
+            VALUE "FileDescription",  "An accessible interface for YouTube, and a downloader for other video sites"
             VALUE "FileVersion",      "0.1.0.0"
             VALUE "InternalName",     "vidfetch"
             VALUE "LegalCopyright",   "MIT licensed"
@@ -75,6 +75,7 @@ END
 #define IDC_QUEUE           1014
 #define IDC_MESSAGE         1017
 #define IDC_MESSAGE_LABEL   1018
+#define IDC_MESSAGE_COPY    1019
 #define IDC_ASK_TEXT        1020
 #define IDC_N_NAME          1070
 #define IDC_N_LABEL         1071
@@ -85,6 +86,7 @@ END
 #define IDC_A_CAPTIONS      1095
 #define IDC_A_FOLLOW        1096
 #define IDC_A_CATEGORY      1097
+#define IDC_A_LISTEN        1098
 #define IDC_Q_NOW           1100
 #define IDC_Q_LIST          1101
 #define IDC_Q_REMOVE        1102
@@ -93,6 +95,7 @@ END
 #define IDC_L_PLAY          1061
 #define IDC_L_BACK          1062
 #define IDC_L_FORWARD       1063
+#define IDC_L_KEYS          1064
 #define IDC_B_DOWNLOAD      1120
 #define IDC_B_SEARCH        1121
 #define IDC_B_CLOSE         1122
@@ -248,7 +251,7 @@ BEGIN
         BEGIN
             MENUITEM "-", 2300
         END
-        MENUITEM "Play ne&xt when one ends", IDM_PLAY_NEXT
+        MENUITEM "Continuous &play", IDM_PLAY_NEXT
         MENUITEM "Cut si&lences when playing", IDM_CUT_SILENCE
         MENUITEM "Offer copied &web addresses", IDM_OFFER_COPIED
     END
@@ -328,7 +331,8 @@ BEGIN
     LTEXT      "&What happened:", IDC_MESSAGE_LABEL, 7, 7, 290, 8
     EDITTEXT   IDC_MESSAGE, 7, 19, 290, 198,
                ES_MULTILINE | ES_READONLY | WS_VSCROLL | WS_GROUP | WS_TABSTOP
-    DEFPUSHBUTTON "OK", IDOK, 247, 223, 50, 14, WS_GROUP
+    PUSHBUTTON "C&opy all text", IDC_MESSAGE_COPY, 167, 223, 74, 14, WS_GROUP | WS_TABSTOP
+    DEFPUSHBUTTON "OK", IDOK, 247, 223, 50, 14, WS_TABSTOP
 END
 
 // A question with two answers. The answers' wording, and which is the default
@@ -384,6 +388,7 @@ BEGIN
                ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | WS_VSCROLL | WS_GROUP | WS_TABSTOP
 
     DEFPUSHBUTTON "&Start downloading", IDOK, 135, 212, 100, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "&Listen without downloading", IDC_A_LISTEN, 7, 212, 124, 14, WS_TABSTOP
     PUSHBUTTON "&Follow the channel instead", IDC_A_FOLLOW, 239, 212, 100, 14, WS_TABSTOP
     PUSHBUTTON "Cancel", IDCANCEL, 343, 212, 50, 14, WS_TABSTOP
 END
@@ -409,17 +414,20 @@ END
 
 // The Play window (listen.rs): a download's sound. Its title, set at run
 // time, names what plays. The arrows, Home and T are handled in listen.rs.
-// Letters: p, b, f, w; Close is Escape.
+// Letters: p, b, f, w, k; Close is Escape. The keys are in a box of their
+// own, as JAWS read them aloud each time the window opened when they were
+// plain text at its top (milestone 5 test, 4.1).
 IDD_PLAY DIALOGEX 0, 0, 260, 128
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Playing - VidFetch"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    LTEXT      "Left and Right arrows: 2 seconds back or forward. Home: the start. T: where playing is. Up and Down arrows: volume. Shift with Up and Down: speed. Page Down and Page Up: the next or previous in the list; with Ctrl, the next or previous chapter.", -1, 7, 7, 246, 40
     DEFPUSHBUTTON "&Play or pause", IDC_L_PLAY, 7, 52, 120, 14, WS_GROUP | WS_TABSTOP
     PUSHBUTTON "&Back 10 seconds", IDC_L_BACK, 7, 72, 120, 14, WS_TABSTOP
     PUSHBUTTON "&Forward 10 seconds", IDC_L_FORWARD, 133, 72, 120, 14, WS_TABSTOP
     LTEXT      "&Where playing is:", -1, 7, 94, 70, 8
     EDITTEXT   IDC_L_WHERE, 79, 92, 174, 12, ES_READONLY | ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT      "&Keys:", -1, 7, 9, 30, 8
+    EDITTEXT   IDC_L_KEYS, 40, 7, 213, 40, ES_MULTILINE | ES_READONLY | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON "Close", IDCANCEL, 203, 110, 50, 14, WS_TABSTOP
 END

@@ -2,6 +2,154 @@
 
 Newest entry at the top. Each question is followed by an `ANSWER:` line.
 
+## Entry 6 — Your milestone 5 answers built, and what could come before a first beta (2026-11-08)
+
+Thank you, and I am very glad it has become useful. Milestones 4 and 5 are merged into `main` and
+pushed, as you said in Q5. What is below is on a new branch, `m6-beta`, and the test is
+`test-milestone-6.txt`. The list of possible beta features is further down: **none of it is built
+yet**, so that you can choose.
+
+### What changed
+
+- **"Continuous play"** replaces "Play next when one ends".
+- **Recently played** now says "14 recently played items", and "items" elsewhere in that list.
+- **The Play window (4.1).** The explanation of the keys was plain text at the top of the window, and
+  JAWS reads such text as a window opens. It is now in a box of its own, Keys, Alt+K, which is only
+  read if you go to it.
+- **The video that took two minutes (4.7).** You guessed well that the download was different.
+  VidFetch was asking YouTube for the whole file in one request, and YouTube slows those down.
+  yt-dlp asks in smaller pieces. VidFetch now fetches it through yt-dlp: 11 seconds in all here,
+  from pressing the button to hearing it. Playing it again the same day needs no fetching. The Play
+  window says what is happening, and the help explains what this type of video is, under Playing.
+- **Ctrl+C (5.1).** JAWS keeps Ctrl+C to itself when nothing is selected, says "nothing selected",
+  and VidFetch never receives the key, so I cannot fix that key from here. Every message window now
+  has a **Copy all text** button, Alt+O. Selecting a part and pressing Ctrl+C works as usual, and so
+  does Ctrl+A then Ctrl+C.
+- **Listen without downloading (5.2).** New download has this new button, Alt+L, for YouTube and for
+  other sites. Ctrl+D in the Play window downloads it after all.
+  - Offer copied web addresses now opens New download with the address, rather than asking a
+    question first. From there you can download, listen, or press Escape. That seemed better than a
+    question with three answers. Tell me if not.
+  - A playlist or channel address cannot be listened to as one video, and VidFetch says so.
+- **A download whose file has gone (Q3).** The main list shows only what is in the folder, so such a
+  download appears only in Recently played. Enter on it now asks whether to download it again, into
+  the same category. This works for downloads from YouTube that VidFetch has a record of.
+- **An accessible interface for YouTube.** The welcome message, About, the help, the README, the plan
+  and the program's description now say this, and that it can also download from other video sites.
+  The name stays VidFetch unless you would like another (Q3 below).
+
+### Tried by me
+
+With temporary settings. The automated checks and 53 unit tests pass. The accessibility probe found
+no problems in New download or in the Play window, with its new Keys box. Through the real window,
+Listen without downloading on the silent video worked: VidFetch noticed there was no sound, fetched
+it and played it.
+
+**Not tried:** how JAWS behaves with the Keys box; the Copy all text button, so as not to touch your
+clipboard; Download again on a gone file; Listen on a site other than YouTube.
+
+### About your other notes
+
+- **Page Down still took 5 seconds (4.4).** That step came before the faster yt-dlp in the test, and
+  6.2 then said about 2 seconds. If you press Page Down within the first few seconds of a video, its
+  next one is still being found, so it can take longer.
+
+### Escape and Backspace: what I think
+
+I agree with you: one key, one meaning, is better. Today Escape does three jobs: it stops, goes back
+and closes. I recommend:
+
+- **Backspace is always "back":** in the YouTube window and among a playlist's videos.
+- **Escape is always "stop or leave":**
+  - In the main window, it stops the download, even while a playlist's videos are shown.
+  - In the YouTube window, it stops a lookup if one is running; otherwise it closes the window,
+    from whichever list. It would no longer go back one list.
+  - In all other windows, it closes them, as it does now.
+
+The one cost is that Escape in a deep list closes the whole window, and you lose your place in the
+lists. See Q1.
+
+### Before a first beta: what I found
+
+I looked at the other accessible YouTube programs for Windows ([HexPlayer](https://makhlwf.github.io/accessible_youtube_downloader_pro),
+[A11YTube](https://gh.r-mj.com/Daoductrung/A11YTube), [AN Video Downloader](https://applevis.com/forum/windows/video-downloader-accessible-youtube-downloader-blind-users)
+and [the one from Accessible Tech Labs India](https://accessibletechlabsindia.github.io/software/youtube-downloader/youtube-downloader.html)),
+and at [FreeTube](https://docs.freetubeapp.io/about/freetube), the best-known YouTube program without
+an account. I read their descriptions but did not try them. The two closest to VidFetch say they are
+built around NVDA, so a program that works well with JAWS has a place of its own.
+
+**A. Needed for any beta** (I recommend all of these):
+
+1. A LICENSE file, a GitHub release, and the guide online, as NoteFetch has.
+2. A version number with "beta" in it, and a check for a newer VidFetch: telling you, not installing
+   anything by itself.
+3. A test with NVDA and Narrator. Everything so far has been proven with JAWS only.
+4. **A warning about yt-dlp.** [yt-dlp's reports](https://github.com/yt-dlp/yt-dlp/issues/15043) say
+   that YouTube without a JavaScript program called Deno is deprecated and some formats may go
+   missing. VidFetch works without it today, and you decided in log entry 3 to fetch Deno, asking
+   first, only if it became necessary. It may become necessary during the beta, and it would be
+   better built before than after. It would be one more program started, an exception to the rule
+   that only yt-dlp is.
+Comment: Happy to go with Deno implementation now if that can prevent things from breaking soon. Is there also any functionality that could be gained by using Deno now?
+
+5. Clearer messages for what beta testers will meet: age-restricted videos, "confirm you are not a
+   bot", live streams and upcoming premieres. Live streams are the unknown one, as VidFetch only
+   takes sound over plain web requests.
+
+**B. Most useful as a YouTube interface** (my order of value):
+
+1. **Search for channels and playlists**, not only videos, plus filters: newest first, length, and
+   leaving out Shorts.
+2. **Related videos** on any video, the way people wander through YouTube.
+3. **Import your subscriptions**, from a Google Takeout file or from FreeTube or NewPipe, so that
+   nobody has to follow 100 channels one at a time. Also a backup of your channels.
+4. **Read the comments** of a video, in a window to read with the arrow keys.
+5. **A transcript of any video** without downloading it. Captions already work for downloads.
+6. **A channel's search, and a whole channel's list** beyond its latest 30 videos, with More.
+
+**C. Listening**:
+
+1. **Windows' media keys** (play and pause on the keyboard or a headset), which work with VidFetch in
+   the background.
+2. **A background player**, so you can keep listening while using the YouTube window or other
+   programs. Today the Play window stands in front. This is the largest item here.
+3. **A sleep timer**, and **bookmarks** within a long video.
+4. **[SponsorBlock](https://wiki.sponsor.ajay.app/w/API_Docs)**, off by default: skips sponsor
+   messages using timings shared by volunteers. It is built into FreeTube, and can be asked about
+   without telling the service which video you are playing.
+5. **Audio description**, once a video with a described track turns up.
+
+**D. Later, not for a beta:** your own playlists, favourites (you said "already covered for now"),
+signing in, translations.
+
+Sources: the pages linked above; [FreeTube on GitHub](https://github.com/FreeTubeApp/FreeTube).
+
+### Questions
+
+**Q1.** Escape and Backspace: shall I make the change recommended above?
+
+ANSWER: Yes
+
+**Q2.** Which of A, B and C would you like before the beta? For example "all of A, B1 to B3, C1, C3".
+
+ANSWER: all of a and b. in c, I'm happy to do those later, unless you think that some should be included.
+
+**Q3.** The name VidFetch sounds like a downloader. Keep it, or would you like another name for the
+beta? If so, have you one in mind, or shall I suggest some?
+
+ANSWER: Please suggest some.
+
+**Q4.** Should the beta be public on GitHub, or shared privately with a few testers first? The
+repository is private now.
+
+ANSWER: Public on Github.
+
+**Q5.** After your test of this milestone, shall I merge it into `main` and push?
+
+ANSWER: Yes.
+
+Question: Bearing in mind the existing programmes doing a similar job, where does this app add value? Should I rather use the best of what's already available and maybe contribute to it?
+
 ## Entry 5 — Your milestone 4 answers built: the YouTube window, playlists, faster starts (2026-11-08)
 
 Thank you for the test and the answers. Milestone 4 was pushed, as you said in Q6. Everything below

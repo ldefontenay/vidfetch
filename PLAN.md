@@ -2,9 +2,11 @@
 
 ## 1. What it is
 
-A downloader for videos and playlists, built from Video Scribe's parts (the user's request, 2 November
-2026: "a subset of VideoScribe without the description element, also able to handle Youtube
-playlists"). One small Win32 program, a screen reader first, no installer.
+An accessible interface for YouTube, which can act as a downloader for other video sites (the user,
+milestone 5 test: "It has now evolved to something far more useful, i.e. an accessible interface for
+Youtube."). It began as a downloader built from Video Scribe's parts (2 November 2026: "a subset of
+VideoScribe without the description element, also able to handle Youtube playlists"). One small
+Win32 program, a screen reader first, no installer.
 
 ## 2. How it works
 
@@ -113,7 +115,11 @@ Picture quality and Save captions in it.
    pushed.
 5. **The milestone 4 test's answers** (branch `m5-windows-and-fixes`): decisions 16 to 20, channel
    playlists, the silent video fixed, Ctrl+C, faster speeds. Built 8 November 2026; tried by Claude
-   (log entry 5); awaiting `test-milestone-5.txt`.
-6. A private GitHub repository: done, https://github.com/ldefontenay/vidfetch (log entry 1, Q6). Next, a
+   (log entry 5); tested by the user, merged and pushed 8 November 2026.
+6. **The milestone 5 test's answers** (branch `m6-beta`): Continuous play, the Play window's keys in a
+   box, Copy all text, Listen without downloading, the silent video through yt-dlp, downloading a gone
+   file again. Built 8 November 2026; awaiting `test-milestone-6.txt`. Log entry 6 proposes what comes
+   before a first beta.
+7. A private GitHub repository: done, https://github.com/ldefontenay/vidfetch (log entry 1, Q6). Next, a
    release like NoteFetch's with its guide online. Needs a LICENSE file, which the repository does not
    have yet.

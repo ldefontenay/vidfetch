@@ -47,6 +47,15 @@ const IDC_L_WHERE: i32 = 1060;
 const IDC_L_PLAY: i32 = 1061;
 const IDC_L_BACK: i32 = 1062;
 const IDC_L_FORWARD: i32 = 1063;
+const IDC_L_KEYS: i32 = 1064;
+
+/// What the keys do, in a box to read, not said as the window opens.
+const KEYS: &str = "Left and Right arrows: 2 seconds back or forward.\r\nHome: the start. End: 10 \
+                    seconds before the end.\r\nT: where playing is.\r\nUp and Down arrows: \
+                    volume.\r\nShift with Up and Down: speed.\r\nPage Down and Page Up: the next \
+                    or previous in the list.\r\nCtrl with Page Down and Page Up: the next or \
+                    previous chapter.\r\nCtrl+D: download, when listening online.\r\nEscape: \
+                    close.";
 
 /// Seconds a button skips, and an arrow key.
 const SKIP: f64 = 10.0;
@@ -80,6 +89,8 @@ pub struct Track {
     pub key: String,
     /// The YouTube video it is, if known, for its chapters.
     pub video: Option<String>,
+    /// Its web page, if it is online, to fetch its sound whole if need be.
+    pub page: Option<String>,
     pub has_next: bool,
     pub has_previous: bool,
     /// Ctrl+D: downloads it, if it is online; what to say.
@@ -544,11 +555,13 @@ fn fetch_whole(hwnd: HWND, s: &mut State) {
         return;
     };
     let source = source.clone();
+    let page = s.listen.track.page.clone();
     s.player = None;
     s.whole = true;
     say(
         hwnd,
-        "This one's sound has to be fetched whole before it plays. Please wait.",
+        "Windows cannot read this one's sound as it streams, so it is being fetched first. This \
+         takes a few seconds. Please wait.",
     );
     let name: String = s
         .listen
@@ -561,24 +574,30 @@ fn fetch_whole(hwnd: HWND, s: &mut State) {
         .collect();
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
-        let _ = tx.send(whole_copy(&source, &name));
+        let _ = tx.send(whole_copy(&source, page.as_deref(), &name));
     });
     s.listen.track.source = Source::Coming(rx);
     show_where(hwnd, s);
 }
 
-/// `source`, a web address or a file, copied whole without its edit list;
-/// the copy's path.
-fn whole_copy(source: &str, name: &str) -> Result<String, String> {
+/// The sound of `page`, or the file `source`, saved whole without its edit
+/// list; the copy's path. Kept with the downloads in progress, so playing it
+/// again today needs no fetching.
+fn whole_copy(source: &str, page: Option<&str>, name: &str) -> Result<String, String> {
     let dir = crate::ytdlp::local_dir().join("downloads");
     let _ = std::fs::create_dir_all(&dir);
     let to: PathBuf = dir.join(format!("listen-{name}.m4a"));
-    if let Some(rest) = source.strip_prefix("https://") {
-        let (host, path) = rest.split_at(rest.find('/').unwrap_or(rest.len()));
+    if to.is_file() {
+        return Ok(to.display().to_string());
+    }
+    let part = to.with_extension("part.m4a");
+    if let Some(page) = page {
+        let exe = crate::ytdlp::find().ok_or("yt-dlp is not on this computer.")?;
         let stop = std::sync::atomic::AtomicBool::new(false);
-        let body = crate::net::download(host, path, &stop, &mut |_, _| {})?
-            .ok_or_else(|| "Stopped.".to_string())?;
-        std::fs::write(&to, body).map_err(|e| format!("it could not be saved: {e}"))?;
+        crate::ytdlp::fetch_sound(&exe, page, &part, &stop)?;
+        crate::ytdlp::drop_edit_list(&part)?;
+        std::fs::rename(&part, &to).map_err(|e| format!("it could not be saved: {e}"))?;
+        return Ok(to.display().to_string());
     } else {
         std::fs::copy(source, &to).map_err(|e| format!("it could not be copied: {e}"))?;
     }
@@ -604,7 +623,9 @@ unsafe extern "system" fn keys(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRE
         let msg = &*(lparam.0 as *const MSG);
         if let Some(dialog) = OPEN.with(|o| o.get()) {
             let ours = msg.hwnd == dialog || IsChild(dialog, msg.hwnd).as_bool();
-            let in_box = GetDlgItem(Some(dialog), IDC_L_WHERE).is_ok_and(|c| c == msg.hwnd);
+            let in_box = [IDC_L_WHERE, IDC_L_KEYS]
+                .iter()
+                .any(|&id| GetDlgItem(Some(dialog), id).is_ok_and(|c| c == msg.hwnd));
             let key = msg.wParam.0 as u16;
             if msg.message == WM_KEYDOWN && ours && !in_box && handle(dialog, key) {
                 return LRESULT(1);
@@ -726,6 +747,7 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
             OPEN.with(|o| o.set(Some(hwnd)));
             let s = state(hwnd);
             title(hwnd, s);
+            set_text(hwnd, IDC_L_KEYS, KEYS);
             SetTimer(Some(hwnd), TIMER, TICK_MS, None);
             focus(hwnd, IDC_L_PLAY);
             if s.player.is_some() {

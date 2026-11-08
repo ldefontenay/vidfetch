@@ -1,7 +1,8 @@
 # VidFetch
 
-Download videos, and whole playlists, from YouTube and many other sites, as video or as sound
-only, with a window built for screen reader users first.
+An accessible interface for YouTube, built for screen reader users first: search, listen, follow
+channels without an account, and download. It can also download videos and whole playlists from
+many other video sites.
 
 A single Windows program, built from the parts of [Video Scribe](https://github.com/ldefontenay/videoscribe).
 No installer, no FFmpeg, no runtime to install.

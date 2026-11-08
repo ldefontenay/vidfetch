@@ -34,6 +34,9 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 /// Marks our lines so nothing else yt-dlp prints is mistaken for one.
 const PROGRESS: &str = "VFPROGRESS";
 const FILE: &str = "VFFILE";
+/// The sound to listen to, as Windows can read it.
+const SOUND: &str =
+    "bestaudio[ext=m4a][protocol^=http]/bestaudio[acodec^=mp4a][protocol^=http]/best[ext=mp4][protocol^=http]";
 const RELEASE: &str = "/yt-dlp/yt-dlp/releases/latest/download/";
 /// Our own copy is updated with `-U` when it is older than this: YouTube
 /// changes often, and an old yt-dlp is the usual reason a download fails.
@@ -799,6 +802,39 @@ pub fn title(exe: &Path, url: &str, whole: bool, stop: &AtomicBool) -> Option<St
 /// entry 3, Q3): about 5 seconds, most of it yt-dlp starting. M4A, which
 /// Media Foundation plays, over plain HTTP. Good for some hours. None if
 /// stopped.
+/// The sound of `url` saved to the file `to`, for a video whose sound Windows
+/// cannot read as it streams. Through yt-dlp, as YouTube slows a file asked
+/// for in one piece: two minutes for 4 MB, against 6 seconds (milestone 5
+/// test, 4.7). False if stopped.
+pub fn fetch_sound(exe: &Path, url: &str, to: &Path, stop: &AtomicBool) -> Result<bool, String> {
+    let args: Vec<String> = [
+        "--ignore-config",
+        "--encoding",
+        "utf-8",
+        "--no-playlist",
+        "--no-warnings",
+        "--no-colors",
+        "--force-overwrites",
+        "-f",
+        SOUND,
+        "-o",
+        &to.display().to_string().replace('%', "%%"),
+        "--",
+        url,
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
+    let Some((ok, errors)) = run(exe, &args, stop, &mut |_| {})? else {
+        return Ok(false);
+    };
+    if ok && to.is_file() {
+        Ok(true)
+    } else {
+        Err(explain(&errors, &site(url)))
+    }
+}
+
 pub fn sound_address(exe: &Path, url: &str, stop: &AtomicBool) -> Result<Option<String>, String> {
     let args: Vec<String> = [
         "--ignore-config",
@@ -808,7 +844,7 @@ pub fn sound_address(exe: &Path, url: &str, stop: &AtomicBool) -> Result<Option<
         "--no-warnings",
         "--no-colors",
         "-f",
-        "bestaudio[ext=m4a][protocol^=http]/bestaudio[acodec^=mp4a][protocol^=http]/best[ext=mp4][protocol^=http]",
+        SOUND,
         "-g",
         "--",
         url,
