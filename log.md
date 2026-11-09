@@ -80,27 +80,29 @@ An honest opinion, bearing in mind that I have read about the other programs, no
 
 **My recommendation:** carry on, because it already does what you want and works with your screen reader. But before investing in a public release, spend an hour with A11YTube and HexPlayer under JAWS. If one of them is as good for you, sending its authors your JAWS findings would help more people for less upkeep, and there is little lost. If neither is, you have your answer, and a good reason to publish.
 
+Response: Thanks, please set up a document telling me where to get these apps.
+
 ### Questions
 
 **Q1.** The repository is still private. You said public on GitHub. Once you have tested this, shall I make it public and publish 0.7.0-beta.1 with the guide online? And would you rather make it public yourself, as you created it?
 
-ANSWER:
+ANSWER: Yes, make it public. Do as much of the process as you can yourself. Look at how NoteFetch's page is set up and do the same. Provide a exe and zip download. Create a friendly guide, similar to NoteFetch and the one I created for Andre Louis' Clipman.
 
 **Q2.** Shall I build the overlap, starting the next download during "Taking out the sound", in the next milestone?
 
-ANSWER:
+ANSWER: Yes please.
 
 **Q3.** The name: keep VidFetch, or one of the above?
 
-ANSWER:
+ANSWER: Keep VidFetch for now.
 
 **Q4.** Having read the opinion above, would you like to carry on towards a public beta, or try the other programs first?
 
-ANSWER:
+ANSWER: I'll carry on and try the other apps in parallel.
 
 **Q5.** After your test, shall I merge this milestone into `main` and push?
 
-ANSWER:
+ANSWER: Yes.
 
 ## Entry 6 — Your milestone 5 answers built, and what could come before a first beta (2026-11-08)
 
