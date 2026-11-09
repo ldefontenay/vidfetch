@@ -10,7 +10,7 @@ kbd { font-family: inherit; font-weight: bold; }
 </head>
 <body>
 <h1>VidFetch help</h1>
-<p>Version {{VERSION}}, a test version.</p>
+<p>Version {{VERSION}}, a beta version: please say what goes wrong.</p>
 
 <h2>What it does</h2>
 <p>VidFetch is an accessible interface for YouTube, made for screen reader users first. You can
@@ -114,6 +114,12 @@ fetches the whole of the sound first, and then plays it. That takes a few second
 the first time on any day; everything else works as usual. A download of such a video is not
 affected.</p>
 
+<h2>If a file has gone</h2>
+<p>If a download from YouTube has gone from its folder, because you deleted it in File Explorer for example, it
+stays at the end of the main list as "no longer on this computer". <kbd>Enter</kbd> downloads it
+again, into the same folder; <kbd>Delete</kbd> takes it off the list. Deleting in VidFetch forgets it
+at once.</p>
+
 <h2>Listening to an address</h2>
 <p>In New download (<kbd>Ctrl+N</kbd>), <strong>Listen without downloading</strong>
 (<kbd>Alt+L</kbd>) plays the sound of the video whose address you gave, from YouTube or another
@@ -136,10 +142,20 @@ main window. On a playlist or a channel, it downloads them all, after asking.</l
 <li>The Video menu (<kbd>Alt+V</kbd>) and the context menu (<kbd>Shift+F10</kbd>) also have Show
 channel, Show channel's playlists, Follow and Unfollow channel, Copy web address and Open in
 browser.</li>
-<li><kbd>Escape</kbd> or <kbd>Backspace</kbd> goes back one list at a time, as in File Explorer.
-From the first list, <kbd>Escape</kbd> closes the window; so does Close window
+<li><kbd>Ctrl+R</kbd> lists the videos related to the one chosen, and you can go on from there.
+<kbd>Ctrl+K</kbd> shows its comments, the first 100 as YouTube sorts them, and <kbd>Ctrl+T</kbd> its
+transcript, each in a window to read with the arrow keys, without downloading the video. All three
+also work on a download from YouTube in the main window.</li>
+<li><kbd>Ctrl+Shift+F</kbd> searches the channel of the row chosen, or the channel shown.</li>
+<li><kbd>Backspace</kbd> goes back one list at a time, as in File Explorer. <kbd>Escape</kbd> stops
+a lookup; if none is running, it closes the window, from whichever list. So does Close window
 (<kbd>Alt+C</kbd>).</li>
 </ul>
+<p><kbd>Ctrl+F</kbd> opens Search YouTube. Besides what to search for, you can choose to look for
+videos, channels or playlists, to have the newest first, the length of videos, and to leave out
+YouTube Shorts. Your choices stay until VidFetch closes. A live stream is listed as "live now": VidFetch cannot play or download
+it while it is live.</p>
+<p>A channel's list has its latest videos; More, near the end, fetches older ones.</p>
 <p>Searching asks YouTube directly, which is quick; if that ever fails, it searches with yt-dlp
 instead, which is slower. The last line, More, fetches the next page when you press
 <kbd>Enter</kbd> on it.</p>
@@ -160,6 +176,11 @@ shows its latest videos; <kbd>Delete</kbd> stops following it, after asking.</p>
 <p>The last line of a channel's videos is its playlists. <kbd>Enter</kbd> lists them, each with how
 many videos it has; <kbd>Enter</kbd> on one shows its videos in its order, and <kbd>Ctrl+D</kbd>
 downloads it whole, after asking.</p>
+
+<p><strong>Bringing your channels in.</strong> Import channels, in the File menu, reads
+subscriptions.csv from Google Takeout, the export files of FreeTube and NewPipe, and an OPML list.
+Those you already follow stay as they are. Save a backup of your channels writes a file that
+Import channels, NewPipe and FreeTube can read.</p>
 
 <h2>Recently played</h2>
 <p><kbd>Ctrl+H</kbd> lists, in the YouTube window, the last hundred things you played, downloads and videos online alike,
@@ -187,9 +208,8 @@ another category, or a new one.</li>
 <p><kbd>Enter</kbd> on a playlist shows its videos in the list, in the playlist's order, in place
 of all downloads; the list's name says which playlist it is. Everything works on them as on any
 download: <kbd>Enter</kbd> plays, <kbd>F2</kbd> renames, <kbd>Delete</kbd> deletes, and the
-context menu has the rest. <kbd>Escape</kbd>, or <kbd>Backspace</kbd>, goes back to all downloads,
-on that playlist. While the list shows a playlist's videos, <kbd>Escape</kbd> goes back rather than
-stopping a download; press it again to stop.</p>
+context menu has the rest. <kbd>Backspace</kbd> goes back to all downloads, on that playlist.
+<kbd>Escape</kbd> always stops the download running, here too.</p>
 <p>A video deleted from a playlist's folder is not downloaded again when you update the playlist.</p>
 
 <h2>Video or sound only</h2>
@@ -281,6 +301,14 @@ against its published checksum, and keeps it in its own folder, in
 used instead.</p>
 <p>Video sites change often, and an old yt-dlp is the usual reason a download fails. VidFetch
 updates its copy every two weeks by itself; Update yt-dlp, in the File menu, does it now.</p>
+
+<p><strong>Deno.</strong> YouTube increasingly asks programs to answer questions in JavaScript, and
+yt-dlp uses a small free program, Deno, for that. VidFetch works without it today. If YouTube comes to
+need it, or a message says so, choose Fetch Deno in the File menu: VidFetch asks first, fetches it
+from its own page on GitHub, checks it, and yt-dlp uses it from then on. It takes about 100 megabytes on disk.</p>
+<p><strong>A newer VidFetch.</strong> VidFetch looks on GitHub once a week and says if there is a newer
+version; Check for a newer version, in the Help menu, looks now. It never installs anything by
+itself.</p>
 
 <h2>What VidFetch cannot download</h2>
 <ul>

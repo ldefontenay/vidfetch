@@ -2,6 +2,108 @@
 
 Newest entry at the top. Each question is followed by an `ANSWER:` line.
 
+## Entry 7 — Towards a first beta: your milestone 6 answers, and all of A and B (2026-11-08)
+
+Milestone 6 is merged and pushed, as you said in Q5. What is below is on a new branch, `m7-beta`, not
+pushed. The test is `test-milestone-7.txt`.
+
+### Your notes from the test
+
+- **A silent Play window (2.1).** VidFetch no longer says anything itself as it opens, except
+  "Please wait" when streaming. JAWS reads a new window by itself, and Windows offers no way to prevent that, so VidFetch tells JAWS to stop speaking, four times in the first second, through the programming interface JAWS installs. This is an experiment: you may hear the start of the title before it is cut off. Only your ears can tell. Page Down still says the name of what comes next, as otherwise you could not know. "Carrying on from" is no longer said, as you asked for nothing; T says where you are.
+- **The Keys box (2.2)** has your exact wording.
+- **A site other than YouTube (3.3).** Please try https://archive.org/details/BigBuckBunny_124. yt-dlp finds an MP4 there. It is in the test.
+- **Alt+L on a playlist or channel (3.4)** now opens its list of videos in the YouTube window. I tried your playlist, To the Heights: 16 videos. Its last line says More, even though there are no more; pressing it says that was all. Nothing was played before, which was the fault you noticed.
+- **A gone file in the main list (4.2).** These stay at the end of the main list as "no longer on this computer". Enter asks whether to download again; Delete takes it off the list. To make this possible VidFetch now keeps the record of a gone file, where it used to throw it away. Files gone before this version may therefore not appear. Files you delete in VidFetch are forgotten at once, and do not appear. Only single videos from YouTube; a playlist's videos are left out, as updating the playlist already deals with those.
+- **Escape and Backspace (Q1)** are as you agreed, in every window and in the help.
+
+### Starting the next download during "Taking out the sound"
+
+Yes, it could be done, and nothing about YouTube prevents it, since it would still be one download at
+a time. The time saved is the length of that stage, for every video but the last. I have **not built
+it**: the download and that stage are one step in the code, so separating them touches what records
+which videos are done, and a mistake there could lose your place in a playlist. I did not want that
+mixed into this large milestone. See Q2.
+
+### What is new, from A and B
+
+**A1. LICENSE** (MIT) is added. The GitHub release and online guide are waiting for Q1.
+
+**A2.** The version is 0.7.0-beta.1, and About says so. VidFetch looks for a newer version once a week and tells you; Help, Check for a newer version, looks now, and offers the page. It installs nothing.
+
+**A3. NVDA and Narrator.** From NoteFetch's proven code: NVDA does not hear UI Automation announcements from plain windows, so with NVDA running, announcements now go through what is called a live region. Narrator gets its announcements from a small addition too. It is in the test, if you have the time.
+
+**A4. Deno.** File menu, "Fetch Deno, which helps with YouTube". VidFetch asks first, downloads it from Deno's own GitHub releases, checks the checksum, and puts it with yt-dlp. yt-dlp starts it, so VidFetch itself still starts only yt-dlp. It is about 100 megabytes on disk, more than I expected. It is optional, and VidFetch works without it. I tried it here: yt-dlp solved YouTube's challenge with it. One thing to know: with Deno, YouTube offers yt-dlp more formats, and for one video it picked a different sound format (5.1 surround AAC) than without. I have not heard how that plays.
+
+**A5. Clearer messages** for age-restricted videos, "confirm you are not a bot", premieres not yet started, live streams and the Deno case. A row showing "live now" says at once that VidFetch cannot take it while it is live. I have not met these errors live, so the wording comes from yt-dlp's known messages.
+
+**B1. Search.** Ctrl+F now opens a window with what to search for, Look for (videos, channels, playlists), Sort, Length of videos, and Leave out YouTube Shorts.
+
+**B2. Related videos**, Ctrl+R, on any video, also on a download in the main window. Lists stack, so you can wander, and Backspace comes back.
+
+**B3. Import channels**, in the File menu: Google Takeout's subscriptions.csv, FreeTube, NewPipe, OPML. And Save a backup of your channels, in NewPipe's form.
+
+**B4. Comments**, Ctrl+K: the first 100, with who, when, likes and how many replies, in a window to read with the arrow keys. Replies themselves are not included.
+
+**B5. Transcript**, Ctrl+T, through yt-dlp, about 8 seconds.
+
+**B6. A channel's search**, Ctrl+Shift+F, and More for older videos on a channel.
+
+### Tried by me
+
+With temporary settings. Automated checks and unit tests pass. In the real window: the search window with options, related videos, comments, transcript, the gone file listed, Escape closing the YouTube window, Alt+L on your playlist, the Play window with your Keys text. The accessibility probe found no problems in Search YouTube or the Play window. Against YouTube itself: channel and playlist search, related and its next page, comments, a channel's older videos and its search. Deno downloaded and checked.
+
+**Not tried:** how JAWS sounds with the quiet opening; anything with NVDA or Narrator; the Import and Backup file windows; Fetch Deno and Download again from the menus; the look for a newer version, as the repository is private and GitHub will not answer; playing from archive.org.
+
+### Not built
+
+- C, as you preferred. My view: none of them is needed for a beta. If you want one, media keys is the cheapest and most useful.
+
+### A name
+
+You asked for suggestions. I have not checked whether any of these is taken.
+
+- **VidFetch**: keep it. Your other programs are NoteFetch, Photo Scribe and Video Scribe, so it fits.
+- **TubeListen**, says what you mostly do with it.
+- **HearTube**, short, and clear to blind users looking for it.
+- **Video Companion**, plain and without "tube", which YouTube's lawyers can dislike.
+
+I would keep VidFetch for the beta, and change only if testers are misled by it.
+
+### Where does this add value? Should you contribute elsewhere instead?
+
+An honest opinion, bearing in mind that I have read about the other programs, not used them.
+
+**What VidFetch has that I did not find elsewhere:** it was built and tested with JAWS, by a JAWS user, and it is one small program of real Windows controls. HexPlayer and A11YTube describe themselves as built around NVDA, and A11YTube relies on VLC.
+
+**The real cost is not building it but keeping it working.** YouTube changes often. yt-dlp absorbs most of that for downloading, but search, comments and channels here use YouTube's private interface, and they will break from time to time and need fixing. If you publish a beta, people will come to depend on that.
+
+**My recommendation:** carry on, because it already does what you want and works with your screen reader. But before investing in a public release, spend an hour with A11YTube and HexPlayer under JAWS. If one of them is as good for you, sending its authors your JAWS findings would help more people for less upkeep, and there is little lost. If neither is, you have your answer, and a good reason to publish.
+
+Response: Thanks, please set up a document telling me where to get these apps.
+
+### Questions
+
+**Q1.** The repository is still private. You said public on GitHub. Once you have tested this, shall I make it public and publish 0.7.0-beta.1 with the guide online? And would you rather make it public yourself, as you created it?
+
+ANSWER: Yes, make it public. Do as much of the process as you can yourself. Look at how NoteFetch's page is set up and do the same. Provide a exe and zip download. Create a friendly guide, similar to NoteFetch and the one I created for Andre Louis' Clipman.
+
+**Q2.** Shall I build the overlap, starting the next download during "Taking out the sound", in the next milestone?
+
+ANSWER: Yes please.
+
+**Q3.** The name: keep VidFetch, or one of the above?
+
+ANSWER: Keep VidFetch for now.
+
+**Q4.** Having read the opinion above, would you like to carry on towards a public beta, or try the other programs first?
+
+ANSWER: I'll carry on and try the other apps in parallel.
+
+**Q5.** After your test, shall I merge this milestone into `main` and push?
+
+ANSWER: Yes.
+
 ## Entry 6 — Your milestone 5 answers built, and what could come before a first beta (2026-11-08)
 
 Thank you, and I am very glad it has become useful. Milestones 4 and 5 are merged into `main` and

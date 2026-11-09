@@ -2,10 +2,9 @@
 //! followed, those channels, a channel's videos and playlists, a playlist's
 //! videos, and what was played lately (log entry 3, plans 1 and 2; idea 9).
 //! One list, one set of keys, whatever it shows: Enter plays, Ctrl+D
-//! downloads, the context menu has the rest, and Escape or Backspace goes
-//! back one list at a time, as in File Explorer (Q2: "Yes. Also great that
-//! you thought of implementing backspace."), closing the window from the
-//! first.
+//! downloads, the context menu has the rest, Backspace goes back one list
+//! at a time, as in File Explorer, closing the window from the first, and
+//! Escape closes the window from any list (log entry 6, Q1).
 //!
 //! These lists were in the main window at first, under its Category box,
 //! which then made no sense and cleared them when changed; the user asked
@@ -25,7 +24,7 @@ use super::*;
 use crate::channels::{self, Channel};
 use crate::history::{self, Played};
 use crate::places;
-use crate::youtube::{self, Playlist, Video};
+use crate::youtube::{self, Playlist, Query, SearchFor, Video};
 use windows::Win32::UI::Input::KeyboardAndMouse::EnableWindow;
 
 /// A lookup has finished: its LPARAM is a boxed `(number, Found)`.
@@ -118,7 +117,11 @@ impl Row {
     }
 
     fn playable(&self) -> bool {
-        matches!(self, Row::Video { .. } | Row::Played(_))
+        match self {
+            Row::Video { v, .. } => !is_live(v),
+            Row::Played(_) => true,
+            _ => false,
+        }
     }
 
     /// The YouTube video it is, if it is one.
@@ -135,9 +138,23 @@ impl Row {
     }
 }
 
+/// A live stream, which VidFetch cannot take: it takes sound and picture over
+/// plain web requests, and a live stream only comes in pieces.
+fn is_live(v: &Video) -> bool {
+    v.length == "live now"
+}
+
+const LIVE: &str =
+    "That is a live stream, which VidFetch cannot play or download while it is live. \
+                    Once it has ended, YouTube usually keeps it as an ordinary video.";
+
 #[derive(Clone)]
 pub enum Shows {
-    Search(String),
+    Search(Query),
+    /// The videos beside a video: its id and title.
+    Related(String, String),
+    /// A channel's own search.
+    ChannelSearch(Channel, String),
     New,
     Channels,
     Channel(Channel),
@@ -157,7 +174,7 @@ pub struct Online {
 
 pub enum Found {
     Search {
-        query: String,
+        query: Query,
         more: bool,
         result: Result<youtube::Results, String>,
         slow: bool,
@@ -170,7 +187,28 @@ pub enum Found {
     },
     Channel {
         channel: Channel,
-        result: Result<Vec<Video>, String>,
+        more: bool,
+        result: Result<youtube::Results, String>,
+    },
+    Related {
+        id: String,
+        title: String,
+        more: bool,
+        result: Result<youtube::Results, String>,
+    },
+    ChannelSearch {
+        channel: Channel,
+        query: String,
+        more: bool,
+        result: Result<youtube::Results, String>,
+    },
+    Comments {
+        name: String,
+        result: Result<String, String>,
+    },
+    Transcript {
+        name: String,
+        result: Result<String, String>,
     },
     Playlists {
         channel: Channel,
@@ -181,6 +219,8 @@ pub enum Found {
         more: bool,
         result: Result<youtube::Results, String>,
     },
+    /// A channel to show: its id and name.
+    OpenChannel(Result<(String, String), String>),
     Follow(Result<(String, String), String>),
     Unfollow(Result<(String, String), String>),
     Listen {
@@ -201,7 +241,12 @@ fn plain(name: &str) -> String {
 /// The list's label for what it shows: always with W as its letter.
 fn label(o: &Online) -> String {
     match &o.shows {
-        Shows::Search(q) => format!("&What YouTube found for {}:", plain(q)),
+        Shows::Search(q) => format!("&What YouTube found for {}:", plain(&q.text)),
+        Shows::Related(_, t) => format!(
+            "Videos related to {}, as YouTube suggests them, sho&wn:",
+            plain(t)
+        ),
+        Shows::ChannelSearch(c, q) => format!("&What {} has for {}:", plain(&c.name), plain(q)),
         Shows::New => "Ne&w videos from your channels, newest first:".into(),
         Shows::Channels => "Channels you follo&w:".into(),
         Shows::Channel(c) => format!("Latest videos from {}, ne&west first:", plain(&c.name)),
@@ -209,6 +254,9 @@ fn label(o: &Online) -> String {
             "Playlists of {}, as the channel sho&ws them:",
             plain(&c.name)
         ),
+        Shows::Playlist(p) if p.title.is_empty() => {
+            "Videos in the playlist, sho&wn in its order:".into()
+        }
         Shows::Playlist(p) => format!(
             "Videos in the playlist {}, sho&wn in its order:",
             plain(&p.title)
@@ -220,11 +268,14 @@ fn label(o: &Online) -> String {
 /// The window's title for what it shows.
 fn title(o: &Online) -> String {
     let what = match &o.shows {
-        Shows::Search(q) => format!("YouTube results for {q}"),
+        Shows::Search(q) => format!("YouTube results for {}", q.text),
+        Shows::Related(_, t) => format!("Related to {t}"),
+        Shows::ChannelSearch(c, q) => format!("{} results for {q}", c.name),
         Shows::New => "New videos from your channels".into(),
         Shows::Channels => "Your channels".into(),
         Shows::Channel(c) => c.name.clone(),
         Shows::Playlists(c) => format!("Playlists of {}", c.name),
+        Shows::Playlist(p) if p.title.is_empty() => "Playlist".into(),
         Shows::Playlist(p) => p.title.clone(),
         Shows::History => "Recently played".into(),
     };
@@ -345,7 +396,11 @@ fn shortcut(key: u16) -> Option<i32> {
         return None;
     }
     if down(VK_SHIFT) {
-        return (key as u8 == b'L').then_some(IDM_CHANNELS);
+        return match key as u8 {
+            b'L' => Some(IDM_CHANNELS),
+            b'F' => Some(IDM_SEARCH_CHANNEL),
+            _ => None,
+        };
     }
     match key as u8 {
         b'F' => Some(IDM_SEARCH),
@@ -353,6 +408,9 @@ fn shortcut(key: u16) -> Option<i32> {
         b'D' => Some(IDM_DOWNLOAD),
         b'I' => Some(IDM_DESCRIBE),
         b'H' => Some(IDM_HISTORY),
+        b'R' => Some(IDM_RELATED),
+        b'K' => Some(IDM_COMMENTS),
+        b'T' => Some(IDM_TRANSCRIPT),
         _ => None,
     }
 }
@@ -468,8 +526,7 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
     }
 }
 
-/// Escape: stops a lookup, else goes back one list, closing the window from
-/// the first.
+/// Escape: stops a lookup, else closes the window, from whichever list.
 fn escape(hwnd: HWND, app: &mut App) {
     if stop_looking(hwnd, app) {
         if app.online.last().is_some_and(|o| o.loading) {
@@ -477,7 +534,7 @@ fn escape(hwnd: HWND, app: &mut App) {
         }
         return;
     }
-    back(hwnd, app);
+    close(hwnd, app);
 }
 
 /// Stops the lookup going on, if any, and says so.
@@ -541,7 +598,9 @@ fn push(hwnd: HWND, app: &mut App, o: Online, replace: bool, said: &str) {
 /// the same kind.
 fn waiting(hwnd: HWND, app: &mut App, shows: Shows, said: &str) {
     let replace = app.online.last().is_some_and(|o| {
-        o.loading || std::mem::discriminant(&o.shows) == std::mem::discriminant(&shows)
+        o.loading
+            || (std::mem::discriminant(&o.shows) == std::mem::discriminant(&shows)
+                && !matches!(shows, Shows::Related(..)))
     });
     push(
         hwnd,
@@ -642,8 +701,58 @@ pub fn found(hwnd: HWND, app: &mut App, lparam: LPARAM) {
             listed,
             failed,
         } => new_found(hwnd, app, videos, listed, failed),
-        Found::Channel { channel, result } => match result {
-            Ok(videos) => channel_found(hwnd, app, channel, videos),
+        Found::Comments { name, result } => match result {
+            Ok(text) => {
+                message::comments(hwnd, &format!("Comments on {name}.\n{text}"));
+                focus(hwnd, IDC_LIST);
+            }
+            Err(why) => problem(
+                hwnd,
+                &format!("The comments of {name} could not be fetched: {why}"),
+            ),
+        },
+        Found::Transcript { name, result } => match result {
+            Ok(text) => {
+                message::transcript(hwnd, &format!("{name}\n\n{text}"));
+                focus(hwnd, IDC_LIST);
+            }
+            Err(why) => problem(hwnd, &format!("No transcript of {name}: {why}")),
+        },
+        Found::Related {
+            id,
+            title,
+            more,
+            result,
+        } => match result {
+            Ok(r) if more => appended(hwnd, app, r),
+            Ok(r) => related_found(hwnd, app, id, title, r),
+            Err(why) => not_found(
+                hwnd,
+                app,
+                &format!("The videos related to {title} could not be listed: {why}"),
+            ),
+        },
+        Found::ChannelSearch {
+            channel,
+            query,
+            more,
+            result,
+        } => match result {
+            Ok(r) if more => appended(hwnd, app, r),
+            Ok(r) => channel_searched(hwnd, app, channel, query, r),
+            Err(why) => not_found(
+                hwnd,
+                app,
+                &format!("{} could not be searched: {why}", channel.name),
+            ),
+        },
+        Found::Channel {
+            channel,
+            more,
+            result,
+        } => match result {
+            Ok(r) if more => appended(hwnd, app, r),
+            Ok(r) => channel_found(hwnd, app, channel, r),
             Err(why) => not_found(
                 hwnd,
                 app,
@@ -673,8 +782,20 @@ pub fn found(hwnd: HWND, app: &mut App, lparam: LPARAM) {
                 app,
                 &format!(
                     "The videos of {} could not be listed: {why}",
-                    playlist.title
+                    if playlist.title.is_empty() {
+                        "that playlist"
+                    } else {
+                        &playlist.title
+                    }
                 ),
+            ),
+        },
+        Found::OpenChannel(result) => match result {
+            Ok((id, name)) => show_channel(hwnd, app, Channel::named(&id, &name)),
+            Err(why) => not_found(
+                hwnd,
+                app,
+                &format!("That channel could not be found: {why}"),
             ),
         },
         Found::Follow(result) => match result {
@@ -713,41 +834,43 @@ fn check_query(text: &str) -> Option<String> {
         .then(|| "Type what to search for, such as Blender open movie.".to_string())
 }
 
-/// Ctrl+F: asks what to search for, then searches, in the YouTube window.
+/// Ctrl+F: asks what to search for, and how, then searches, in the YouTube
+/// window.
 fn search(hwnd: HWND, app: &mut App) {
-    let Some(query) = crate::namebox::ask(
-        hwnd,
-        "Search YouTube - VidFetch",
-        "&Search YouTube for:",
-        &app.last_search,
-        check_query,
-    ) else {
+    let Some(query) = crate::searchbox::ask(hwnd, &app.last_search) else {
         say(hwnd, "Nothing searched.");
         focus(hwnd, IDC_LIST);
         return;
     };
-    let query = query.trim().to_string();
     app.last_search = query.clone();
     open(hwnd, app, move |b, app| start_search(b, app, query));
 }
 
-fn start_search(hwnd: HWND, app: &mut App, query: String) {
+fn start_search(hwnd: HWND, app: &mut App, query: Query) {
     waiting(
         hwnd,
         app,
         Shows::Search(query.clone()),
-        &format!("Searching YouTube for {query}."),
+        &format!("Searching YouTube for {}.", query.text),
     );
-    let exe = ytdlp::find();
+    // yt-dlp can stand in only for a plain search for videos.
+    let plain = query.what == SearchFor::Videos && !query.newest && query.length == 0;
+    let exe = ytdlp::find().filter(|_| plain);
     look(hwnd, app, move |stop| {
         let direct = youtube::search(&query, None, stop);
         if stop.load(Ordering::Relaxed) {
             return None;
         }
-        let worked = direct.as_ref().is_ok_and(|r| !r.videos.is_empty());
+        let worked = direct.as_ref().is_ok_and(|r| r.found() > 0);
         let (result, slow) = match (worked, exe) {
-            (false, Some(exe)) => match ytdlp::search(&exe, &query, stop) {
-                Ok(Some(videos)) => (Ok(youtube::Results { videos, more: None }), true),
+            (false, Some(exe)) => match ytdlp::search(&exe, &query.text, stop) {
+                Ok(Some(videos)) => (
+                    Ok(youtube::Results {
+                        videos,
+                        ..Default::default()
+                    }),
+                    true,
+                ),
                 Ok(None) => return None,
                 Err(e) => (direct.and(Err(e)), true),
             },
@@ -776,6 +899,32 @@ fn more(hwnd: HWND, app: &mut App, token: String) {
                 slow: false,
             })
         }),
+        Some(Shows::Channel(channel)) => look(hwnd, app, move |stop| {
+            let result = youtube::channel_more(&channel, &token, stop);
+            Some(Found::Channel {
+                channel,
+                more: true,
+                result,
+            })
+        }),
+        Some(Shows::Related(id, title)) => look(hwnd, app, move |stop| {
+            let result = youtube::related(&id, Some(&token), stop);
+            Some(Found::Related {
+                id,
+                title,
+                more: true,
+                result,
+            })
+        }),
+        Some(Shows::ChannelSearch(channel, query)) => look(hwnd, app, move |stop| {
+            let result = youtube::channel_search(&channel, &query, Some(&token), stop);
+            Some(Found::ChannelSearch {
+                channel,
+                query,
+                more: true,
+                result,
+            })
+        }),
         Some(Shows::Playlist(playlist)) => look(hwnd, app, move |stop| {
             let result = youtube::playlist_videos(&playlist.id, Some(&token), stop);
             Some(Found::Playlist {
@@ -794,23 +943,28 @@ fn appended(hwnd: HWND, app: &mut App, r: youtube::Results) {
         return;
     };
     o.rows.retain(|r| !matches!(r, Row::More(_)));
+    // A channel's last line, its playlists, stays last.
+    let last = o
+        .rows
+        .last()
+        .is_some_and(|r| matches!(r, Row::Playlists(_)))
+        .then(|| o.rows.pop())
+        .flatten();
     let first = o.rows.len();
-    let n = r.videos.len();
-    o.rows
-        .extend(r.videos.into_iter().map(|v| Row::Video { v, new: false }));
-    if let Some(t) = r.more {
-        o.rows.push(Row::More(t));
-    }
+    let rows = rows_of(r);
+    let n = rows.iter().filter(|r| !matches!(r, Row::More(_))).count();
+    o.rows.extend(rows);
+    o.rows.extend(last);
     o.at = first.min(o.rows.len().saturating_sub(1));
     show_top(hwnd, app);
     if n == 0 {
-        say(hwnd, "That was all: there are no more videos.");
+        say(hwnd, "That was all: there are no more.");
     } else {
         say(
             hwnd,
             &format!(
                 "{}, added at the end of the list.",
-                count_of(n, "more video", "more videos")
+                count_of(n, "more result", "more results")
             ),
         );
     }
@@ -827,19 +981,23 @@ fn count_in(count: &str) -> Option<usize> {
         .ok()
 }
 
-fn video_rows(videos: Vec<Video>, more: Option<String>) -> Vec<Row> {
-    let mut rows: Vec<Row> = videos
-        .into_iter()
-        .map(|v| Row::Video { v, new: false })
+/// The rows for what YouTube found, with More last.
+fn rows_of(r: youtube::Results) -> Vec<Row> {
+    let mut rows: Vec<Row> = r
+        .channels
+        .iter()
+        .map(|(id, name)| Row::Channel(Channel::named(id, name)))
         .collect();
-    rows.extend(more.map(Row::More));
+    rows.extend(r.videos.into_iter().map(|v| Row::Video { v, new: false }));
+    rows.extend(r.playlists.into_iter().map(Row::Playlist));
+    rows.extend(r.more.map(Row::More));
     rows
 }
 
 fn searched(
     hwnd: HWND,
     app: &mut App,
-    query: String,
+    query: Query,
     more: bool,
     result: Result<youtube::Results, String>,
     slow: bool,
@@ -850,7 +1008,7 @@ fn searched(
             not_found(
                 hwnd,
                 app,
-                &format!("YouTube could not be searched for {query}: {why}"),
+                &format!("YouTube could not be searched for {}: {why}", query.text),
             );
             return;
         }
@@ -859,17 +1017,31 @@ fn searched(
         appended(hwnd, app, r);
         return;
     }
-    if r.videos.is_empty() {
+    if r.found() == 0 {
         if let Some(o) = app.online.last_mut() {
             o.loading = false;
         }
         say(
             hwnd,
-            &format!("YouTube found nothing for {query}. Ctrl+F searches again."),
+            &format!(
+                "YouTube found nothing for {}. Ctrl+F searches again.",
+                query.text
+            ),
         );
         return;
     }
-    let n = r.videos.len();
+    let n = r.found();
+    let what = match query.what {
+        SearchFor::Videos => count_of(n, "video", "videos"),
+        SearchFor::Channels => count_of(n, "channel", "channels"),
+        SearchFor::Playlists => count_of(n, "playlist", "playlists"),
+    };
+    let keys = if query.what == SearchFor::Videos {
+        " Enter plays the sound; Ctrl+D downloads."
+    } else {
+        " Enter opens one."
+    };
+    let text = query.text.clone();
     let slow = if slow {
         " YouTube's own search did not answer, so yt-dlp searched instead."
     } else {
@@ -880,15 +1052,165 @@ fn searched(
         app,
         Online {
             shows: Shows::Search(query.clone()),
-            rows: video_rows(r.videos, r.more),
+            rows: rows_of(r),
             at: 0,
             loading: false,
         },
-        &format!(
-            "{} found for {query}. Enter plays the sound; Ctrl+D downloads; Escape goes back.{slow}",
-            count_of(n, "video", "videos")
-        ),
+        &format!("{what} found for {text}.{keys}{slow}"),
     );
+}
+
+/// The videos YouTube suggests beside one.
+fn show_related(hwnd: HWND, app: &mut App, id: String, title: String) {
+    waiting(
+        hwnd,
+        app,
+        Shows::Related(id.clone(), title.clone()),
+        &format!("Getting videos related to {title}."),
+    );
+    look(hwnd, app, move |stop| {
+        let result = youtube::related(&id, None, stop);
+        if stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        Some(Found::Related {
+            id,
+            title,
+            more: false,
+            result,
+        })
+    });
+}
+
+fn related_found(hwnd: HWND, app: &mut App, id: String, title: String, r: youtube::Results) {
+    let n = r.found();
+    let said = format!(
+        "{} related to {title}. Enter plays one; Ctrl+R shows those related to it; Backspace \
+         goes back.",
+        count_of(n, "video", "videos")
+    );
+    arrive(
+        hwnd,
+        app,
+        Online {
+            shows: Shows::Related(id, title),
+            rows: rows_of(r),
+            at: 0,
+            loading: false,
+        },
+        &said,
+    );
+}
+
+/// Asks what to look for in `channel`, then searches it.
+fn search_channel(hwnd: HWND, app: &mut App, channel: Channel) {
+    let label = format!("&Search {} for:", plain(&channel.name));
+    let Some(query) = crate::namebox::ask(
+        hwnd,
+        "Search this channel - VidFetch",
+        &label,
+        "",
+        check_query,
+    ) else {
+        say(hwnd, "Nothing searched.");
+        focus(hwnd, IDC_LIST);
+        return;
+    };
+    let query = query.trim().to_string();
+    waiting(
+        hwnd,
+        app,
+        Shows::ChannelSearch(channel.clone(), query.clone()),
+        &format!("Searching {} for {query}.", channel.name),
+    );
+    look(hwnd, app, move |stop| {
+        let result = youtube::channel_search(&channel, &query, None, stop);
+        if stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        Some(Found::ChannelSearch {
+            channel,
+            query,
+            more: false,
+            result,
+        })
+    });
+}
+
+fn channel_searched(
+    hwnd: HWND,
+    app: &mut App,
+    channel: Channel,
+    query: String,
+    r: youtube::Results,
+) {
+    if r.found() == 0 {
+        if let Some(o) = app.online.last_mut() {
+            o.loading = false;
+        }
+        say(hwnd, &format!("{} has nothing for {query}.", channel.name));
+        return;
+    }
+    let said = format!(
+        "{} found in {} for {query}.",
+        count_of(r.found(), "video", "videos"),
+        channel.name
+    );
+    arrive(
+        hwnd,
+        app,
+        Online {
+            shows: Shows::ChannelSearch(channel, query),
+            rows: rows_of(r),
+            at: 0,
+            loading: false,
+        },
+        &said,
+    );
+}
+
+/// Fetches a video's comments, to read in a window of their own.
+fn show_comments(hwnd: HWND, app: &mut App, id: String, name: String) {
+    say(hwnd, &format!("Fetching the comments on {name}."));
+    look(hwnd, app, move |stop| {
+        let result = youtube::comments(&id, stop);
+        if stop.load(Ordering::Relaxed) {
+            return None;
+        }
+        Some(Found::Comments { name, result })
+    });
+}
+
+/// Fetches a video's captions as text, without downloading the video.
+fn show_transcript(hwnd: HWND, app: &mut App, id: String, name: String) {
+    let Some(exe) = ytdlp::find() else {
+        say(
+            hwnd,
+            "A transcript needs yt-dlp, which VidFetch fetches the first time you download \
+             something.",
+        );
+        return;
+    };
+    say(hwnd, &format!("Fetching the transcript of {name}."));
+    look(hwnd, app, move |stop| {
+        let url = format!("https://www.youtube.com/watch?v={id}");
+        let dir = std::env::temp_dir().join(format!("vidfetch-transcript-{id}"));
+        let _ = std::fs::create_dir_all(&dir);
+        let got = ytdlp::captions(&exe, &url, &dir, stop);
+        if stop.load(Ordering::Relaxed) {
+            let _ = std::fs::remove_dir_all(&dir);
+            return None;
+        }
+        let result = match got {
+            Ok(Some((file, _))) => std::fs::read_to_string(&file)
+                .map(|t| crate::captions::as_text(&crate::captions::parse(&t)))
+                .map_err(|e| e.to_string()),
+            Ok(None) => Err("this video has no captions, in any language.".to_string()),
+            Err(e) => Err(e),
+        };
+        let _ = std::fs::remove_dir_all(&dir);
+        Some(Found::Transcript { name, result })
+    });
 }
 
 // ---------------------------------------------------------------- listening
@@ -1016,7 +1338,7 @@ fn play_row(hwnd: HWND, app: &mut App, i: usize) {
     if let Some(Row::Played(p)) = top_row(app, Some(i)) {
         if p.video().is_none() && !std::path::Path::new(&p.key).exists() {
             let p = p.clone();
-            download_gone(hwnd, &p);
+            download_gone_file(hwnd, &PathBuf::from(&p.key), &p.name);
             return;
         }
     }
@@ -1068,25 +1390,20 @@ fn play_row(hwnd: HWND, app: &mut App, i: usize) {
 
 /// Enter on a download whose file has gone: offers to download it again,
 /// if VidFetch knows where it came from (log entry 5, Q3).
-fn download_gone(hwnd: HWND, p: &Played) {
-    let path = PathBuf::from(&p.key);
-    let Some(id) = library::video_of(Config::past_path().as_deref(), &path) else {
+pub fn download_gone_file(hwnd: HWND, path: &std::path::Path, name: &str) {
+    let Some(id) = library::video_of(Config::past_path().as_deref(), path) else {
         say(
             hwnd,
             &format!(
-                "{} is no longer on this computer, and VidFetch does not know where it came \
-                 from. Delete takes it off this list.",
-                p.name
+                "{name} is no longer on this computer, and VidFetch does not know where it came \
+                 from. Delete takes it off this list."
             ),
         );
         return;
     };
     if !message::ask(
         hwnd,
-        &format!(
-            "{} is no longer on this computer. Download it again?",
-            p.name
-        ),
+        &format!("{name} is no longer on this computer. Download it again?"),
         "&Download again",
         "&Cancel",
         true,
@@ -1122,11 +1439,7 @@ fn download_gone(hwnd: HWND, p: &Played) {
 /// name is found first, while its sound is found alongside.
 pub fn listen_address(hwnd: HWND, app: &mut App, url: String) {
     if ytdlp::is_youtube(&url) && ytdlp::video_id(&url).is_none() {
-        say(
-            hwnd,
-            "That address is a playlist or a channel, and listening plays one video. Press Ctrl+N \
-             to download it, or copy the address of one of its videos.",
-        );
+        open_address(hwnd, app, url);
         return;
     }
     let url = match ytdlp::video_id(&url).filter(|_| ytdlp::is_youtube(&url)) {
@@ -1148,6 +1461,34 @@ pub fn listen_address(hwnd: HWND, app: &mut App, url: String) {
             return None;
         }
         Some(Found::Listen { url, name })
+    });
+}
+
+/// A playlist's or channel's address: opens its list of videos in the YouTube
+/// window, to play or download from (milestone 6 test, 3.4).
+fn open_address(hwnd: HWND, app: &mut App, url: String) {
+    if let Some(id) = ytdlp::list_id(&url) {
+        let playlist = Playlist {
+            id,
+            ..Playlist::default()
+        };
+        open(hwnd, app, move |b, app| show_playlist(b, app, playlist));
+        return;
+    }
+    open(hwnd, app, move |b, app| {
+        waiting(
+            b,
+            app,
+            Shows::Channel(Channel::named("", "the channel")),
+            "Finding the channel.",
+        );
+        look(b, app, move |stop| {
+            let r = youtube::channel_of(&url, stop);
+            if stop.load(Ordering::Relaxed) {
+                return None;
+            }
+            Some(Found::OpenChannel(r))
+        });
     });
 }
 
@@ -1451,27 +1792,36 @@ fn show_channel(hwnd: HWND, app: &mut App, channel: Channel) {
         &format!("Getting the latest videos from {}.", channel.name),
     );
     look(hwnd, app, move |stop| {
-        let result = youtube::channel_videos(&channel.id, stop).map(|(_, v)| v);
+        let result = youtube::channel_page(&channel.id, stop).map(|(_, r)| r);
         if stop.load(Ordering::Relaxed) {
             return None;
         }
-        Some(Found::Channel { channel, result })
+        Some(Found::Channel {
+            channel,
+            more: false,
+            result,
+        })
     });
 }
 
-fn channel_found(hwnd: HWND, app: &mut App, channel: Channel, videos: Vec<Video>) {
+fn channel_found(hwnd: HWND, app: &mut App, channel: Channel, r: youtube::Results) {
     let followed = app.channels.iter().any(|c| c.id == channel.id);
     let said = format!(
-        "The latest {} from {}, newest first; the last line lists its playlists.{}",
-        count_of(videos.len(), "video", "videos"),
+        "The latest {} from {}, newest first. {}The last line lists its playlists.{}",
+        count_of(r.videos.len(), "video", "videos"),
         channel.name,
+        if r.more.is_some() {
+            "More, near the end, fetches older ones. "
+        } else {
+            ""
+        },
         if followed {
             ""
         } else {
             " You do not follow this channel; the context menu can."
         }
     );
-    let mut rows = video_rows(videos, None);
+    let mut rows = rows_of(r);
     rows.push(Row::Playlists(channel.clone()));
     arrive(
         hwnd,
@@ -1510,7 +1860,7 @@ fn playlists_found(hwnd: HWND, app: &mut App, channel: Channel, list: Vec<Playli
         }
         say(
             hwnd,
-            &format!("{} has no playlists. Escape goes back.", channel.name),
+            &format!("{} has no playlists. Backspace goes back.", channel.name),
         );
         return;
     }
@@ -1538,7 +1888,11 @@ fn show_playlist(hwnd: HWND, app: &mut App, playlist: Playlist) {
         hwnd,
         app,
         Shows::Playlist(playlist.clone()),
-        &format!("Getting the videos of {}.", playlist.title),
+        &if playlist.title.is_empty() {
+            "Getting the playlist's videos.".to_string()
+        } else {
+            format!("Getting the videos of {}.", playlist.title)
+        },
     );
     look(hwnd, app, move |stop| {
         let result = youtube::playlist_videos(&playlist.id, None, stop);
@@ -1553,7 +1907,10 @@ fn show_playlist(hwnd: HWND, app: &mut App, playlist: Playlist) {
     });
 }
 
-fn playlist_found(hwnd: HWND, app: &mut App, playlist: Playlist, mut r: youtube::Results) {
+fn playlist_found(hwnd: HWND, app: &mut App, mut playlist: Playlist, mut r: youtube::Results) {
+    if playlist.title.is_empty() {
+        playlist.title = std::mem::take(&mut r.title);
+    }
     let n = r.videos.len();
     // YouTube offers a next page even when every video is listed.
     if count_in(&playlist.count).is_some_and(|all| n >= all) {
@@ -1574,7 +1931,7 @@ fn playlist_found(hwnd: HWND, app: &mut App, playlist: Playlist, mut r: youtube:
         app,
         Online {
             shows: Shows::Playlist(playlist),
-            rows: video_rows(r.videos, r.more),
+            rows: rows_of(r),
             at: 0,
             loading: false,
         },
@@ -1712,7 +2069,8 @@ pub fn download_command(hwnd: HWND, app: &mut App, id: i32) -> bool {
         IDM_NEW_VIDEOS => new_videos(hwnd, app),
         IDM_CHANNELS => your_channels(hwnd, app),
         IDM_HISTORY => recently_played(hwnd, app),
-        IDM_DESCRIBE | IDM_FOLLOW | IDM_UNFOLLOW | IDM_COPY | IDM_BROWSER => {
+        IDM_DESCRIBE | IDM_FOLLOW | IDM_UNFOLLOW | IDM_COPY | IDM_BROWSER | IDM_RELATED
+        | IDM_COMMENTS | IDM_TRANSCRIPT => {
             let Some(e) = chosen(hwnd, app) else {
                 return true;
             };
@@ -1725,7 +2083,11 @@ pub fn download_command(hwnd: HWND, app: &mut App, id: i32) -> bool {
             }
             let known = video_of(&e);
             match (id, known) {
-                (IDM_DESCRIBE | IDM_FOLLOW | IDM_UNFOLLOW, None) => say(
+                (
+                    IDM_DESCRIBE | IDM_FOLLOW | IDM_UNFOLLOW | IDM_RELATED | IDM_COMMENTS
+                    | IDM_TRANSCRIPT,
+                    None,
+                ) => say(
                     hwnd,
                     &format!(
                         "VidFetch does not know which YouTube video {} came from.",
@@ -1733,6 +2095,12 @@ pub fn download_command(hwnd: HWND, app: &mut App, id: i32) -> bool {
                     ),
                 ),
                 (IDM_DESCRIBE, Some(v)) => describe_id(hwnd, app, v, e.name.clone()),
+                (IDM_RELATED, Some(v)) => {
+                    let name = e.name.clone();
+                    open(hwnd, app, move |b, app| show_related(b, app, v, name));
+                }
+                (IDM_COMMENTS, Some(v)) => show_comments(hwnd, app, v, e.name.clone()),
+                (IDM_TRANSCRIPT, Some(v)) => show_transcript(hwnd, app, v, e.name.clone()),
                 (IDM_FOLLOW, Some(v)) => follow_video(hwnd, app, v, &e.name),
                 (IDM_UNFOLLOW, Some(v)) => {
                     say(hwnd, &format!("Finding the channel of {}.", e.name));
@@ -1820,13 +2188,30 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
         IDM_BACK => back(hwnd, app),
         IDM_CLOSE => close(hwnd, app),
         IDM_HELP => help(hwnd),
+        IDM_RELATED => match r.and_then(Row::video) {
+            Some(v) => show_related(hwnd, app, v.id, v.title),
+            None => say(hwnd, "Choose a video in the list first."),
+        },
+        IDM_COMMENTS => match r.and_then(Row::video) {
+            Some(v) => show_comments(hwnd, app, v.id, v.title),
+            None => say(hwnd, "Choose a video in the list first."),
+        },
+        IDM_TRANSCRIPT => match r.and_then(Row::video) {
+            Some(v) => show_transcript(hwnd, app, v.id, v.title),
+            None => say(hwnd, "Choose a video in the list first."),
+        },
+        IDM_SEARCH_CHANNEL => match channel_in(app, r) {
+            Some(c) => search_channel(hwnd, app, c),
+            None => say(hwnd, "Choose a channel, or a video from one, first."),
+        },
         IDM_OPEN => match row {
+            Some((_, Row::Video { v, .. })) if is_live(&v) => say(hwnd, LIVE),
             Some((i, Row::Video { .. } | Row::Played(_))) => play_row(hwnd, app, i),
             Some((_, Row::Channel(c))) => show_channel(hwnd, app, c),
             Some((_, Row::Playlists(c))) => show_playlists(hwnd, app, c),
             Some((_, Row::Playlist(p))) => show_playlist(hwnd, app, p),
             Some((_, Row::More(t))) => more(hwnd, app, t),
-            None => say(hwnd, "The list is empty. Escape goes back."),
+            None => say(hwnd, "The list is empty. Backspace goes back."),
         },
         IDM_DOWNLOAD => match row {
             Some((_, Row::Channel(c))) | Some((_, Row::Playlists(c))) => download_all(
@@ -1854,6 +2239,7 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
                     }
                 ),
             ),
+            Some((_, Row::Video { v, .. })) if is_live(&v) => say(hwnd, LIVE),
             Some((_, row)) => match row.video() {
                 Some(v) => {
                     let said = download_video(hwnd, &v);
@@ -1878,9 +2264,20 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
             Some(v) => describe_id(hwnd, app, v.id.clone(), v.title.clone()),
             None => say(hwnd, "Choose a video in the list first."),
         },
-        IDM_CHANNEL => match channel_in(app, r) {
-            Some(c) => show_channel(hwnd, app, c),
-            None => say(hwnd, "VidFetch does not know this one's channel."),
+        IDM_CHANNEL => match (channel_in(app, r), r.and_then(Row::video)) {
+            (Some(c), _) => show_channel(hwnd, app, c),
+            // Related videos do not say their channel's id.
+            (None, Some(v)) => {
+                say(hwnd, "Finding the channel.");
+                look(hwnd, app, move |stop| {
+                    let r = youtube::details(&v.id, stop).map(|d| (d.channel_id, d.channel));
+                    if stop.load(Ordering::Relaxed) {
+                        return None;
+                    }
+                    Some(Found::OpenChannel(r))
+                });
+            }
+            (None, None) => say(hwnd, "VidFetch does not know this one's channel."),
         },
         IDM_PLAYLISTS => match channel_in(app, r) {
             Some(c) => show_playlists(hwnd, app, c),
@@ -1904,7 +2301,7 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
                 show_top(hwnd, app);
                 let left = app.online.last().map_or(0, |o| o.rows.len());
                 let left = if left == 0 {
-                    "The list is empty now; Escape goes back.".to_string()
+                    "The list is empty now; Backspace goes back.".to_string()
                 } else {
                     format!("{} left.", count_of(left, "item", "items"))
                 };
@@ -1969,9 +2366,13 @@ fn init_menu(hwnd: HWND, app: &App, menu: HMENU) {
     enable(IDM_DESCRIBE, video.is_some());
     enable(
         IDM_CHANNEL,
-        channel.is_some()
+        (channel.is_some() || video.is_some())
             && !matches!(app.online.last().map(|o| &o.shows), Some(Shows::Channel(_))),
     );
+    enable(IDM_RELATED, video.is_some());
+    enable(IDM_COMMENTS, video.is_some());
+    enable(IDM_TRANSCRIPT, video.is_some());
+    enable(IDM_SEARCH_CHANNEL, channel.is_some());
     enable(IDM_PLAYLISTS, channel.is_some());
     enable(
         IDM_FOLLOW,
@@ -1999,7 +2400,7 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
         choose_under(lb, x, y);
     }
     let Some((_, row)) = chosen_row(hwnd, app) else {
-        say(hwnd, "The list is empty. Escape goes back.");
+        say(hwnd, "The list is empty. Backspace goes back.");
         return;
     };
     let shown_channel = matches!(app.online.last().map(|o| &o.shows), Some(Shows::Channel(_)));
@@ -2011,12 +2412,16 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
                 (IDM_OPEN, "&Play\tEnter"),
                 (IDM_DOWNLOAD, "&Download\tCtrl+D"),
                 (IDM_DESCRIBE, "Show d&escription\tCtrl+I"),
+                (IDM_RELATED, "Related &videos\tCtrl+R"),
+                (IDM_COMMENTS, "Co&mments\tCtrl+K"),
+                (IDM_TRANSCRIPT, "&Transcript\tCtrl+T"),
             ];
+            if !shown_channel {
+                items.push((IDM_CHANNEL, "Show &channel"));
+            }
             if channel.is_some() {
-                if !shown_channel {
-                    items.push((IDM_CHANNEL, "Show &channel"));
-                }
                 items.push((IDM_PLAYLISTS, "Show channel's p&laylists"));
+                items.push((IDM_SEARCH_CHANNEL, "Search t&his channel...\tCtrl+Shift+F"));
             }
             if followed {
                 items.push((IDM_UNFOLLOW, "&Unfollow channel..."));
@@ -2035,7 +2440,12 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
             (IDM_DOWNLOAD, "&Download all its videos..."),
             (IDM_COPY, "Cop&y web address"),
             (IDM_BROWSER, "Open in &browser"),
-            (IDM_UNFOLLOW, "&Unfollow channel...\tDelete"),
+            (IDM_SEARCH_CHANNEL, "Search t&his channel...\tCtrl+Shift+F"),
+            if followed {
+                (IDM_UNFOLLOW, "&Unfollow channel...\tDelete")
+            } else {
+                (IDM_FOLLOW, "&Follow channel")
+            },
         ],
         Row::Playlists(_) => vec![(IDM_OPEN, "Show p&laylists\tEnter")],
         Row::Playlist(_) => vec![
@@ -2073,7 +2483,10 @@ mod tests {
     #[test]
     fn names_with_an_ampersand_make_no_mnemonic() {
         let o = Online {
-            shows: Shows::Search("M&S".into()),
+            shows: Shows::Search(Query {
+                text: "M&S".into(),
+                ..Query::default()
+            }),
             rows: Vec::new(),
             at: 0,
             loading: false,

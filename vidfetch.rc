@@ -99,6 +99,20 @@ END
 #define IDC_B_DOWNLOAD      1120
 #define IDC_B_SEARCH        1121
 #define IDC_B_CLOSE         1122
+#define IDD_SEARCH          112
+#define IDC_S_TEXT          1130
+#define IDC_S_WHAT          1131
+#define IDC_S_SORT          1132
+#define IDC_S_LENGTH        1133
+#define IDC_S_SHORTS        1134
+#define IDM_IMPORT          2063
+#define IDM_BACKUP          2064
+#define IDM_DENO            2065
+#define IDM_NEWER           2066
+#define IDM_RELATED         2055
+#define IDM_COMMENTS        2056
+#define IDM_TRANSCRIPT      2057
+#define IDM_SEARCH_CHANNEL  2058
 
 #define IDR_MENU            200
 #define IDR_BROWSE          201
@@ -190,6 +204,10 @@ BEGIN
         MENUITEM "Select &output folder...", IDM_FOLDER
         MENUITEM "Open library in file &explorer", IDM_EXPLORER
         MENUITEM "&Update yt-dlp", IDM_UPDATE_YTDLP
+        MENUITEM "Fetch &Deno, which helps with YouTube...", IDM_DENO
+        MENUITEM SEPARATOR
+        MENUITEM "&Import channels from a file...", IDM_IMPORT
+        MENUITEM "Save a &backup of your channels...", IDM_BACKUP
         MENUITEM SEPARATOR
         MENUITEM "E&xit\tAlt+F4", IDM_EXIT
     END
@@ -198,10 +216,13 @@ BEGIN
     BEGIN
         MENUITEM "&Open playlist / play video\tEnter", IDM_OPEN
         MENUITEM "Open video using default media &player", IDM_EXTERNAL
-        MENUITEM "&Back\tEscape", IDM_BACK
+        MENUITEM "&Back\tBackspace", IDM_BACK
         MENUITEM "&Update playlist\tCtrl+U", IDM_UPDATE
         MENUITEM "Show d&escription\tCtrl+I", IDM_DESCRIBE
         MENUITEM "Show &captions", IDM_CAPTIONS_TEXT
+        MENUITEM "Related v&ideos\tCtrl+R", IDM_RELATED
+        MENUITEM "Comme&nts\tCtrl+K", IDM_COMMENTS
+        MENUITEM "Tran&script\tCtrl+T", IDM_TRANSCRIPT
         MENUITEM SEPARATOR
         MENUITEM "Show &queue...\tCtrl+Q", IDM_QUEUE
         MENUITEM "E&mpty queue...", IDM_CLEAR_QUEUE
@@ -259,6 +280,7 @@ BEGIN
     POPUP "&Help"
     BEGIN
         MENUITEM "&Help\tF1", IDM_HELP
+        MENUITEM "Check for a &newer version", IDM_NEWER
         MENUITEM "&About VidFetch", IDM_ABOUT
     END
 END
@@ -272,7 +294,11 @@ BEGIN
         MENUITEM "&Play or open\tEnter", IDM_OPEN
         MENUITEM "&Download\tCtrl+D", IDM_DOWNLOAD
         MENUITEM "Show d&escription\tCtrl+I", IDM_DESCRIBE
+        MENUITEM "Related &videos\tCtrl+R", IDM_RELATED
+        MENUITEM "Co&mments\tCtrl+K", IDM_COMMENTS
+        MENUITEM "&Transcript\tCtrl+T", IDM_TRANSCRIPT
         MENUITEM "Show &channel", IDM_CHANNEL
+        MENUITEM "Search t&his channel...\tCtrl+Shift+F", IDM_SEARCH_CHANNEL
         MENUITEM "Show channel's p&laylists", IDM_PLAYLISTS
         MENUITEM "&Follow channel", IDM_FOLLOW
         MENUITEM "&Unfollow channel...", IDM_UNFOLLOW
@@ -302,8 +328,8 @@ END
 // channel's videos and playlists, a playlist's videos, and what was played
 // lately, one list at a time. Its title and the list's label are set at run
 // time to say which list it is; the Enter button says what Enter does to
-// the row chosen. Escape and Backspace go back one list, closing the window
-// from the first.
+// the row chosen. Backspace goes back one list, closing the window from the
+// first; Escape closes it from any list.
 IDD_BROWSE DIALOGEX 0, 0, 400, 224
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "YouTube - VidFetch"
@@ -321,6 +347,25 @@ BEGIN
 
     LTEXT      "S&tatus:", -1, 7, 206, 30, 8
     EDITTEXT   IDC_STATUS, 40, 204, 353, 12, ES_AUTOHSCROLL | ES_READONLY | WS_GROUP | WS_TABSTOP
+END
+
+// Search YouTube (searchbox.rs).
+IDD_SEARCH DIALOGEX 0, 0, 260, 122
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Search YouTube - VidFetch"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT      "&Search YouTube for:", -1, 7, 7, 246, 8
+    EDITTEXT   IDC_S_TEXT, 7, 17, 246, 13, ES_AUTOHSCROLL | WS_GROUP | WS_TABSTOP
+    LTEXT      "&Look for:", -1, 7, 37, 90, 8
+    COMBOBOX   IDC_S_WHAT, 100, 35, 153, 60, CBS_DROPDOWNLIST | WS_VSCROLL | WS_GROUP | WS_TABSTOP
+    LTEXT      "S&ort results by:", -1, 7, 53, 90, 8
+    COMBOBOX   IDC_S_SORT, 100, 51, 153, 60, CBS_DROPDOWNLIST | WS_VSCROLL | WS_GROUP | WS_TABSTOP
+    LTEXT      "Length of &videos:", -1, 7, 69, 90, 8
+    COMBOBOX   IDC_S_LENGTH, 100, 67, 153, 60, CBS_DROPDOWNLIST | WS_VSCROLL | WS_GROUP | WS_TABSTOP
+    AUTOCHECKBOX "Leave out YouTube S&horts", IDC_S_SHORTS, 7, 85, 246, 10, WS_GROUP | WS_TABSTOP
+    DEFPUSHBUTTON "Search", IDOK, 142, 102, 54, 14, WS_GROUP | WS_TABSTOP
+    PUSHBUTTON "Cancel", IDCANCEL, 199, 102, 54, 14, WS_TABSTOP
 END
 
 IDD_MESSAGE DIALOGEX 0, 0, 304, 244

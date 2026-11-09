@@ -16,9 +16,11 @@ newest entry at the top.
 
 Split off from a Video Scribe session on 2 November 2026; this repository is now worked on on its own.
 
-- Milestones 1 to 5 are on `main`, tested and pushed. Milestone 6, the user's milestone 5 answers, is
-  on `m6-beta`, awaiting `test-milestone-6.txt`. Log entry 6 has its questions and the proposals for
-  a first beta.
+- Milestones 1 to 6 are on `main`, tested and pushed. Milestone 7, towards a first beta, is on
+  `m7-beta`, awaiting `test-milestone-7.txt`. Log entry 7 has its questions.
+- `src/announce.rs` raises UI Automation notifications on a provider of its own, and uses a hidden
+  live region when NVDA is running. `hush()` stops JAWS through its COM API for the quiet Play window.
+- Deno is optional, in `tools\deno`, fetched on request; yt-dlp starts it, not VidFetch.
 - `src/ui/online.rs` is the YouTube window (IDD_BROWSE): search, new videos, channels, a channel's
   videos and playlists, a playlist, recently played. It runs its own message loop in front of the
   disabled main window and shares the main window's `App`. `src/ui/category.rs` holds the

@@ -237,11 +237,12 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "vidfetch"
-version = "0.1.0"
+version = "0.7.0-beta.1"
 dependencies = [
  "embed-resource",
  "serde_json",
  "windows",
+ "windows-core",
 ]
 
 [[package]]

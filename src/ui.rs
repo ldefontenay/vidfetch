@@ -82,6 +82,10 @@ const IDM_FOLLOW: i32 = 2043;
 const IDM_UNFOLLOW: i32 = 2044;
 const IDM_COPY: i32 = 2045;
 const IDM_BROWSER: i32 = 2046;
+const IDM_RELATED: i32 = 2055;
+const IDM_COMMENTS: i32 = 2056;
+const IDM_TRANSCRIPT: i32 = 2057;
+const IDM_SEARCH_CHANNEL: i32 = 2058;
 /// In the context menu of a video found online only.
 const IDM_CHANNEL: i32 = 2047;
 const IDM_NEW_CATEGORY: i32 = 2050;
@@ -128,6 +132,14 @@ const WM_SETTLE: u32 = WM_APP + 14;
 const WM_RESUME: u32 = WM_APP + 15;
 /// VidFetch has come to the front with a web address newly copied.
 const WM_OFFER: u32 = WM_APP + 16;
+/// What the look for a newer version found: a boxed `(asked, answer)`.
+const WM_NEWER: u32 = WM_APP + 17;
+const IDM_IMPORT: i32 = 2063;
+const IDM_BACKUP: i32 = 2064;
+const IDM_DENO: i32 = 2065;
+const IDM_NEWER: i32 = 2066;
+/// Where VidFetch's releases are.
+const RELEASES: &str = "https://github.com/ldefontenay/vidfetch/releases";
 
 thread_local! {
     /// While set, `say` only shows: a window in front says it instead.
@@ -186,7 +198,7 @@ struct App {
     main: Option<HWND>,
     /// The YouTube window, while it is open.
     browse: Option<HWND>,
-    /// The lists the YouTube window shows, the last on top; Escape goes back
+    /// The lists the YouTube window shows, the last on top; Backspace goes back
     /// one at a time.
     online: Vec<online::Online>,
     /// The sounds' addresses found lately, by video.
@@ -201,7 +213,7 @@ struct App {
     lookup: Option<(u64, Arc<AtomicBool>)>,
     next_lookup: u64,
     /// What was searched for last, to start the next search from.
-    last_search: String,
+    last_search: crate::youtube::Query,
     /// Downloads moved into Uncategorised as VidFetch started, to say so.
     tidied: usize,
 }
@@ -230,7 +242,7 @@ pub fn run(cfg: Config, welcome: bool) {
         channels: channels::load(),
         lookup: None,
         next_lookup: 0,
-        last_search: String::new(),
+        last_search: Default::default(),
         tidied: 0,
     });
     let mut app = app;
@@ -336,6 +348,14 @@ unsafe extern "system" fn dialog_proc(
             if app(hwnd).is_some_and(|a| a.welcome) {
                 let _ = PostMessageW(Some(hwnd), WM_WELCOME, WPARAM(0), LPARAM(0));
             }
+            if let Some(a) = app(hwnd).filter(|a| !a.welcome) {
+                let now = crate::youtube::now();
+                if now - a.cfg.looked_for_newer > 7 * 86_400 {
+                    a.cfg.looked_for_newer = now;
+                    a.cfg.save();
+                    look_for_newer(hwnd, false);
+                }
+            }
             if app(hwnd).is_some_and(|a| !a.resume.is_empty()) {
                 let _ = PostMessageW(Some(hwnd), WM_RESUME, WPARAM(0), LPARAM(0));
             }
@@ -364,6 +384,12 @@ unsafe extern "system" fn dialog_proc(
                 refill_queue(app);
                 save_queue(app);
             }
+            1
+        }
+        WM_NEWER => {
+            let (asked, answer) =
+                *Box::from_raw(lparam.0 as *mut (bool, Result<Option<String>, String>));
+            newer_found(hwnd, asked, answer);
             1
         }
         WM_WELCOME => {
@@ -575,7 +601,15 @@ fn refresh(hwnd: HWND, app: &mut App) {
     }
     app.entries = match &app.inside {
         Some(folder) => library::videos_in(folder),
-        None => library::list_all(&app.cfg.output_folder(), app.cfg.category.as_deref()),
+        None => {
+            let output = app.cfg.output_folder();
+            let only = app.cfg.category.as_deref();
+            let mut all = library::list_all(&output, only);
+            if let Some(record) = Config::past_path() {
+                all.extend(library::gone(&record, &output, only));
+            }
+            all
+        }
     };
     let all = app.cfg.category.is_none() && app.inside.is_none();
     downloads::fill(lb, &app.entries, path.as_deref(), at.unwrap_or(0), all);
@@ -605,6 +639,11 @@ fn name_enter(hwnd: HWND, app: &App) {
         .is_some_and(|e| e.is_playlist());
     let text = if playlist {
         "O&pen playlist  Enter"
+    } else if downloads::chosen(list(hwnd))
+        .and_then(|i| app.entries.get(i))
+        .is_some_and(|e| e.is_gone())
+    {
+        "Download a&gain  Enter"
     } else {
         "&Play  Enter"
     };
@@ -622,7 +661,7 @@ fn chosen(hwnd: HWND, app: &App) -> Option<library::Entry> {
         say(
             hwnd,
             if app.inside.is_some() {
-                "There are no videos in this playlist's folder. Escape goes back to all downloads."
+                "There are no videos in this playlist's folder. Backspace goes back to all downloads."
             } else {
                 "There is nothing in the list of downloads. Press Ctrl+N to download a video or a \
                  playlist."
@@ -633,7 +672,7 @@ fn chosen(hwnd: HWND, app: &App) -> Option<library::Entry> {
 }
 
 /// Shows the videos of the playlist `e` in the list, in its order (milestone
-/// 2 test, section 5). Escape or Backspace goes back.
+/// 2 test, section 5). Backspace goes back.
 fn open_playlist(hwnd: HWND, app: &mut App, e: &library::Entry) {
     app.inside = Some(e.path.clone());
     app.entries = library::videos_in(&e.path);
@@ -649,7 +688,7 @@ fn open_playlist(hwnd: HWND, app: &mut App, e: &library::Entry) {
     say(
         hwnd,
         &format!(
-            "The playlist {}: {videos}. Enter plays the chosen one; Escape goes back to all \
+            "The playlist {}: {videos}. Enter plays the chosen one; Backspace goes back to all \
              downloads.",
             e.name
         ),
@@ -677,15 +716,10 @@ fn back(hwnd: HWND, app: &mut App) -> bool {
     true
 }
 
-/// Escape: goes back from a playlist's videos, else stops the download
-/// running.
+/// Escape always stops the download running, even while a playlist's videos
+/// are shown; Backspace goes back (log entry 6, Q1).
 fn escape(hwnd: HWND) {
-    let Some(app) = (unsafe { app(hwnd) }) else {
-        return;
-    };
-    if !back(hwnd, app) {
-        stop(hwnd);
-    }
+    stop(hwnd);
 }
 
 /// A web address copied since VidFetch last looked, if offering them is on
@@ -769,8 +803,8 @@ fn read_captions(hwnd: HWND, e: &library::Entry) {
 /// What the Play window needs for the download at `i` in the list, if it
 /// is a file.
 fn file_track(app: &App, i: usize) -> Option<listen::Track> {
-    let e = app.entries.get(i).filter(|e| !e.is_playlist())?;
-    let file = |e: &library::Entry| !e.is_playlist();
+    let e = app.entries.get(i).filter(|e| e.is_file())?;
+    let file = |e: &library::Entry| e.is_file();
     let key = crate::places::of_file(&e.path);
     crate::history::record(&key, &e.name);
     Some(listen::Track {
@@ -787,7 +821,7 @@ fn file_track(app: &App, i: usize) -> Option<listen::Track> {
 
 /// Plays the download at `at` in the list in the Play window, which goes on
 /// to the next or previous one with Page Down and Page Up, skipping
-/// playlists; the list follows, so Escape lands on the one last played.
+/// playlists; the list follows, so Backspace lands on the one last played.
 fn play(hwnd: HWND, at: usize) {
     let Some(app) = (unsafe { app(hwnd) }) else {
         return;
@@ -800,7 +834,7 @@ fn play(hwnd: HWND, at: usize) {
         let app = unsafe { self::app(hwnd) }?;
         let lb = list(hwnd);
         let at = downloads::chosen(lb)?;
-        let file = |i: &usize| !app.entries[*i].is_playlist();
+        let file = |i: &usize| app.entries[*i].is_file();
         let to = if next {
             (at + 1..app.entries.len()).find(file)
         } else {
@@ -960,7 +994,9 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
     let Some(e) = chosen(hwnd, app) else {
         return;
     };
-    let mut items = if e.is_playlist() {
+    let mut items = if e.is_gone() {
+        vec![(IDM_OPEN, "&Download again\tEnter")]
+    } else if e.is_playlist() {
         vec![
             (IDM_OPEN, "&Open playlist\tEnter"),
             (IDM_UPDATE, "&Update playlist\tCtrl+U"),
@@ -974,6 +1010,9 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
         if online::knows_video(&e) {
             items.extend([
                 (IDM_DESCRIBE, "Show d&escription\tCtrl+I"),
+                (IDM_RELATED, "Related v&ideos\tCtrl+R"),
+                (IDM_COMMENTS, "Comme&nts\tCtrl+K"),
+                (IDM_TRANSCRIPT, "Tran&script\tCtrl+T"),
                 (IDM_FOLLOW, "&Follow channel"),
             ]);
         }
@@ -983,7 +1022,7 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
         items
     };
     if app.inside.is_some() {
-        items.push((IDM_BACK, "&Back\tEscape"));
+        items.push((IDM_BACK, "&Back\tBackspace"));
     } else {
         items.push((IDM_MOVE, "Mo&ve to category...\tCtrl+Shift+M"));
     }
@@ -996,8 +1035,242 @@ fn context_menu(hwnd: HWND, app: &mut App, at: LPARAM) {
         (IDM_SHOW, "Show in file e&xplorer"),
         (IDM_DELETE, "&Delete...\tDelete"),
     ]);
+    if e.is_gone() {
+        items.retain(|(id, _)| ![IDM_RENAME, IDM_SHOW, IDM_MOVE, IDM_EXTERNAL].contains(id));
+    }
     if let Some(id) = downloads::context_menu(hwnd, lb, mouse.then_some((x, y)), &items) {
         command(hwnd, app, id);
+    }
+}
+
+/// What applies to a download whose file has gone; true if `id` was one of
+/// those commands.
+fn gone_command(hwnd: HWND, app: &mut App, id: i32) -> bool {
+    if ![
+        IDM_OPEN,
+        IDM_DELETE,
+        IDM_RENAME,
+        IDM_SHOW,
+        IDM_MOVE,
+        IDM_EXTERNAL,
+        IDM_CAPTIONS_TEXT,
+    ]
+    .contains(&id)
+    {
+        return false;
+    }
+    let Some(e) = downloads::chosen(list(hwnd))
+        .and_then(|i| app.entries.get(i))
+        .filter(|e| e.is_gone())
+        .cloned()
+    else {
+        return false;
+    };
+    match id {
+        IDM_OPEN => online::download_gone_file(hwnd, &e.path, &e.name),
+        IDM_DELETE => {
+            if let Some(record) = Config::past_path() {
+                library::forget_file(&record, &e.path);
+            }
+            refresh(hwnd, app);
+            say(hwnd, &format!("Took {} off the list.", e.name));
+        }
+        _ => say(
+            hwnd,
+            &format!(
+                "{} is no longer on this computer. Enter downloads it again; Delete takes it off \
+                 the list.",
+                e.name
+            ),
+        ),
+    }
+    true
+}
+
+/// Asks for a file of channels, and follows those not followed yet.
+fn import_channels(hwnd: HWND, app: &mut App) {
+    let Some(path) = pick_file(hwnd, "Import channels - VidFetch") else {
+        say(hwnd, "Nothing imported.");
+        return;
+    };
+    let text = std::fs::read(&path)
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
+        .unwrap_or_default();
+    let found = crate::import::parse(&text);
+    if found.is_empty() {
+        message::problem(
+            hwnd,
+            "No channels were found in that file. VidFetch reads subscriptions.csv from Google \
+             Takeout, the export files of FreeTube and NewPipe, and an OPML list.",
+        );
+        focus(hwnd, IDC_LIST);
+        return;
+    }
+    let now = crate::youtube::now();
+    let mut added = 0;
+    for (id, name) in &found {
+        if !app.channels.iter().any(|c| &c.id == id) {
+            let mut c = crate::channels::Channel::named(id, name);
+            c.looked = now;
+            app.channels.push(c);
+            added += 1;
+        }
+    }
+    crate::channels::save(&app.channels);
+    say(
+        hwnd,
+        &format!(
+            "{added} new, of {} channels in the file. You follow {} now; Ctrl+Shift+L lists them.",
+            found.len(),
+            app.channels.len()
+        ),
+    );
+    focus(hwnd, IDC_LIST);
+}
+
+/// Saves the channels followed where the user says.
+fn backup_channels(hwnd: HWND, app: &mut App) {
+    if app.channels.is_empty() {
+        say(
+            hwnd,
+            "You follow no channels yet, so there is nothing to save.",
+        );
+        return;
+    }
+    let Some(path) = save_file(
+        hwnd,
+        "Save a backup of your channels - VidFetch",
+        "VidFetch channels.json",
+    ) else {
+        say(hwnd, "Nothing saved.");
+        return;
+    };
+    match std::fs::write(&path, crate::import::backup(&app.channels)) {
+        Ok(()) => say(
+            hwnd,
+            &format!(
+                "Saved {} channels. Import channels, in the File menu, reads the file back; so \
+                 do NewPipe and FreeTube.",
+                app.channels.len()
+            ),
+        ),
+        Err(e) => message::problem(hwnd, &format!("{} could not be saved: {e}", path.display())),
+    }
+    focus(hwnd, IDC_LIST);
+}
+
+/// Asks, then fetches Deno.
+fn fetch_deno(hwnd: HWND, app: &mut App) {
+    if app.job.is_some() {
+        say(
+            hwnd,
+            "Already downloading. Fetch Deno once this download has finished.",
+        );
+        return;
+    }
+    let question = if ytdlp::has_deno() {
+        "Deno is already here. Fetch its latest version?"
+    } else {
+        "Deno is a free program, about 45 megabytes, which yt-dlp uses to answer YouTube's \
+         JavaScript. VidFetch works without it today, but YouTube may come to need it. Fetch it \
+         from its own page on GitHub?"
+    };
+    if !message::ask(hwnd, question, "&Fetch", "&Cancel", true) {
+        say(hwnd, "Deno was not fetched.");
+        focus(hwnd, IDC_LIST);
+        return;
+    }
+    app.job = Some(job::fetch_deno(hwnd));
+    app.quiet = false;
+    focus(hwnd, IDC_LIST);
+}
+
+/// Looks on GitHub for a newer VidFetch, on a thread; `asked`: the user
+/// chose to, so the answer is said whatever it is.
+fn look_for_newer(hwnd: HWND, asked: bool) {
+    let to = hwnd.0 as isize;
+    std::thread::spawn(move || {
+        let stop = AtomicBool::new(false);
+        let answer = crate::newer::latest(&stop)
+            .map(|tag| tag.filter(|t| crate::newer::is_newer(t, env!("CARGO_PKG_VERSION"))));
+        let raw = Box::into_raw(Box::new((asked, answer)));
+        unsafe {
+            if PostMessageW(
+                Some(HWND(to as *mut _)),
+                WM_NEWER,
+                WPARAM(0),
+                LPARAM(raw as isize),
+            )
+            .is_err()
+            {
+                drop(Box::from_raw(raw));
+            }
+        }
+    });
+}
+
+/// Tells, and installs nothing (log entry 6, A2).
+fn newer_found(hwnd: HWND, asked: bool, answer: Result<Option<String>, String>) {
+    match answer {
+        Ok(Some(tag)) if asked => {
+            if message::ask(
+                hwnd,
+                &format!(
+                    "VidFetch {tag} is available; you have {}. Open its page in the browser?",
+                    env!("CARGO_PKG_VERSION")
+                ),
+                "&Open the page",
+                "&Not now",
+                true,
+            ) && !downloads::browse(RELEASES)
+            {
+                say(hwnd, "Windows could not open the browser.");
+            }
+            focus(hwnd, IDC_LIST);
+        }
+        Ok(Some(tag)) => say(
+            hwnd,
+            &format!("VidFetch {tag} is available. Check for a newer version, in the Help menu, has its page."),
+        ),
+        Ok(None) if asked => say(hwnd, "This is the latest version of VidFetch."),
+        Err(_) if asked => say(hwnd, "GitHub could not be reached to look for a newer version."),
+        _ => {}
+    }
+}
+
+/// A file to read, chosen in Windows' own window.
+fn pick_file(owner: HWND, title: &str) -> Option<PathBuf> {
+    unsafe {
+        let dialog: IFileOpenDialog =
+            CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
+        let title = wide(title);
+        let _ = dialog.SetTitle(PCWSTR(title.as_ptr()));
+        dialog.Show(Some(owner)).ok()?;
+        let item = dialog.GetResult().ok()?;
+        let name: PWSTR = item.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
+        let path = name.to_string().ok();
+        CoTaskMemFree(Some(name.0 as _));
+        path.map(PathBuf::from)
+    }
+}
+
+/// A file to write, chosen in Windows' own window, which asks before
+/// replacing one.
+fn save_file(owner: HWND, title: &str, suggested: &str) -> Option<PathBuf> {
+    use windows::Win32::UI::Shell::{FileSaveDialog, IFileSaveDialog};
+    unsafe {
+        let dialog: IFileSaveDialog =
+            CoCreateInstance(&FileSaveDialog, None, CLSCTX_INPROC_SERVER).ok()?;
+        let title = wide(title);
+        let _ = dialog.SetTitle(PCWSTR(title.as_ptr()));
+        let name = wide(suggested);
+        let _ = dialog.SetFileName(PCWSTR(name.as_ptr()));
+        dialog.Show(Some(owner)).ok()?;
+        let item = dialog.GetResult().ok()?;
+        let name: PWSTR = item.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
+        let path = name.to_string().ok();
+        CoTaskMemFree(Some(name.0 as _));
+        path.map(PathBuf::from)
     }
 }
 
@@ -1542,7 +1815,7 @@ fn init_menu(hwnd: HWND, app: &mut App, menu: HMENU) {
     tick(IDM_CUT_SILENCE, cfg.cut_silence);
     tick(IDM_OFFER_COPIED, cfg.offer_copied);
     let e = downloads::chosen(list(hwnd)).and_then(|i| app.entries.get(i));
-    let file = e.is_some_and(|e| !e.is_playlist());
+    let file = e.is_some_and(|e| e.is_file());
     let playlist = e.is_some_and(|e| e.is_playlist());
     let video = file && e.is_some_and(online::knows_video);
     let enable = |id: i32, on: bool| unsafe {
@@ -1557,6 +1830,9 @@ fn init_menu(hwnd: HWND, app: &mut App, menu: HMENU) {
     enable(IDM_BACK, app.inside.is_some());
     enable(IDM_UPDATE, playlist || app.inside.is_some());
     enable(IDM_DESCRIBE, video);
+    enable(IDM_RELATED, video);
+    enable(IDM_COMMENTS, video);
+    enable(IDM_TRANSCRIPT, video);
     enable(
         IDM_CAPTIONS_TEXT,
         file && e.is_some_and(|e| !library::captions_of(&e.path).is_empty()),
@@ -1564,10 +1840,14 @@ fn init_menu(hwnd: HWND, app: &mut App, menu: HMENU) {
     enable(IDM_CLEAR_QUEUE, !app.queue.is_empty());
     enable(IDM_STOP, app.job.is_some());
     enable(IDM_UPDATE_YTDLP, app.job.is_none());
-    for id in [IDM_RENAME, IDM_SHOW, IDM_DELETE] {
-        enable(id, e.is_some());
+    let there = e.is_some_and(|e| !e.is_gone());
+    for id in [IDM_RENAME, IDM_SHOW] {
+        enable(id, there);
     }
-    enable(IDM_MOVE, e.is_some() && app.inside.is_none());
+    enable(IDM_DELETE, e.is_some());
+    enable(IDM_MOVE, there && app.inside.is_none());
+    enable(IDM_DENO, app.job.is_none());
+    enable(IDM_BACKUP, !app.channels.is_empty());
     enable(IDM_FOLLOW, video);
     enable(IDM_UNFOLLOW, video && !app.channels.is_empty());
     enable(IDM_COPY, video || playlist);
@@ -1645,6 +1925,9 @@ fn shortcut(key: u16) -> Option<i32> {
         b'D' => Some(IDM_DOWNLOAD),
         b'I' => Some(IDM_DESCRIBE),
         b'H' => Some(IDM_HISTORY),
+        b'R' => Some(IDM_RELATED),
+        b'K' => Some(IDM_COMMENTS),
+        b'T' => Some(IDM_TRANSCRIPT),
         _ => None,
     }
 }
@@ -1656,7 +1939,27 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
     if online::download_command(hwnd, app, id) {
         return true;
     }
+    if gone_command(hwnd, app, id) {
+        return true;
+    }
     let said = match id {
+        IDM_IMPORT => {
+            import_channels(hwnd, app);
+            return true;
+        }
+        IDM_BACKUP => {
+            backup_channels(hwnd, app);
+            return true;
+        }
+        IDM_DENO => {
+            fetch_deno(hwnd, app);
+            return true;
+        }
+        IDM_NEWER => {
+            say(hwnd, "Looking for a newer version.");
+            look_for_newer(hwnd, true);
+            return true;
+        }
         IDM_MOVE => {
             category::move_chosen(hwnd, app);
             return true;
@@ -1860,10 +2163,15 @@ fn command(hwnd: HWND, app: &mut App, id: i32) -> bool {
         IDM_DELETE => {
             if let Some(e) = chosen(hwnd, app).filter(|e| !busy_with(hwnd, app, e)) {
                 let mut said = downloads::delete(hwnd, &e);
+                if !e.is_playlist() && !e.path.exists() {
+                    if let Some(record) = Config::past_path() {
+                        library::forget_file(&record, &e.path);
+                    }
+                }
                 refresh(hwnd, app);
                 if app.entries.is_empty() {
                     said += if app.inside.is_some() {
-                        " No videos are left in this playlist's folder: Escape goes back to all \
+                        " No videos are left in this playlist's folder: Backspace goes back to all \
                          downloads."
                     } else {
                         " The list is empty now: press Ctrl+N to download something."

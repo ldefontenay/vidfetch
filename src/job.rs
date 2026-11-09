@@ -69,6 +69,26 @@ pub fn start(hwnd: HWND, settings: Settings) -> Arc<AtomicBool> {
     spawn(hwnd, move |stop, post| run(&settings, stop, post))
 }
 
+/// Fetches Deno, on request from the File menu.
+pub fn fetch_deno(hwnd: HWND) -> Arc<AtomicBool> {
+    spawn(hwnd, |stop, post| {
+        post(Event::Step("Fetching Deno.".into()));
+        let mut last = 0;
+        let mut progress = |got: u64, all: u64| {
+            let percent = (got * 100).checked_div(all).unwrap_or(0);
+            if percent >= last + 10 {
+                last = percent;
+                post(Event::Step(format!("Fetching Deno: {percent} percent.")));
+            }
+        };
+        Ok(Event::Said(match ytdlp::fetch_deno(stop, &mut progress) {
+            Ok(Some(())) => "Deno is fetched, and yt-dlp will use it for YouTube.".into(),
+            Ok(None) => "Stopped: Deno was not fetched.".into(),
+            Err(why) => format!("Deno could not be fetched: {why}"),
+        }))
+    })
+}
+
 /// Updates yt-dlp, on request from the File menu.
 pub fn update_ytdlp(hwnd: HWND) -> Arc<AtomicBool> {
     spawn(hwnd, |stop, post| {

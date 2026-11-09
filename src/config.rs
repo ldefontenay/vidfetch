@@ -27,6 +27,9 @@ pub struct Config {
     /// The category the list shows, and new downloads go into: None for all
     /// of them, with new downloads in Uncategorised.
     pub category: Option<String>,
+    /// When VidFetch last looked for a newer version of itself, in seconds
+    /// since 1970.
+    pub looked_for_newer: i64,
 }
 
 /// What a download is saved as.
@@ -91,6 +94,7 @@ impl Default for Config {
             play_next: false,
             cut_silence: false,
             offer_copied: false,
+            looked_for_newer: 0,
             category: None,
         }
     }
@@ -177,6 +181,7 @@ impl Config {
                 "cut silences" => cfg.cut_silence = yes,
                 "offer copied web addresses" => cfg.offer_copied = yes,
                 "category shown" if !value.is_empty() => cfg.category = Some(value.to_string()),
+                "looked for a newer version" => cfg.looked_for_newer = value.parse().unwrap_or(0),
                 _ => {}
             }
         }
@@ -196,7 +201,8 @@ impl Config {
              play the next one at the end = {}\r\n\
              cut silences = {}\r\n\
              offer copied web addresses = {}\r\n\
-             category shown = {}\r\n",
+             category shown = {}\r\n\
+             looked for a newer version = {}\r\n",
             self.output_folder
                 .as_ref()
                 .map(|p| p.display().to_string())
@@ -210,6 +216,7 @@ impl Config {
             yn(self.cut_silence),
             yn(self.offer_copied),
             self.category.as_deref().unwrap_or_default(),
+            self.looked_for_newer,
         )
     }
 
@@ -263,6 +270,7 @@ mod tests {
             play_next: true,
             cut_silence: true,
             offer_copied: true,
+            looked_for_newer: 0,
             category: Some("Talks".into()),
         };
         assert_eq!(Config::parse(&cfg.to_text()), cfg);

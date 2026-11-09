@@ -1,0 +1,189 @@
+VidFetch - milestone 7: towards a first beta
+============================================
+
+Why: your answers to test-milestone-6 and log entry 6. Log entry 7 says what changed, and has five
+questions.
+
+How to start it: run
+C:\Users\ldefo\dev\VidFetch\target\release\vidfetch.exe
+
+
+Section 1 - the Play window
+---------------------------
+
+1.1  Press Enter on a download. Does JAWS stay silent as the window opens, or nearly? If you hear the
+     start of something, what?
+ANSWER: Much better. Brief announcement, but very tollerable.
+
+1.2  Press Alt+K and read the Keys box. Is it your wording? Press Escape.
+ANSWER: Yes. One small change: Say "escape, close player".
+
+1.3  Press Ctrl+F, search for something, and press Enter on a video. Do you hear "Please wait", and
+     nothing else, until the sound starts? Press Escape, then Escape again.
+ANSWER: Very brief messages spoken, acceptable.
+Note: While running this test, I came across a video that wouldn't play. The error message was: The War That Cost Britain More Than It Was Worth | The Boer War could not be played: Windows could not play videoplayback?[long web address removed, as it held the IP address of the computer] Access is denied
+Please see what this was about. The address is: https://www.youtube.com/watch?v=6_3LjU8B4kw
+If this is a video that simply can't be accessed, see if the error message can be displayed more elegantly for the user.
+
+
+ANYTHING ODD:
+No.
+
+Section 2 - Escape and Backspace
+--------------------------------
+
+2.1  In the main window, press Enter on a playlist, if you have one. Does Backspace go back to all
+     downloads?
+ANSWER: Yes
+
+2.2  Press Enter on the playlist again, start a download with Ctrl+N, come back, and press Escape.
+     Does it stop the download, and stay among the playlist's videos?
+ANSWER: Yes
+
+2.3  Press Ctrl+L or Ctrl+F to open the YouTube window, and press Enter on a channel or a playlist to
+     go one list deeper. Does Backspace go back one list?
+ANSWER: Yes
+
+2.4  Go one list deeper again, and press Escape. Does the whole window close?
+ANSWER: Yes
+
+ANYTHING ODD:
+No.
+
+Section 3 - searching
+---------------------
+
+3.1  Press Ctrl+F. Tab through the window. Does each box say what it is? Press Escape.
+ANSWER: Yes, very clear.
+
+3.2  Search for a word, with Look for set to Channels. Press Enter on one. Does it show its videos?
+     Press Backspace.
+ANSWER: Yes
+
+3.3  Search with Look for set to Playlists. Press Enter on one. Does it show its videos?
+ANSWER: Yes
+
+3.4  Search for videos, newest first, over 20 minutes. Are they recent and long?
+ANSWER: Length looks right. Does not appear to be sorted by most recent first.
+
+3.5  Search for videos with Leave out YouTube Shorts checked. Do you see any that says "a short"?
+ANSWER: No.
+
+ANYTHING ODD:
+No.
+
+Section 4 - wandering through YouTube
+-------------------------------------
+
+4.1  On a video, press Ctrl+R. Are related videos listed? Press Ctrl+R on one of those, then Backspace
+     twice. Do you come back each time?
+ANSWER: Yes. This feature means a lot. The Youtube site is cluttered and I normally don't bother looking at related videos. This is very helpful.
+
+4.2  On a video, press Ctrl+K. Can you read the comments with the arrow keys? Is the layout of each
+     comment good? Press Escape.
+ANSWER: Yes. Again, really helpful as this is a part of Youtube I normally don't engage with due to the clutter.
+
+4.3  On a video, press Ctrl+T. Can you read the transcript? Press Escape.
+ANSWER: Yes. Very helpful, especially for making AI summaries of long videos.
+
+4.4  In the main window, on a download from YouTube, press Ctrl+R, then Escape; Ctrl+K, then Escape;
+     Ctrl+T, then Escape. Does each work?
+ANSWER: Yes
+
+4.5  In Your channels, Ctrl+Shift+L, press Enter on a channel. Go to the end of the list. Is More
+     there, before the line for playlists? Press Enter on it. Are older videos added?
+ANSWER: Yes
+
+4.6  On that channel, press Ctrl+Shift+F, and search for a word. Are its videos found?
+ANSWER: Yes
+
+ANYTHING ODD:
+No.
+
+Section 5 - addresses
+---------------------
+
+5.1  Press Ctrl+N, paste https://www.youtube.com/playlist?list=PLuaAWflRSLYNAo4ER_MVItiLkDm6TaJNV and
+     press Alt+L. Does the YouTube window open on its videos? Press Enter on one. Does it play?
+     Press Escape, then Escape again.
+ANSWER: Yes, works well.
+
+5.2  Press Ctrl+N, paste the address of a YouTube channel, one with /@ in it, and press Alt+L. Does it
+     show the channel's videos? Press Escape.
+ANSWER: Worked well with my Matt Wolfe channel. Couldn't find an address with a /@ in it, but confident it will be fine.
+
+5.3  Press Ctrl+N, paste https://archive.org/details/BigBuckBunny_124 and press Alt+L. Does it play?
+     Press Ctrl+D: does it start downloading? It is about 10 minutes long. Press Escape.
+ANSWER: Yes, all works well.
+
+ANYTHING ODD:
+No.
+
+Section 6 - a download that has gone
+------------------------------------
+
+6.1  Download a short video you do not need. Close VidFetch. Delete the file in File Explorer. Start
+     VidFetch. Go to the end of the main list. Does it say "no longer on this computer"?
+ANSWER: Not completely. I did this with the Big Bunny video from archive.org and nothing appeared at the end of the main list. I then did it with a Youtube video and it appeared at the end of the list as expected. Fix if not too costly, else not such a big deal and just document it.
+
+6.2  Press Enter on it, and choose Download again. Does it come back?
+ANSWER: Yes, the Youtube video came back.
+
+6.3  Delete that download in VidFetch, with the Delete key. Is it gone from the list for good, with
+     nothing left at the end of the list?
+ANSWER: Yes.
+
+ANYTHING ODD:
+No, apart from the inconsistency between Youtube and archive.org videos.
+
+Section 7 - your channels, in and out
+-------------------------------------
+
+7.1  In the File menu, choose Save a backup of your channels, and save it on the desktop. Is it said
+     that it was saved?
+ANSWER: Yes
+
+Question: Please tell me more about Newpipe and Freetube.
+
+7.2  In the File menu, choose Import channels from a file, and choose that same file. Does it say 0
+     new? Delete the file if you do not want it.
+ANSWER: Yes.
+
+7.3  If you have a subscriptions file from Google Takeout, FreeTube or NewPipe, import it. Is it
+     read? This one is optional.
+ANSWER: Did not test. Please tell me more. Ideally, include an easy workflow in the guide for a user to import their existing Youtube channels.
+
+ANYTHING ODD:
+No.
+
+Section 8 - the rest
+--------------------
+
+8.1  In the Help menu, choose Check for a newer version. As the repository is private, you should
+     hear that GitHub could not be reached, or nothing newer. What did you hear?
+ANSWER: "GitHub could not be reached to look for a newer version."
+
+8.2  In the File menu, choose Fetch Deno. Are you asked first? Press Cancel, unless you are happy to
+     have it. It takes about 100 megabytes.
+ANSWER: The message says its 45 mb. Please adjust. I did fetch it in case it can be helpful for any testing, but do let me know if we need to get rid of it to keep things simple for now.
+
+8.3  In the Help menu, choose About VidFetch. Does it say 0.7.0-beta.1?
+ANSWER: Yes
+
+ANYTHING ODD:
+No.
+
+Section 9 - other screen readers, if you have the time
+------------------------------------------------------
+
+9.1  Turn off JAWS and start NVDA. Press Ctrl+F, search, and listen. Is it said what was found?
+ANSWER: Yes
+
+9.2  With NVDA, press Enter on a video, and press T. Is the time said?
+ANSWER: Yes
+
+9.3  Turn off NVDA and start Narrator. Do 9.1 and 9.2 again. What is said?
+ANSWER: Narrator read beautifully, as hoped for.
+
+ANYTHING ODD:
+No. Both NVDA and Narrator passed with flying colours. I played around with the app beyond the tests suggested and both screenreaders were very pleasant to use with it.

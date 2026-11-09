@@ -17,6 +17,9 @@ No installer, no FFmpeg, no runtime to install.
 - **Follow channels** without an account: Ctrl+L lists what is new from them. A channel's playlists
   can be listed, played and downloaded.
 - **Categories**, as folders, with the downloads that are in none in Uncategorised.
+- **As a YouTube interface**: search for videos, channels or playlists with filters, related videos,
+  comments and transcripts to read with the arrow keys, a channel's search and older videos, and import
+  of your subscriptions from Google Takeout, FreeTube or NewPipe.
 - **Read** a video's description, or its captions as text; **Recently played**, Ctrl+H.
 - **A queue**: Ctrl+N while one download runs adds the next; Ctrl+Q shows what is waiting, by title.
   What has not finished is kept when VidFetch closes, and offered again when it starts.

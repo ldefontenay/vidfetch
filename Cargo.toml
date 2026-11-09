@@ -1,6 +1,6 @@
 [package]
 name = "vidfetch"
-version = "0.1.0"
+version = "0.7.0-beta.1"
 edition = "2021"
 description = "Downloads videos and playlists from YouTube and other sites, with a screen reader first"
 license = "MIT"
@@ -36,6 +36,9 @@ windows = { version = "0.62", features = [
     "Win32_UI_Shell_PropertiesSystem",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+# Named directly only so #[implement] can find it; already part of `windows`.
+windows-core = "0.62"
 
 # Build-time only: runs rc.exe over vidfetch.rc. Nothing of it ships.
 [build-dependencies]
