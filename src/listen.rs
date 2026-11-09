@@ -59,7 +59,7 @@ const KEYS: &str = "Left and Right arrows: move 2 seconds back or forward.\r\n\
                     Ctrl Page Down and Page Up: jump to next or previous chapter.\r\n\
                     Ctrl+D: download video, when listening online.\r\n\
                     Tab out of this help box to make sure these keys work reliably.\r\n\
-                    Escape: close.";
+                    Escape: close player.";
 
 /// The timer that quietens the window's opening, how often, and how many times.
 const HUSH_TIMER: usize = 77;
@@ -496,6 +496,14 @@ fn failed(hwnd: HWND, s: &mut State, why: &str) {
     say(hwnd, &format!("{text}{next}"));
 }
 
+/// Whether a stream that failed can be fetched whole instead, once: YouTube
+/// sometimes refuses an address it gave a moment ago (milestone 7 test, 1.3).
+fn can_fetch(s: &State) -> bool {
+    !s.whole
+        && s.listen.track.page.is_some()
+        && matches!(&s.listen.track.source, Source::Ready(a) if a.starts_with("http"))
+}
+
 /// The sound came, or a source gave none: checked each tick.
 fn tick(hwnd: HWND, s: &mut State) {
     let came = match &s.listen.track.source {
@@ -518,6 +526,7 @@ fn tick(hwnd: HWND, s: &mut State) {
                     start(hwnd, s);
                     s.listen.track.source = Source::Ready(address);
                 }
+                Err(_) if can_fetch(s) => fetch_whole(hwnd, s),
                 Err(why) => failed(hwnd, s, &why),
             }
             return;
@@ -531,7 +540,7 @@ fn tick(hwnd: HWND, s: &mut State) {
     }
     let Some(p) = &s.player else { return };
     if let Some(why) = p.take_failure() {
-        if why == NO_SOUND && !s.whole {
+        if (why == NO_SOUND && !s.whole) || can_fetch(s) {
             fetch_whole(hwnd, s);
         } else {
             failed(hwnd, s, &why);
@@ -569,8 +578,8 @@ fn fetch_whole(hwnd: HWND, s: &mut State) {
     s.whole = true;
     say(
         hwnd,
-        "Windows cannot read this one's sound as it streams, so it is being fetched first. This \
-         takes a few seconds. Please wait.",
+        "This one would not stream, so its sound is being fetched first. That can take a little \
+         while for a long video. Please wait.",
     );
     let name: String = s
         .listen

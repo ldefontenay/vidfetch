@@ -7,6 +7,28 @@ many other video sites.
 A single Windows program, built from the parts of [Video Scribe](https://github.com/ldefontenay/videoscribe).
 No installer, no FFmpeg, no runtime to install.
 
+## Download
+
+**[Download vidfetch.exe][exe]** or **[vidfetch.zip][zip]** (the same, zipped, which Microsoft Edge
+objects to less). Windows 10 or 11, 64-bit. This is a beta.
+
+Nothing to install: put it in a folder of its own and run it. It fetches
+[yt-dlp](https://github.com/yt-dlp/yt-dlp) itself the first time, after asking. **The
+[VidFetch guide](https://ldefontenay.github.io/vidfetch/userguide/) walks you through it.**
+
+VidFetch is not signed with a code-signing certificate, so Windows SmartScreen may show "Windows
+protected your PC" the first time; More info, then Run anyway, gets past it, once. Download it only
+from [this repository's releases page][releases].
+
+[exe]: https://github.com/ldefontenay/vidfetch/releases/latest/download/vidfetch.exe
+[zip]: https://github.com/ldefontenay/vidfetch/releases/latest/download/vidfetch.zip
+[releases]: https://github.com/ldefontenay/vidfetch/releases
+
+Tested with JAWS, NVDA and Narrator. VidFetch is not connected with YouTube or Google. Only download
+what you have the right to.
+
+## What it does
+
 - **New download, Ctrl+N**: copy a video's or a playlist's address in the browser, press Ctrl+N, then
   Enter. The address is taken from the clipboard.
 - **Sound only (M4A or MP3) to begin with, or video (MP4)**, with the picture at 360 to 1080 lines.

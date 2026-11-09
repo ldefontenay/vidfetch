@@ -313,9 +313,14 @@ pub type Take<'a> = dyn FnMut(f64, &[i16]) -> Result<(), String> + 'a;
 
 /// What Windows said about `source`, in words.
 fn unreadable(e: windows::core::Error, source: &str) -> String {
-    let name = Path::new(source)
-        .file_name()
-        .map_or_else(|| source.to_string(), |n| n.to_string_lossy().into_owned());
+    let name = if source.starts_with("http") {
+        // Such an address is hundreds of characters, and says nothing.
+        "this sound from the web".to_string()
+    } else {
+        Path::new(source)
+            .file_name()
+            .map_or_else(|| source.to_string(), |n| n.to_string_lossy().into_owned())
+    };
     match e.code().0 as u32 {
         0xC00D36C4 | 0xC00D36C3 | 0xC00D36B4 | 0xC00D36E6 => format!(
             "Windows cannot play the sound of {name}: it is not a kind of file Windows can \

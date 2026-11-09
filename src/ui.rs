@@ -1093,15 +1093,13 @@ fn import_channels(hwnd: HWND, app: &mut App) {
         say(hwnd, "Nothing imported.");
         return;
     };
-    let text = std::fs::read(&path)
-        .map(|b| String::from_utf8_lossy(&b).into_owned())
-        .unwrap_or_default();
-    let found = crate::import::parse(&text);
+    let found = crate::import::from_file(&path);
     if found.is_empty() {
         message::problem(
             hwnd,
-            "No channels were found in that file. VidFetch reads subscriptions.csv from Google \
-             Takeout, the export files of FreeTube and NewPipe, and an OPML list.",
+            "No channels were found in that file. VidFetch reads the zip file from Google Takeout, \
+             or subscriptions.csv from inside it, the export files of FreeTube and NewPipe, and \
+             an OPML list.",
         );
         focus(hwnd, IDC_LIST);
         return;
@@ -1171,7 +1169,7 @@ fn fetch_deno(hwnd: HWND, app: &mut App) {
     let question = if ytdlp::has_deno() {
         "Deno is already here. Fetch its latest version?"
     } else {
-        "Deno is a free program, about 45 megabytes, which yt-dlp uses to answer YouTube's \
+        "Deno is a free program, about 100 megabytes once on your computer, which yt-dlp uses to answer YouTube's \
          JavaScript. VidFetch works without it today, but YouTube may come to need it. Fetch it \
          from its own page on GitHub?"
     };

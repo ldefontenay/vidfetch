@@ -42,8 +42,12 @@ pub enum SearchFor {
 pub struct Query {
     pub text: String,
     pub what: SearchFor,
-    pub newest: bool,
-    /// YouTube's number for a length: 0 any, 1 under 4 minutes, 3 from 4 to
+    /// 0 most relevant, 1 most popular, 2 newest first.
+    pub sort: u8,
+    /// YouTube's number for when: 0 any time, 2 today, 3 this week, 4 this
+    /// month, 5 this year. Applies to videos.
+    pub uploaded: u8,
+    /// YouTube's number for a length: 0 any, 4 under 3 minutes, 5 from 3 to
     /// 20, 2 over 20. Applies to videos.
     pub length: u8,
     /// Leave out YouTube Shorts.
@@ -58,13 +62,21 @@ impl Query {
             SearchFor::Channels => 2,
             SearchFor::Playlists => 3,
         };
-        let mut filter = vec![0x10, kind];
-        if self.what == SearchFor::Videos && self.length > 0 {
+        let videos = self.what == SearchFor::Videos;
+        let mut filter = Vec::new();
+        if videos && self.uploaded > 0 {
+            filter.extend([0x08, self.uploaded]);
+        }
+        filter.extend([0x10, kind]);
+        if videos && self.length > 0 {
             filter.extend([0x18, self.length]);
         }
+        // YouTube no longer sorts by date (its filters offered only
+        // relevance and popularity, November 2026): newest first is done
+        // here, on each page.
         let mut bytes = Vec::new();
-        if self.newest {
-            bytes.extend([0x08, 0x02]);
+        if self.sort == 1 {
+            bytes.extend([0x08, 0x03]);
         }
         bytes.extend([0x12, filter.len() as u8]);
         bytes.extend(filter);
@@ -203,6 +215,9 @@ pub fn search(query: &Query, more: Option<&str>, stop: &AtomicBool) -> Result<Re
     }
     if query.no_shorts {
         r.videos.retain(|v| !v.short);
+    }
+    if query.sort == 2 {
+        r.videos.sort_by_key(|v| std::cmp::Reverse(v.published));
     }
     Ok(r)
 }
@@ -453,6 +468,7 @@ fn video_of(v: &serde_json::Value) -> Option<Video> {
             text(&v["lengthText"])
         },
         when: text(&v["publishedTimeText"]),
+        published: published(now(), &text(&v["publishedTimeText"])),
         ..Video::default()
     })
 }
@@ -902,6 +918,22 @@ mod tests {
             )
             .unwrap()
         };
+        let dated = search(
+            &Query {
+                text: "boer war".into(),
+                sort: 2,
+                uploaded: 5,
+                length: 2,
+                ..Query::default()
+            },
+            None,
+            &stop,
+        )
+        .unwrap();
+        for v in dated.videos.iter().take(6) {
+            println!("this year, long, newest: {}", v.line());
+        }
+        assert!(dated.videos.len() > 3);
         let channels = found(SearchFor::Channels);
         println!(
             "channels {} {:?}",
@@ -960,18 +992,20 @@ mod tests {
 
     #[test]
     fn search_filters_are_youtubes_own() {
-        let q = |what, newest, length| Query {
+        let q = |what, sort, uploaded, length| Query {
             what,
-            newest,
+            sort,
+            uploaded,
             length,
             ..Query::default()
         };
-        assert_eq!(q(SearchFor::Videos, false, 0).params(), "EgIQAQ==");
-        assert_eq!(q(SearchFor::Channels, false, 0).params(), "EgIQAg==");
-        assert_eq!(q(SearchFor::Playlists, false, 0).params(), "EgIQAw==");
-        assert_eq!(q(SearchFor::Videos, true, 0).params(), "CAISAhAB");
-        assert_eq!(q(SearchFor::Videos, false, 3).params(), "EgQQARgD");
-        assert_eq!(q(SearchFor::Videos, true, 2).params(), "CAISBBABGAI=");
+        assert_eq!(q(SearchFor::Videos, 0, 0, 0).params(), "EgIQAQ==");
+        assert_eq!(q(SearchFor::Channels, 0, 0, 0).params(), "EgIQAg==");
+        assert_eq!(q(SearchFor::Playlists, 0, 0, 0).params(), "EgIQAw==");
+        assert_eq!(q(SearchFor::Videos, 1, 0, 0).params(), "CAMSAhAB");
+        assert_eq!(q(SearchFor::Videos, 2, 0, 0).params(), "EgIQAQ==");
+        assert_eq!(q(SearchFor::Videos, 0, 0, 5).params(), "EgQQARgF");
+        assert_eq!(q(SearchFor::Videos, 0, 3, 2).params(), "EgYIAxABGAI=");
     }
 
     #[test]

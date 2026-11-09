@@ -854,7 +854,10 @@ fn start_search(hwnd: HWND, app: &mut App, query: Query) {
         &format!("Searching YouTube for {}.", query.text),
     );
     // yt-dlp can stand in only for a plain search for videos.
-    let plain = query.what == SearchFor::Videos && !query.newest && query.length == 0;
+    let plain = query.what == SearchFor::Videos
+        && query.sort == 0
+        && query.uploaded == 0
+        && query.length == 0;
     let exe = ytdlp::find().filter(|_| plain);
     look(hwnd, app, move |stop| {
         let direct = youtube::search(&query, None, stop);
@@ -1183,16 +1186,12 @@ fn show_comments(hwnd: HWND, app: &mut App, id: String, name: String) {
 
 /// Fetches a video's captions as text, without downloading the video.
 fn show_transcript(hwnd: HWND, app: &mut App, id: String, name: String) {
-    let Some(exe) = ytdlp::find() else {
-        say(
-            hwnd,
-            "A transcript needs yt-dlp, which VidFetch fetches the first time you download \
-             something.",
-        );
+    if !may_use_ytdlp(hwnd) {
         return;
-    };
+    }
     say(hwnd, &format!("Fetching the transcript of {name}."));
     look(hwnd, app, move |stop| {
+        let exe = ytdlp_exe()?;
         let url = format!("https://www.youtube.com/watch?v={id}");
         let dir = std::env::temp_dir().join(format!("vidfetch-transcript-{id}"));
         let _ = std::fs::create_dir_all(&dir);
@@ -1243,6 +1242,50 @@ fn prefetch(app: &App, url: &str) {
     }
 }
 
+/// The user has agreed to fetching yt-dlp, for listening.
+static AGREED: AtomicBool = AtomicBool::new(false);
+/// One thread fetches it; the others wait for that one.
+static FETCHING: Mutex<()> = Mutex::new(());
+
+/// Whether yt-dlp is here or may be fetched, asking if need be. A first-time
+/// user's first act is likely to be listening, not downloading.
+fn may_use_ytdlp(hwnd: HWND) -> bool {
+    if ytdlp::find().is_some() || AGREED.load(Ordering::Relaxed) {
+        return true;
+    }
+    if message::ask(
+        hwnd,
+        "VidFetch plays and downloads videos with yt-dlp, a free program that is not on this \
+         computer yet. Fetch it now from its own page on GitHub? The first time takes about a \
+         minute.",
+        "&Fetch it",
+        "&Cancel",
+        true,
+    ) {
+        AGREED.store(true, Ordering::Relaxed);
+        return true;
+    }
+    say(hwnd, "Listening needs yt-dlp, so nothing was played.");
+    focus(hwnd, IDC_LIST);
+    false
+}
+
+/// yt-dlp, fetched first if the user has agreed; for a thread to call.
+fn ytdlp_exe() -> Option<PathBuf> {
+    if let Some(exe) = ytdlp::find() {
+        return Some(exe);
+    }
+    if !AGREED.load(Ordering::Relaxed) {
+        return None;
+    }
+    let _one = FETCHING.lock().unwrap();
+    ytdlp::find().or_else(|| {
+        ytdlp::fetch(&AtomicBool::new(false), &mut |_, _| {})
+            .ok()
+            .flatten()
+    })
+}
+
 fn find_sound(sounds: &Sounds, url: &str) -> Result<String, String> {
     let started = Instant::now();
     loop {
@@ -1260,7 +1303,7 @@ fn find_sound(sounds: &Sounds, url: &str) -> Result<String, String> {
         }
         std::thread::sleep(Duration::from_millis(100));
     }
-    let r = match ytdlp::find() {
+    let r = match ytdlp_exe() {
         None => Err(
             "listening needs yt-dlp, which VidFetch fetches the first time you \
                      download something."
@@ -1335,6 +1378,9 @@ fn track_at(hwnd: HWND, app: &mut App, i: usize) -> Option<listen::Track> {
 /// Enter on a video, or on something played lately: the Play window, which
 /// goes on through the list with Page Down and Page Up.
 fn play_row(hwnd: HWND, app: &mut App, i: usize) {
+    if matches!(top_row(app, Some(i)), Some(Row::Video { .. })) && !may_use_ytdlp(hwnd) {
+        return;
+    }
     if let Some(Row::Played(p)) = top_row(app, Some(i)) {
         if p.video().is_none() && !std::path::Path::new(&p.key).exists() {
             let p = p.clone();
@@ -1446,17 +1492,15 @@ pub fn listen_address(hwnd: HWND, app: &mut App, url: String) {
         Some(id) => format!("https://www.youtube.com/watch?v={id}"),
         None => url,
     };
-    let Some(exe) = ytdlp::find() else {
-        say(
-            hwnd,
-            "Listening needs yt-dlp, which VidFetch fetches the first time you download something.",
-        );
+    if !may_use_ytdlp(hwnd) {
         return;
-    };
+    }
     say(hwnd, "Please wait.");
     prefetch(app, &url);
     look(hwnd, app, move |stop| {
-        let name = ytdlp::title(&exe, &url, false, stop).unwrap_or_else(|| url.clone());
+        let name = ytdlp_exe()
+            .and_then(|exe| ytdlp::title(&exe, &url, false, stop))
+            .unwrap_or_else(|| url.clone());
         if stop.load(Ordering::Relaxed) {
             return None;
         }

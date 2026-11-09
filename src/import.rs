@@ -3,6 +3,8 @@
 //! NewPipe export, an OPML list, or VidFetch's own backup, which is written
 //! in NewPipe's form so that NewPipe and FreeTube can read it too.
 
+use std::path::Path;
+
 use crate::channels::Channel;
 
 /// The channels in an export file, as id and name, each once.
@@ -26,6 +28,48 @@ pub fn parse(text: &str) -> Vec<(String, String)> {
     let mut seen = std::collections::HashSet::new();
     out.retain(|(id, _)| seen.insert(id.clone()));
     out
+}
+
+/// The channels in the file at `path`: an export, or a zip file with one
+/// somewhere inside it, as Google Takeout sends.
+pub fn from_file(path: &Path) -> Vec<(String, String)> {
+    let is_zip = path
+        .extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("zip"));
+    if !is_zip {
+        return read(path);
+    }
+    let dir = std::env::temp_dir().join(format!("vidfetch-import-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::create_dir_all(&dir);
+    let mut found = Vec::new();
+    if crate::ytdlp::unzip(path, &dir).is_ok() {
+        collect(&dir, &mut found);
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+    found
+}
+
+fn read(path: &Path) -> Vec<(String, String)> {
+    let text = std::fs::read(path)
+        .map(|b| String::from_utf8_lossy(&b).into_owned())
+        .unwrap_or_default();
+    parse(&text)
+}
+
+/// Stops at the first file under `dir` that holds channels.
+fn collect(dir: &Path, found: &mut Vec<(String, String)>) {
+    for e in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+        if !found.is_empty() {
+            return;
+        }
+        let path = e.path();
+        if path.is_dir() {
+            collect(&path, found);
+        } else {
+            *found = read(&path);
+        }
+    }
 }
 
 /// The "UC..." id in a channel's address, or the id itself.
@@ -155,6 +199,17 @@ mod tests {
             "<opml><body><outline text=\"YouTube\"><outline title=\"One\" xmlUrl=\"https://www.youtube.com/feeds/videos.xml?channel_id={A}\"/><outline title=\"Two, too\" xmlUrl=\"https://www.youtube.com/feeds/videos.xml?channel_id={B}\"/></outline></body></opml>"
         );
         assert_eq!(parse(&text), both());
+    }
+
+    /// Windows' own zip folders; `cargo test takeout_zip -- --ignored`, with
+    /// VF_ZIP naming a zip file holding a subscriptions.csv.
+    #[test]
+    #[ignore]
+    fn takeout_zip() {
+        let zip = std::env::var("VF_ZIP").unwrap();
+        let found = from_file(Path::new(&zip));
+        println!("{found:?}");
+        assert_eq!(found.len(), 2);
     }
 
     #[test]
