@@ -237,7 +237,7 @@ fn fetch_build(
 /// Unpacks `zip` into the folder `into` with Windows' own zip folders,
 /// showing nothing. On a thread of its own, as the Shell wants a
 /// single-threaded apartment.
-fn unzip(zip: &Path, into: &Path) -> Result<(), String> {
+pub fn unzip(zip: &Path, into: &Path) -> Result<(), String> {
     use windows::core::{IUnknown, Interface};
     use windows::Win32::System::Com::{
         CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_APARTMENTTHREADED,

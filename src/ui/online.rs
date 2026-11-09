@@ -854,7 +854,10 @@ fn start_search(hwnd: HWND, app: &mut App, query: Query) {
         &format!("Searching YouTube for {}.", query.text),
     );
     // yt-dlp can stand in only for a plain search for videos.
-    let plain = query.what == SearchFor::Videos && !query.newest && query.length == 0;
+    let plain = query.what == SearchFor::Videos
+        && query.sort == 0
+        && query.uploaded == 0
+        && query.length == 0;
     let exe = ytdlp::find().filter(|_| plain);
     look(hwnd, app, move |stop| {
         let direct = youtube::search(&query, None, stop);

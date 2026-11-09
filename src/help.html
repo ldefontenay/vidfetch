@@ -1,26 +1,211 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en-GB">
 <head>
 <meta charset="utf-8">
-<title>VidFetch help</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VidFetch guide</title>
 <style>
-body { font-family: "Segoe UI", sans-serif; max-width: 44em; margin: 2em auto; padding: 0 1em; line-height: 1.5; }
-kbd { font-family: inherit; font-weight: bold; }
+body { font-family: "Segoe UI", Arial, sans-serif; line-height: 1.55; margin: 2rem; max-width: 56rem; color: #111; background: #fff; }
+h1, h2, h3 { line-height: 1.25; }
+h2 { margin-top: 2.5rem; border-top: 1px solid #ccc; padding-top: 1rem; }
+h3 { margin-top: 1.75rem; }
+kbd { font-family: Consolas, "Courier New", monospace; border: 1px solid #999; border-radius: 0.2rem; padding: 0 0.25rem; background: #f7f7f7; }
+.skip-link { position: absolute; left: -999px; }
+.skip-link:focus { position: static; }
+a { color: #0645ad; }
+li { margin-bottom: 0.3rem; }
+@media (prefers-color-scheme: dark) {
+  body { color: #eee; background: #161616; }
+  h2 { border-top-color: #444; }
+  kbd { background: #222; border-color: #666; }
+  a { color: #8cf; }
+}
 </style>
 </head>
 <body>
-<h1>VidFetch help</h1>
-<p>Version {{VERSION}}, a beta version: please say what goes wrong.</p>
+<a class="skip-link" href="#about">Skip to the guide</a>
+<h1>VidFetch guide</h1>
+<p>A friendly, step-by-step guide to enjoying YouTube, and keeping what you want from it, with a
+screen reader and the keyboard.</p>
+<p>By Laurent Cadet de Fontenay, with assistance from Claude. Version {{VERSION}}, a beta: please say
+what goes wrong.</p>
 
-<h2>What it does</h2>
-<p>VidFetch is an accessible interface for YouTube, made for screen reader users first. You can
-search YouTube, listen without downloading, follow channels without an account, go through a
-channel's videos and playlists, and read descriptions. It can also download from YouTube and from
-many other video sites, videos and whole playlists, as sound only to begin with, or as video if you
-choose. Each download is saved in the output folder, named after its title. A playlist
-gets a folder of its own, and fetching it again later brings only its new videos.</p>
+<h2 id="contents">Contents</h2>
+<ul>
+<li><a href="#about">About this guide</a></li>
+<li><a href="#why">Why use VidFetch?</a></li>
+<li><a href="#words">Words you will meet</a></li>
+<li><a href="#start">Part 1: Getting started</a>
+  <ul>
+  <li><a href="#t1">Tutorial 1: Get VidFetch and start it</a></li>
+  <li><a href="#t2">Tutorial 2: Find something and listen to it</a></li>
+  <li><a href="#t3">Tutorial 3: Download what you want to keep</a></li>
+  </ul></li>
+<li><a href="#everyday">Part 2: Enjoying YouTube</a>
+  <ul>
+  <li><a href="#t4">Tutorial 4: Wander through related videos</a></li>
+  <li><a href="#t5">Tutorial 5: Read the comments and the transcript</a></li>
+  <li><a href="#t6">Tutorial 6: Follow a channel, without an account</a></li>
+  <li><a href="#t7">Tutorial 7: Bring in your YouTube subscriptions</a></li>
+  <li><a href="#t8">Tutorial 8: Listen to an address from your browser or another site</a></li>
+  </ul></li>
+<li><a href="#reference">Part 3: Everything in detail</a></li>
+<li><a href="#trouble">Troubleshooting</a></li>
+<li><a href="#keys">Quick reference: the keys</a></li>
+<li><a href="#credits">Credits and licence</a></li>
+</ul>
 
-<h2>Downloading a video or a playlist</h2>
+<h2 id="about">About this guide</h2>
+<p>This guide is for anyone new to VidFetch, and especially for people who use a screen reader such
+as JAWS, NVDA or Narrator.</p>
+<ul>
+<li><strong>You do not need to read it all.</strong> Part 1 takes a few minutes and is all you need
+to begin. Part 3 is there for when you want the details.</li>
+<li><strong>Headings are your friend.</strong> Each part is a level 2 heading and each tutorial a
+level 3 heading.</li>
+<li><strong>Menus are written with a comma.</strong> "File menu, Import channels" means: open the
+File menu with <kbd>Alt+F</kbd>, then choose Import channels.</li>
+<li><strong>Press <kbd>F1</kbd> when you are unsure.</strong> It opens this guide in your web browser.</li>
+</ul>
+
+<h2 id="why">Why use VidFetch?</h2>
+<p>YouTube's website is a crowded place to reach with a screen reader. There is a lot to wade
+through before you get to the thing you came for, and parts of it, such as the related videos and
+the comments, many of us simply never bother with.</p>
+<p>VidFetch puts YouTube into plain lists and keys. Search and you get a list. Press <kbd>Enter</kbd>
+and it plays, in a window with simple keys for moving about, changing the speed and skipping to
+the next. Related videos, comments and a video's whole transcript are a keystroke away. You can
+follow channels with no Google account at all, and keep what you like as sound or video files of
+your own. It can also download from many other video sites.</p>
+<p>It is one small program using real Windows controls, with nothing to install, and it has been
+tested with JAWS, NVDA and Narrator.</p>
+
+<h2 id="words">Words you will meet</h2>
+<ul>
+<li><strong>The main window</strong> lists your downloads.</li>
+<li><strong>The YouTube window</strong> opens in front of it, and lists what you searched for, or a
+channel, or a playlist, one list at a time.</li>
+<li><strong>The Play window</strong> is where sound plays.</li>
+<li><strong>Listening</strong> plays a video's sound straight from YouTube and saves nothing.
+<strong>Downloading</strong> saves it on your computer.</li>
+<li><strong>yt-dlp</strong> is a free program VidFetch uses to fetch videos. VidFetch gets it and
+keeps it up to date for you.</li>
+</ul>
+
+<h2 id="start">Part 1: Getting started</h2>
+
+<h3 id="t1">Tutorial 1: Get VidFetch and start it</h3>
+<ol>
+<li>Go to the <a href="https://github.com/ldefontenay/vidfetch/releases">VidFetch releases page</a>.
+Under the newest release there are two files. <strong>vidfetch.exe</strong> is the program itself.
+<strong>vidfetch.zip</strong> is the same thing zipped, which is easier if your browser refuses to
+keep a program: Microsoft Edge in particular makes that a fiddly job with a screen reader.</li>
+<li>Put vidfetch.exe in a folder of its own, for example in Documents, and run it. If you took the
+zip, extract it first.</li>
+<li>VidFetch is not yet signed with a certificate, so the first time, Windows may say "Windows
+protected your PC". Choose More info, then Run anyway. You will only be asked once. Windows
+Defender may then take about ten seconds to look it over before the window opens.</li>
+<li>A welcome message appears. Read it with the arrow keys and press <kbd>Enter</kbd>.</li>
+</ol>
+<p>You are now in the main window. Its list of downloads is empty for now.</p>
+
+<h3 id="t2">Tutorial 2: Find something and listen to it</h3>
+<ol>
+<li>Press <kbd>Ctrl+F</kbd>. Type what you are looking for and press <kbd>Enter</kbd>. The other
+boxes in this window are optional, and you can come back to them another time.</li>
+<li>The first time you listen, VidFetch asks to fetch yt-dlp. Say yes.</li>
+<li>The YouTube window opens with a list of videos. Move through it with the <kbd>Up</kbd> and
+<kbd>Down</kbd> arrows. Each line has the title, the channel, the length and how old it is.</li>
+<li>Press <kbd>Enter</kbd> on one. You hear "Please wait", and then it plays.</li>
+<li>Try the keys: <kbd>Left</kbd> and <kbd>Right</kbd> move 2 seconds, <kbd>Up</kbd> and
+<kbd>Down</kbd> change the volume, <kbd>Shift</kbd> with <kbd>Up</kbd> and <kbd>Down</kbd> the speed,
+<kbd>T</kbd> says how far along you are, and <kbd>Page Down</kbd> goes to the next video in the list.</li>
+<li><kbd>Escape</kbd> closes the player, and you are back on the same video. Press
+<kbd>Enter</kbd> and it carries on where you stopped.</li>
+</ol>
+<p>Two keys are worth learning now. <kbd>Backspace</kbd> goes back one list. <kbd>Escape</kbd> stops
+or leaves: it closes the YouTube window from whichever list you are in.</p>
+
+<h3 id="t3">Tutorial 3: Download what you want to keep</h3>
+<ol>
+<li>In the YouTube window, on a video, press <kbd>Ctrl+D</kbd>. It starts at once, as sound only. You
+can carry on listening or searching while it runs.</li>
+<li>VidFetch tells you when it has finished. Press <kbd>Escape</kbd> to get back to the main window,
+and the download is in the list. <kbd>Enter</kbd> plays it.</li>
+<li>To have the picture as well from now on, choose Options menu, Download as, Video.</li>
+</ol>
+<p>To download from an address instead, copy it in your browser with <kbd>Alt+D</kbd> then
+<kbd>Ctrl+C</kbd>, press <kbd>Ctrl+N</kbd> in VidFetch, where the address is already filled in, and
+press <kbd>Enter</kbd>. A whole playlist works the same way, and gets a folder of its own.</p>
+
+<h2 id="everyday">Part 2: Enjoying YouTube</h2>
+
+<h3 id="t4">Tutorial 4: Wander through related videos</h3>
+<p>On any video, press <kbd>Ctrl+R</kbd> to list what YouTube suggests beside it. Press
+<kbd>Ctrl+R</kbd> again on one of those to go further, as far as you like. <kbd>Backspace</kbd>
+comes back a step at a time. It also works on a download from YouTube in the main window.</p>
+
+<h3 id="t5">Tutorial 5: Read the comments and the transcript</h3>
+<ol>
+<li>On a video, press <kbd>Ctrl+K</kbd>. After a moment a window opens with the first 100 comments,
+each with who wrote it, when, and how many liked it. Read with the arrow keys and press
+<kbd>Escape</kbd> when you are done.</li>
+<li>Press <kbd>Ctrl+T</kbd> for the transcript: everything said in the video, with times, if the
+video has captions. It needs no download.</li>
+<li>In either window, Copy all text (<kbd>Alt+O</kbd>) puts it all on the clipboard, handy for
+pasting a long transcript into an AI assistant for a summary.</li>
+</ol>
+
+<h3 id="t6">Tutorial 6: Follow a channel, without an account</h3>
+<ol>
+<li>On a video by a channel you like, press <kbd>Shift+F10</kbd> and choose Follow channel. Or
+search with Look for set to Channels.</li>
+<li><kbd>Ctrl+L</kbd> shows the latest from every channel you follow, newest first. Those you have
+not seen start with the word New.</li>
+<li><kbd>Ctrl+Shift+L</kbd> lists your channels. <kbd>Enter</kbd> on one shows its videos, More
+near the end fetches older ones, and the last line has its playlists.
+<kbd>Ctrl+Shift+F</kbd> searches within it.</li>
+</ol>
+<p>Your list stays on your computer. YouTube is never told who you are.</p>
+
+<h3 id="t7">Tutorial 7: Bring in your YouTube subscriptions</h3>
+<p>If you subscribe to channels on YouTube, you need not follow them again one at a time. Google
+will give you the list, through its service called Takeout. It takes a few minutes, and Google sends
+an email when the file is ready. Google changes its pages from time to time, so the wording may
+differ a little.</p>
+<ol>
+<li>In your browser, go to <a href="https://takeout.google.com/">takeout.google.com</a>, and sign in
+to the Google account you use for YouTube.</li>
+<li>Under "Create a new export", press the "Deselect all" button. Otherwise Google would export your
+mail, your photos and everything else.</li>
+<li>Find the checkbox "YouTube and YouTube Music", far down the page, and check it.</li>
+<li>Just below it is a button called "All YouTube data included". Press it. In the window that
+opens, uncheck everything except "subscriptions", and press OK.</li>
+<li>Go to the "Next step" button at the bottom and press it. Leave the choices as they are: send the
+download link by email, export once, as a .zip file. Press "Create export".</li>
+<li>When the email arrives, usually within a few minutes, follow its link and download the zip file.
+Google may ask for your password again.</li>
+<li>In VidFetch's main window, choose File menu, Import channels from a file. Choose the zip file.
+There is no need to extract it.</li>
+<li>VidFetch says how many channels were new. <kbd>Ctrl+Shift+L</kbd> lists them, and
+<kbd>Ctrl+L</kbd> shows what is new from them.</li>
+</ol>
+<p>VidFetch also reads the export files of FreeTube, a private YouTube program for computers, and
+of NewPipe, one for Android phones, so you can bring your channels from those too. File menu, Save a
+backup of your channels writes a file that VidFetch, NewPipe and FreeTube can read.</p>
+
+<h3 id="t8">Tutorial 8: Listen to an address from your browser or another site</h3>
+<ol>
+<li>Copy the address, press <kbd>Ctrl+N</kbd>, and press <kbd>Alt+L</kbd>, Listen without
+downloading.</li>
+<li>A single video plays. The address of a YouTube playlist or channel opens its list of videos in
+the YouTube window.</li>
+<li>While it plays, <kbd>Ctrl+D</kbd> downloads it after all.</li>
+</ol>
+
+<h2 id="reference">Part 3: Everything in detail</h2>
+<p>The rest of this guide describes each part of VidFetch in full.</p>
+<h3>Downloading a video or a playlist</h3>
 <ol>
 <li>In the browser, open the video or the playlist, and copy its address with <kbd>Alt+D</kbd>
 then <kbd>Ctrl+C</kbd>.</li>
@@ -43,7 +228,7 @@ to download it again; <kbd>Enter</kbd>, or <kbd>Escape</kbd>, cancels, and the c
 chosen in the list. A different format or picture quality just downloads. VidFetch remembers a download if you rename it
 in VidFetch, but not if you rename or move it in File Explorer.</p>
 
-<h2>The queue</h2>
+<h3>The queue</h3>
 <p>While one download runs, press <kbd>Ctrl+N</kbd> for the next, or <kbd>Ctrl+U</kbd> on a
 playlist: it waits its turn, with the choices it had when you asked for it. The downloads that
 follow start by themselves, without a word; VidFetch says when each one finishes, and the Status box
@@ -62,7 +247,7 @@ starts again from the beginning; a playlist carries on with the videos it does n
 <strong>Empty queue</strong>, in the Download menu, takes out everything waiting at any time,
 after asking.</p>
 
-<h2>Playlists and channels</h2>
+<h3>Playlists and channels</h3>
 <p>A playlist's videos are downloaded one after the other into a folder named after the playlist.
 Their files start with their place in the playlist, such as <em>03 - Title.mp4</em>, so they sort in
 its order; Number the files of a playlist, in the Options menu, turns that off. A channel's
@@ -75,9 +260,10 @@ videos not yet in its folder are downloaded. The folder holds a small file,
 <em>VidFetch.json</em>, which records which videos are there. You can rename the folder as you
 like, in VidFetch or in File Explorer, but keep that file in it.</p>
 
-<h2>Playing</h2>
+<h3>Playing</h3>
 <p><kbd>Enter</kbd> on a download plays it in VidFetch's own Play window, which opens at once. Its
-title says what is playing. It carries on from where you stopped last time, and says so; stopping
+title says what is playing. It carries on from where you stopped last time, without a word, so that nothing talks over the
+sound; <kbd>T</kbd> says where you are and <kbd>Home</kbd> goes to the start. Stopping
 within 10 seconds of the start or the end is not remembered, so a finished one starts again.</p>
 <ul>
 <li><strong>Play or pause</strong> (<kbd>Alt+P</kbd>, or <kbd>Enter</kbd> or the Space bar on it).</li>
@@ -108,24 +294,23 @@ is on, every silence is cut down to a second; where playing is still counts the 
 <strong>Open video using default media player</strong> in its context menu or the Download menu,
 which plays it in the program Windows plays it with.</p>
 <p>What the keys do is also in the <strong>Keys</strong> box (<kbd>Alt+K</kbd>) of the Play window.</p>
-<p>A few YouTube videos cannot be streamed, because YouTube's sound file for them carries a note
-that stops Windows reading it as it arrives. VidFetch finds this out when no sound comes, says so,
-fetches the whole of the sound first, and then plays it. That takes a few seconds longer than usual,
-the first time on any day; everything else works as usual. A download of such a video is not
-affected.</p>
+<p>A few YouTube videos will not stream, because of how YouTube's file for them is made, or because
+YouTube refuses for a moment. VidFetch says so, fetches the whole of the sound first, and then plays
+it. For a long video that can take a little while, the first time on any day. A download of such a
+video is not affected.</p>
 
-<h2>If a file has gone</h2>
+<h3>If a file has gone</h3>
 <p>If a download from YouTube has gone from its folder, because you deleted it in File Explorer for example, it
 stays at the end of the main list as "no longer on this computer". <kbd>Enter</kbd> downloads it
 again, into the same folder; <kbd>Delete</kbd> takes it off the list. Deleting in VidFetch forgets it
 at once.</p>
 
-<h2>Listening to an address</h2>
+<h3>Listening to an address</h3>
 <p>In New download (<kbd>Ctrl+N</kbd>), <strong>Listen without downloading</strong>
 (<kbd>Alt+L</kbd>) plays the sound of the video whose address you gave, from YouTube or another
 site, in the Play window. <kbd>Ctrl+D</kbd> there downloads it after all.</p>
 
-<h2>The YouTube window</h2>
+<h3>The YouTube window</h3>
 <p>What comes from YouTube has a window of its own, in front of the main one, which waits behind it.
 Downloads carry on meanwhile. It opens with Search YouTube (<kbd>Ctrl+F</kbd>), New videos from
 channels (<kbd>Ctrl+L</kbd>), Your channels (<kbd>Ctrl+Shift+L</kbd>) or Recently played
@@ -152,15 +337,17 @@ a lookup; if none is running, it closes the window, from whichever list. So does
 (<kbd>Alt+C</kbd>).</li>
 </ul>
 <p><kbd>Ctrl+F</kbd> opens Search YouTube. Besides what to search for, you can choose to look for
-videos, channels or playlists, to have the newest first, the length of videos, and to leave out
-YouTube Shorts. Your choices stay until VidFetch closes. A live stream is listed as "live now": VidFetch cannot play or download
+videos, channels or playlists; to sort by most relevant, most popular or newest; when videos were
+uploaded; their length; and to leave out YouTube Shorts. YouTube itself no longer sorts results by
+date, so Newest first arranges each page of what it finds. For truly recent videos, also choose
+Today, This week or This month under Videos uploaded. Your choices stay until VidFetch closes. A live stream is listed as "live now": VidFetch cannot play or download
 it while it is live.</p>
 <p>A channel's list has its latest videos; More, near the end, fetches older ones.</p>
 <p>Searching asks YouTube directly, which is quick; if that ever fails, it searches with yt-dlp
 instead, which is slower. The last line, More, fetches the next page when you press
 <kbd>Enter</kbd> on it.</p>
 
-<h2>Following channels</h2>
+<h3>Following channels</h3>
 <p>VidFetch keeps its own list of channels you follow, with no account and no signing in. To follow
 a channel:</p>
 <ul>
@@ -177,18 +364,17 @@ shows its latest videos; <kbd>Delete</kbd> stops following it, after asking.</p>
 many videos it has; <kbd>Enter</kbd> on one shows its videos in its order, and <kbd>Ctrl+D</kbd>
 downloads it whole, after asking.</p>
 
-<p><strong>Bringing your channels in.</strong> Import channels, in the File menu, reads
-subscriptions.csv from Google Takeout, the export files of FreeTube and NewPipe, and an OPML list.
-Those you already follow stay as they are. Save a backup of your channels writes a file that
-Import channels, NewPipe and FreeTube can read.</p>
+<p><strong>Bringing your channels in.</strong> Tutorial 7 goes through this step by step. Import
+channels, in the File menu, reads the zip file from Google Takeout, or subscriptions.csv from inside
+it, the export files of FreeTube and NewPipe, and an OPML list. Those you already follow stay as they are.</p>
 
-<h2>Recently played</h2>
+<h3>Recently played</h3>
 <p><kbd>Ctrl+H</kbd> lists, in the YouTube window, the last hundred things you played, downloads and videos online alike,
 newest first, each with where you stopped. <kbd>Enter</kbd> carries on from there; <kbd>Delete</kbd>
 takes one off the list, and deletes nothing. <kbd>Enter</kbd> on a download whose file has gone
 offers to download it again, if it came from YouTube.</p>
 
-<h2>Categories</h2>
+<h3>Categories</h3>
 <p>Categories are folders inside the output folder, so File Explorer shows the same as VidFetch.
 Downloads that are in no category are in a folder called Uncategorised. The first time VidFetch
 starts with categories, it moves the downloads already in the output folder into Uncategorised, and
@@ -204,7 +390,7 @@ Deleting a category moves what is in it into Uncategorised; nothing is lost.</li
 another category, or a new one.</li>
 </ul>
 
-<h2>A playlist's videos</h2>
+<h3>A playlist's videos</h3>
 <p><kbd>Enter</kbd> on a playlist shows its videos in the list, in the playlist's order, in place
 of all downloads; the list's name says which playlist it is. Everything works on them as on any
 download: <kbd>Enter</kbd> plays, <kbd>F2</kbd> renames, <kbd>Delete</kbd> deletes, and the
@@ -212,7 +398,7 @@ context menu has the rest. <kbd>Backspace</kbd> goes back to all downloads, on t
 <kbd>Escape</kbd> always stops the download running, here too.</p>
 <p>A video deleted from a playlist's folder is not downloaded again when you update the playlist.</p>
 
-<h2>Video or sound only</h2>
+<h3>Video or sound only</h3>
 <p>Download as, in the Options menu and in the New download window:</p>
 <ul>
 <li><strong>Sound only, M4A</strong>, the choice to begin with: the sound exactly as the site sends
@@ -230,7 +416,7 @@ is only in higher quality comes down at the best it has up to that.</p>
 came from; a playlist's videos also with the playlist's name as the album and their place as the
 track number. Media players and File Explorer show these.</p>
 
-<h2>Captions</h2>
+<h3>Captions</h3>
 <p>Save captions, in the Options menu and the New download window, is off to begin with. When it is
 on, each download's captions are saved beside it as an SRT file, which media players show, such as
 <em>Title.en.srt</em> for <em>Title.mp4</em>. A person's captions are chosen when there are some in
@@ -243,7 +429,7 @@ with the arrow keys.</p>
 <p>In the captions, a description, or any other message, <strong>Copy all text</strong>
 (<kbd>Alt+O</kbd>) copies all of it. To copy a part, select it and press <kbd>Ctrl+C</kbd>.</p>
 
-<h2>The main window</h2>
+<h3>The main window</h3>
 <p>The list of downloads, most recent first, shows each file and playlist in the output folder,
 with what it is and when it was saved. Tab moves from the list to the buttons, then to the Status
 box:</p>
@@ -270,15 +456,16 @@ download chosen in it.</li>
 <kbd>Alt+T</kbd> again says it again.</li>
 </ul>
 
-<h2>The menus</h2>
+<h3>The menus</h3>
 <p>A menu item that cannot apply now is greyed out, such as Update playlist on a single video. The
 buttons are never greyed out: they say why instead.</p>
 <ul>
 <li><strong>File</strong>: New download; Select output folder; Open library in file explorer;
-Update yt-dlp; Exit.</li>
+Update yt-dlp; Fetch Deno; Import channels from a file; Save a backup of your channels; Exit.</li>
 <li><strong>Download</strong>: what can be done to the download chosen in the list: Open playlist
 or play video; Open video using default media player; Back; Update playlist; Show description
-(<kbd>Ctrl+I</kbd>); Show captions; Show queue (<kbd>Ctrl+Q</kbd>); Empty queue; Stop download
+(<kbd>Ctrl+I</kbd>); Show captions; Related videos (<kbd>Ctrl+R</kbd>); Comments (<kbd>Ctrl+K</kbd>); Transcript
+(<kbd>Ctrl+T</kbd>); Show queue (<kbd>Ctrl+Q</kbd>); Empty queue; Stop download
 (<kbd>Escape</kbd>); Rename; Move to category; Show video in file explorer; Delete.</li>
 <li><strong>YouTube</strong>: Search YouTube (<kbd>Ctrl+F</kbd>); New videos from channels
 (<kbd>Ctrl+L</kbd>); Your channels (<kbd>Ctrl+Shift+L</kbd>); Recently played (<kbd>Ctrl+H</kbd>);
@@ -290,10 +477,10 @@ browser.</li>
 captions file; Playing speed; Continuous play; Cut silences when playing; Offer copied web
 addresses, which, when you copy a web address elsewhere and come back to VidFetch, opens New
 download with it, where you can download it or listen to it. Each choice is saved at once and said.</li>
-<li><strong>Help</strong>: this page (<kbd>F1</kbd>), and About VidFetch.</li>
+<li><strong>Help</strong>: this guide (<kbd>F1</kbd>), Check for a newer version, and About VidFetch.</li>
 </ul>
 
-<h2>yt-dlp</h2>
+<h3>yt-dlp</h3>
 <p>VidFetch downloads with yt-dlp, a free program that knows YouTube and well over a thousand other
 sites. The first time, VidFetch asks to download it from its official page on GitHub, checks it
 against its published checksum, and keeps it in its own folder, in
@@ -310,7 +497,7 @@ from its own page on GitHub, checks it, and yt-dlp uses it from then on. It take
 version; Check for a newer version, in the Help menu, looks now. It never installs anything by
 itself.</p>
 
-<h2>What VidFetch cannot download</h2>
+<h3>What VidFetch cannot download</h3>
 <ul>
 <li>Private, age-restricted or members-only videos, which need signing in.</li>
 <li>Videos a site offers only as a stream in pieces, which would need FFmpeg to put together.
@@ -320,7 +507,7 @@ VidFetch says so when that is the reason.</li>
 <p>Only download what you have the right to: your own videos, freely licensed ones, or for your
 own use where the law and the site allow it.</p>
 
-<h2>Where things are kept</h2>
+<h3>Where things are kept</h3>
 <ul>
 <li>Downloads: <em>Videos\VidFetch</em> in your user folder, unless you choose another in the File
 menu.</li>
@@ -332,5 +519,58 @@ each one, and <em>history.json</em> what you played lately.</li>
 <li>yt-dlp, and downloads in progress: <em>%LOCALAPPDATA%\VidFetch</em>. A stopped download is
 kept there for a day, so starting it again carries on where it was.</li>
 </ul>
+
+<h2 id="trouble">Troubleshooting</h2>
+<ul>
+<li><strong>A video will not download or play.</strong> Read what VidFetch says: it gives the reason
+when it can. If it suggests it, choose File menu, Update yt-dlp, and try again. YouTube changes often,
+and an old yt-dlp is the usual cause.</li>
+<li><strong>A video will not stream.</strong> VidFetch then fetches its sound first by itself, which
+can take a little while for a long video.</li>
+<li><strong>YouTube asks to confirm you are not a robot.</strong> That usually passes within an hour or
+so. Try again later.</li>
+<li><strong>A message mentions JavaScript or a challenge.</strong> Choose File menu, Fetch Deno.</li>
+<li><strong>Search, comments or channels stop working altogether.</strong> YouTube may have changed
+something VidFetch relies on. Help menu, Check for a newer version, and please report it on the
+<a href="https://github.com/ldefontenay/vidfetch/issues">VidFetch issues page</a>.</li>
+<li><strong>Windows or an antivirus program objects to VidFetch.</strong> It is not signed with a
+certificate. Download it only from the releases page linked in Tutorial 1.</li>
+</ul>
+
+<h2 id="keys">Quick reference: the keys</h2>
+<h3>In the main window</h3>
+<ul>
+<li><kbd>Enter</kbd>: play, or open a playlist. <kbd>Backspace</kbd>: back from a playlist's videos.</li>
+<li><kbd>Ctrl+N</kbd>: new download. <kbd>Ctrl+Q</kbd>: the queue. <kbd>Ctrl+U</kbd>: update a playlist.
+<kbd>Escape</kbd>: stop the download running.</li>
+<li><kbd>Ctrl+F</kbd>: search YouTube. <kbd>Ctrl+L</kbd>: new videos. <kbd>Ctrl+Shift+L</kbd>: your
+channels. <kbd>Ctrl+H</kbd>: recently played.</li>
+<li><kbd>Ctrl+I</kbd>: description. <kbd>Ctrl+R</kbd>: related videos. <kbd>Ctrl+K</kbd>: comments.
+<kbd>Ctrl+T</kbd>: transcript.</li>
+<li><kbd>F2</kbd>: rename. <kbd>Delete</kbd>: delete. <kbd>Ctrl+Shift+M</kbd>: move to a category.
+<kbd>F1</kbd>: this guide.</li>
+</ul>
+<h3>In the YouTube window</h3>
+<ul>
+<li><kbd>Enter</kbd>: play or open. <kbd>Ctrl+D</kbd>: download. <kbd>Backspace</kbd>: back one list.
+<kbd>Escape</kbd>: stop looking, or close the window.</li>
+<li><kbd>Ctrl+I</kbd>, <kbd>Ctrl+R</kbd>, <kbd>Ctrl+K</kbd>, <kbd>Ctrl+T</kbd>: as above.
+<kbd>Ctrl+Shift+F</kbd>: search this channel. <kbd>Shift+F10</kbd>: everything else.</li>
+</ul>
+<h3>In the Play window</h3>
+<ul>
+<li><kbd>Left</kbd> and <kbd>Right</kbd>: 2 seconds. <kbd>Home</kbd>: start. <kbd>End</kbd>: 10 seconds
+before the end. <kbd>T</kbd>: time elapsed.</li>
+<li><kbd>Up</kbd> and <kbd>Down</kbd>: volume. <kbd>Shift</kbd> with them: speed.</li>
+<li><kbd>Page Down</kbd> and <kbd>Page Up</kbd>: next or previous video. <kbd>Ctrl</kbd> with them:
+next or previous chapter.</li>
+<li><kbd>Ctrl+D</kbd>: download, when listening online. <kbd>Escape</kbd>: close player.</li>
+</ul>
+
+<h2 id="credits">Credits and licence</h2>
+<p>VidFetch is free and open source, under the MIT licence, by Laurent Cadet de Fontenay with
+assistance from Claude. Its code is on <a href="https://github.com/ldefontenay/vidfetch">GitHub</a>.
+Downloads are by <a href="https://github.com/yt-dlp/yt-dlp">yt-dlp</a>, which VidFetch fetches from its
+own page. VidFetch is not connected with YouTube or Google.</p>
 </body>
 </html>

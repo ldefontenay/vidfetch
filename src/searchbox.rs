@@ -20,18 +20,27 @@ const IDC_S_WHAT: i32 = 1131;
 const IDC_S_SORT: i32 = 1132;
 const IDC_S_LENGTH: i32 = 1133;
 const IDC_S_SHORTS: i32 = 1134;
+const IDC_S_WHEN: i32 = 1135;
 
 const WHAT: [(&str, SearchFor); 3] = [
     ("Videos", SearchFor::Videos),
     ("Channels", SearchFor::Channels),
     ("Playlists", SearchFor::Playlists),
 ];
-const SORT: [&str; 2] = ["Most relevant first", "Newest first"];
+const SORT: [&str; 3] = ["Most relevant first", "Most popular first", "Newest first"];
+/// Each time's number in YouTube's filter.
+const WHEN: [(&str, u8); 5] = [
+    ("At any time", 0),
+    ("Today", 2),
+    ("This week", 3),
+    ("This month", 4),
+    ("This year", 5),
+];
 /// Each length's number in YouTube's filter.
 const LENGTH: [(&str, u8); 4] = [
     ("Any length", 0),
-    ("Under 4 minutes", 1),
-    ("4 to 20 minutes", 3),
+    ("Under 3 minutes", 4),
+    ("3 to 20 minutes", 5),
     ("Over 20 minutes", 2),
 ];
 
@@ -83,7 +92,14 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
                 &names,
                 WHAT.iter().position(|w| w.1 == q.what).unwrap_or(0),
             );
-            fill(hwnd, IDC_S_SORT, &SORT, q.newest as usize);
+            fill(hwnd, IDC_S_SORT, &SORT, q.sort as usize);
+            let names: Vec<&str> = WHEN.iter().map(|w| w.0).collect();
+            fill(
+                hwnd,
+                IDC_S_WHEN,
+                &names,
+                WHEN.iter().position(|w| w.1 == q.uploaded).unwrap_or(0),
+            );
             let names: Vec<&str> = LENGTH.iter().map(|l| l.0).collect();
             fill(
                 hwnd,
@@ -116,7 +132,8 @@ unsafe extern "system" fn proc(hwnd: HWND, message: u32, wparam: WPARAM, lparam:
             let q = &mut *(GetWindowLongPtrW(hwnd, GWLP_USERDATA) as *mut Query);
             q.text = text;
             q.what = WHAT[chosen(hwnd, IDC_S_WHAT).min(2)].1;
-            q.newest = chosen(hwnd, IDC_S_SORT) == 1;
+            q.sort = chosen(hwnd, IDC_S_SORT).min(2) as u8;
+            q.uploaded = WHEN[chosen(hwnd, IDC_S_WHEN).min(4)].1;
             q.length = LENGTH[chosen(hwnd, IDC_S_LENGTH).min(3)].1;
             q.no_shorts = GetDlgItem(Some(hwnd), IDC_S_SHORTS)
                 .map(|c| SendMessageW(c, BM_GETCHECK, None, None).0 == 1)

@@ -1,0 +1,72 @@
+# Publish the user guide to GitHub Pages, at
+# https://ldefontenay.github.io/vidfetch/userguide/
+#
+# The page is src/help.html, the same document F1 opens, with {{VERSION}}
+# filled in as help.rs does, so the web guide and the program's guide never
+# differ. The site's front page sends visitors on to the repository.
+#
+# Runs when the guide or the version changes on main, or by hand.
+
+name: guide
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/help.html
+      - Cargo.toml
+      - .github/workflows/guide.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}userguide/
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build the site
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          mkdir -p _site/userguide
+          sed "s/{{VERSION}}/$version/g" src/help.html > _site/userguide/index.html
+          if grep -q '{{VERSION}}' _site/userguide/index.html; then
+            echo "The version was not filled in."
+            exit 1
+          fi
+          cat > _site/index.html <<'EOF'
+          <!doctype html>
+          <html lang="en-GB">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <meta http-equiv="refresh" content="0; url=https://github.com/ldefontenay/vidfetch">
+            <title>VidFetch</title>
+          </head>
+          <body>
+            <h1>VidFetch</h1>
+            <p><a href="https://github.com/ldefontenay/vidfetch">VidFetch on GitHub</a>, with the download.</p>
+            <p><a href="userguide/">The VidFetch guide</a>.</p>
+          </body>
+          </html>
+          EOF
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
