@@ -62,7 +62,7 @@ pub struct Settings {
     pub fetch_ytdlp: bool,
 }
 
-type Post<'a> = &'a dyn Fn(Event);
+type Post<'a> = &'a (dyn Fn(Event) + Sync);
 
 /// Starts a download; set the returned flag to stop it.
 pub fn start(hwnd: HWND, settings: Settings) -> Arc<AtomicBool> {
@@ -267,9 +267,25 @@ fn fetch(
     stop: &AtomicBool,
     post: Post,
 ) -> Result<Option<Fetched>, String> {
+    match download(s, exe, work, url, before, stop, post)? {
+        Some(saved) => finish(s, work, url, saved, before, stop, post),
+        None => Ok(None),
+    }
+}
+
+/// The network half of `fetch`: yt-dlp brings the files into `work`.
+fn download(
+    s: &Settings,
+    exe: &Path,
+    work: &Path,
+    url: &str,
+    before: &str,
+    stop: &AtomicBool,
+    post: Post,
+) -> Result<Option<Vec<ytdlp::Saved>>, String> {
     let site = ytdlp::site(url);
     let mut every = Every::new();
-    let Some(saved) = ytdlp::download(exe, url, work, s.format, s.lines, stop, &mut |p| {
+    ytdlp::download(exe, url, work, s.format, s.lines, stop, &mut |p| {
         if every.due() {
             let what = p.what;
             post(Event::Progress(match p.total {
@@ -283,10 +299,22 @@ fn fetch(
                 ),
             }));
         }
-    })?
-    else {
-        return Ok(None);
-    };
+    })
+}
+
+/// The second half of `fetch`: makes the file the user chose from what yt-dlp
+/// brought. Needs a `media::Session` on its thread. Every file it touches is
+/// named after this video, so another video can be downloading meanwhile.
+fn finish(
+    s: &Settings,
+    work: &Path,
+    url: &str,
+    saved: Vec<ytdlp::Saved>,
+    before: &str,
+    stop: &AtomicBool,
+    post: Post,
+) -> Result<Option<Fetched>, String> {
+    let site = ytdlp::site(url);
     let key = ytdlp::key(url).unwrap_or_else(|| "video".into());
     let picture = saved.iter().find(|f| f.picture && !f.sound);
     let sound = saved.iter().find(|f| f.sound && !f.picture);
@@ -354,9 +382,9 @@ fn fetch(
                 out
             } else {
                 note = Some(format!(
-                    "{site} offered the sound only as {}, which an M4A cannot hold as it is, so it \
-                     was saved as it came. Choose MP3 in Download as for a file any player takes.",
-                    ext(&src.path).to_uppercase()
+                    "{site} offered the sound only in a form Windows cannot copy into a new M4A, \
+                     so it was saved as it came. Choose MP3 in Download as for a file any player \
+                     takes."
                 ));
                 src.path.clone()
             }
@@ -513,6 +541,7 @@ fn single(
             &to,
             s.format.word(),
             past_lines(s.format, s.lines),
+            &s.url,
         );
     }
     let name = to
@@ -618,13 +647,13 @@ fn playlist(
     let mut failed: Vec<String> = Vec::new();
     let mut in_a_row = 0;
     let mut notes: Vec<String> = Vec::new();
-    for (n, (at, item)) in todo.iter().enumerate() {
-        if stop.load(Ordering::Relaxed) {
-            break;
-        }
-        let before = format!("Video {} of {}, {}. ", n + 1, todo.len(), item.title);
-        post(Event::Progress(format!("{before}Starting.")));
-        match fetch(s, exe, work, &item.url, &before, stop, post) {
+    // Takes in one video's result, in playlist order. False if it was stopped.
+    let mut settle = |at: usize,
+                      item: &ytdlp::Item,
+                      before: &str,
+                      result: Result<Option<Fetched>, String>|
+     -> Result<bool, String> {
+        match result {
             Ok(Some(f)) => {
                 let title = if f.title.is_empty() {
                     &item.title
@@ -633,14 +662,14 @@ fn playlist(
                 };
                 let to = library::free_name(
                     &folder,
-                    &item_name(s.number, *at, of, title),
+                    &item_name(s.number, at, of, title),
                     &ext_of(&f.file),
                 );
                 let t = tags::Tags {
                     title: title.clone(),
                     artist: f.uploader.clone(),
                     album: Some(title_or(&list.title, title)),
-                    track: Some(*at as u32),
+                    track: Some(at as u32),
                     year: f.year,
                     comment: item.url.clone(),
                 };
@@ -664,8 +693,9 @@ fn playlist(
                 }
                 saved += 1;
                 in_a_row = 0;
+                Ok(true)
             }
-            Ok(None) => break,
+            Ok(None) => Ok(false),
             Err(why) => {
                 failed.push(format!("{}: {why}", item.title));
                 in_a_row += 1;
@@ -675,9 +705,82 @@ fn playlist(
                          downloaded, so VidFetch stopped. The last said:\n\n{why}"
                     ));
                 }
+                Ok(true)
             }
         }
-    }
+    };
+    let wait = |h: std::thread::ScopedJoinHandle<'_, Result<Option<Fetched>, String>>| {
+        h.join()
+            .unwrap_or_else(|_| Err("Making this video's file failed unexpectedly.".to_string()))
+    };
+    // The picture and sound of one video are put together on a second thread
+    // while the next one downloads, which saves the wait on a long playlist.
+    // Never more than one: Status follows the download, and what is saved
+    // stays in playlist order because `settle` runs here, in turn.
+    std::thread::scope(|scope| -> Result<(), String> {
+        let mut pending = None;
+        for (n, (at, item)) in todo.iter().enumerate() {
+            if stop.load(Ordering::Relaxed) {
+                break;
+            }
+            let before = format!("Video {} of {}, {}. ", n + 1, todo.len(), item.title);
+            post(Event::Progress(format!("{before}Starting.")));
+            // The same video twice in a list: `keep` clears its files, so the
+            // first must be done with before the second is fetched.
+            if pending
+                .as_ref()
+                .is_some_and(|(_, i, _, _): &(usize, &ytdlp::Item, String, _)| i.url == item.url)
+            {
+                let (a, i, b, h) = pending.take().expect("just looked");
+                if !settle(a, i, &b, wait(h))? {
+                    break;
+                }
+            }
+            let got = match download(s, exe, work, &item.url, &before, stop, post) {
+                Ok(Some(got)) => got,
+                Ok(None) => break,
+                Err(why) => {
+                    if let Some((a, i, b, h)) = pending.take() {
+                        if !settle(a, i, &b, wait(h))? {
+                            break;
+                        }
+                    }
+                    settle(*at, item, &before, Err(why))?;
+                    continue;
+                }
+            };
+            if let Some((a, i, b, h)) = pending.take() {
+                post(Event::Progress(format!(
+                    "{before}Downloaded; finishing the video before it."
+                )));
+                if !settle(a, i, &b, wait(h))? {
+                    break;
+                }
+            }
+            if stop.load(Ordering::Relaxed) {
+                break;
+            }
+            if n + 1 == todo.len() {
+                // Nothing left to overlap with, so Status can follow this one.
+                let done = finish(s, work, &item.url, got, &before, stop, post);
+                settle(*at, item, &before, done)?;
+            } else {
+                let line = before.clone();
+                let url = item.url.as_str();
+                let handle = scope.spawn(move || {
+                    let _media = media::Session::start()?;
+                    let quiet = |_: Event| {};
+                    finish(s, work, url, got, &line, stop, &quiet)
+                });
+                pending = Some((*at, item, before, handle));
+            }
+        }
+        if let Some((a, i, b, h)) = pending.take() {
+            post(Event::Progress(format!("{b}Finishing.")));
+            settle(a, i, &b, wait(h))?;
+        }
+        Ok(())
+    })?;
     let kept = format!(
         "{} saved in the folder {folder_name}",
         if saved == 1 {
@@ -763,7 +866,7 @@ mod tests {
         let stop = AtomicBool::new(false);
         // VF_STOP_AT=3 presses Escape as the third video of a playlist starts.
         let stop_at = var("VF_STOP_AT").map(|n| format!("Video {n} of"));
-        let last = std::cell::RefCell::new(String::new());
+        let last = std::sync::Mutex::new(String::new());
         let post = |e: Event| match e {
             Event::Step(t) => println!("STEP {t}"),
             Event::Progress(t) => {
@@ -772,9 +875,10 @@ mod tests {
                 }
                 // The first of each kind of line, not every percent.
                 let kind: String = t.chars().take_while(|c| *c != ':').collect();
-                if *last.borrow() != kind {
+                let mut last = last.lock().unwrap();
+                if *last != kind {
                     println!("PROGRESS {t}");
-                    *last.borrow_mut() = kind;
+                    *last = kind;
                 }
             }
             _ => {}

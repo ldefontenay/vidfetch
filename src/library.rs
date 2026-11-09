@@ -457,6 +457,9 @@ pub struct Past {
     pub format: String,
     /// Lines of picture; 0 for sound, where they make no difference.
     pub lines: u32,
+    /// The address it came from, to fetch it again. Empty in records made
+    /// before milestone 9.
+    pub url: String,
 }
 
 fn read_past(record: &Path) -> Vec<Past> {
@@ -471,6 +474,7 @@ fn read_past(record: &Path) -> Vec<Past> {
                 file: PathBuf::from(p["file"].as_str()?),
                 format: p["format"].as_str()?.to_string(),
                 lines: p["lines"].as_u64()? as u32,
+                url: p["url"].as_str().unwrap_or("").to_string(),
             })
         })
         .collect()
@@ -488,6 +492,7 @@ fn write_past(record: &Path, past: &[Past]) {
                 "file": p.file.display().to_string(),
                 "format": p.format,
                 "lines": p.lines,
+                "url": p.url,
             })
         })
         .collect();
@@ -510,7 +515,7 @@ pub fn already(record: &Path, key: &str, format: &str, lines: u32) -> Option<Pat
         .map(|p| p.file)
 }
 
-/// Downloads from YouTube whose files have gone from outside VidFetch: the
+/// Downloads we know the address of whose files have gone from outside VidFetch: the
 /// main list shows them last, and Enter downloads them again (milestone 6
 /// test, 4.2). Not a playlist's videos, which updating the playlist leaves
 /// out on purpose; not one downloaded since under another name or format.
@@ -520,7 +525,7 @@ pub fn gone(record: &Path, output: &Path, only: Option<&str>) -> Vec<Entry> {
     past.iter()
         .filter(|p| !p.file.exists() && seen.insert(p.file.clone()))
         .filter(|p| !past.iter().any(|o| o.key == p.key && o.file.exists()))
-        .filter(|p| video_of(Some(record), &p.file).is_some())
+        .filter(|p| source_of(record, &p.file).is_some())
         .filter_map(|p| {
             let dir = p.file.parent()?;
             if !dir.is_dir() || read_record(dir).is_some() {
@@ -558,7 +563,7 @@ pub fn forget_file(record: &Path, file: &Path) {
 }
 
 /// Remembers a single download just saved. Lines are 0 for sound.
-pub fn remember(record: &Path, key: &str, file: &Path, format: &str, lines: u32) {
+pub fn remember(record: &Path, key: &str, file: &Path, format: &str, lines: u32, url: &str) {
     let mut past = read_past(record);
     past.retain(|p| !(p.key == key && p.format == format && p.lines == lines));
     past.push(Past {
@@ -566,6 +571,7 @@ pub fn remember(record: &Path, key: &str, file: &Path, format: &str, lines: u32)
         file: file.to_path_buf(),
         format: format.to_string(),
         lines,
+        url: url.to_string(),
     });
     write_past(record, &past);
 }
@@ -588,6 +594,18 @@ pub fn moved_folder(record: &Path, from: &Path, to: &Path) {
     if changed {
         write_past(record, &past);
     }
+}
+
+/// The address to fetch a single download from again: the one it was
+/// downloaded from, or for an older record of YouTube's, made from its id.
+pub fn source_of(record: &Path, file: &Path) -> Option<String> {
+    read_past(record)
+        .into_iter()
+        .find(|p| p.file == file && !p.url.is_empty())
+        .map(|p| p.url)
+        .or_else(|| {
+            video_of(Some(record), file).map(|id| format!("https://www.youtube.com/watch?v={id}"))
+        })
 }
 
 /// The YouTube video a downloaded file came from, by its id: from the record
@@ -856,7 +874,7 @@ mod tests {
         let file = d.join("Zoo.mp4");
         std::fs::write(&file, b"x").unwrap();
         assert_eq!(already(&record, "k", "video", 720), None);
-        remember(&record, "k", &file, "video", 720);
+        remember(&record, "k", &file, "video", 720, "");
         assert_eq!(already(&record, "k", "video", 720), Some(file.clone()));
         assert_eq!(already(&record, "k", "video", 1080), None);
         assert_eq!(already(&record, "k", "mp3", 0), None);
@@ -869,6 +887,36 @@ mod tests {
         // Deleted: free to download again.
         std::fs::remove_file(&to).unwrap();
         assert_eq!(already(&record, "k", "video", 720), None);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_gone_file_from_any_site_can_be_fetched_again() {
+        let d = scratch("gone-site");
+        let record = d.join("downloaded.json");
+        let out = d.join("out");
+        let c = out.join("Talks");
+        std::fs::create_dir_all(&c).unwrap();
+        let url = "https://archive.org/details/x";
+        remember(&record, "archive-x", &c.join("Film.mp4"), "video", 720, url);
+        // Before milestone 9 no address was kept: a site's cannot be offered,
+        // YouTube's can, from its id.
+        remember(&record, "older", &c.join("Older.mp4"), "video", 720, "");
+        remember(&record, "jNQXAC9IVRw", &c.join("Zoo.m4a"), "m4a", 0, "");
+        let names: Vec<String> = gone(&record, &out, None)
+            .into_iter()
+            .map(|e| e.name)
+            .collect();
+        assert_eq!(names, vec!["Film", "Zoo"]);
+        assert_eq!(
+            source_of(&record, &c.join("Film.mp4")).as_deref(),
+            Some(url)
+        );
+        assert_eq!(
+            source_of(&record, &c.join("Zoo.m4a")).as_deref(),
+            Some("https://www.youtube.com/watch?v=jNQXAC9IVRw")
+        );
+        assert_eq!(source_of(&record, &c.join("Older.mp4")), None);
         let _ = std::fs::remove_dir_all(&d);
     }
 
@@ -900,7 +948,7 @@ mod tests {
         std::fs::write(out.join("notes.txt"), b"x").unwrap();
         let f = playlist_folder(&out, "PLx", "u", "Films").unwrap();
         std::fs::write(f.join("01 - One.m4a"), b"x").unwrap();
-        remember(&record, "k", &out.join("Zoo.m4a"), "m4a", 0);
+        remember(&record, "k", &out.join("Zoo.m4a"), "m4a", 0, "");
         std::fs::create_dir_all(out.join("Talks")).unwrap();
         let moved = tidy(&out, Some(&record));
         assert_eq!(moved.len(), 2);
@@ -935,7 +983,7 @@ mod tests {
             Some("abcdefghijk")
         );
         std::fs::write(un.join("Other.m4a"), b"x").unwrap();
-        remember(&record, "jNQXAC9IVRw", &un.join("Other.m4a"), "m4a", 0);
+        remember(&record, "jNQXAC9IVRw", &un.join("Other.m4a"), "m4a", 0, "");
         assert_eq!(
             video_of(Some(&record), &un.join("Other.m4a")).as_deref(),
             Some("jNQXAC9IVRw")
