@@ -73,6 +73,8 @@ YouTube following what you watch. They keep your list of channels on your own de
 reader users in particular, and I have not tried either. Their importance to VidFetch is that people move
 their channels between them: VidFetch reads the export files of both, and its backup file can be read by both.
 
+Question: Any features in Freetube worth considering for VidFetch?
+
 ### Not tested
 
 - Everything in the window is yours to try: no window changed in this milestone, so I ran the
@@ -88,16 +90,16 @@ their channels between them: VidFetch reads the export files of both, and its ba
 to do it? I recommend merging this milestone first, after your test, so the first public version has the overlap and
 the surround fix. Either way, please confirm the repository can then be public.
 
-ANSWER:
+ANSWER: I'd like to give this session permition to do it.
 
 **Q2.** After your test, shall I merge `m9-overlap` into `main` and push it to the private repository?
 
-ANSWER:
+ANSWER: Yes, or the public one with permition.
 
 **Q3.** Would you like release notes for the first version in the style of NoteFetch's? I would write them
 for you to read in a file before anything is published.
 
-ANSWER:
+ANSWER: Yes please.
 
 ## Entry 7 — Towards a first beta: your milestone 6 answers, and all of A and B (2026-11-08)
 
