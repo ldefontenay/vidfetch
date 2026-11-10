@@ -1,0 +1,79 @@
+VidFetch - milestone 8: overlapping downloads and your milestone 7 notes
+========================================================================
+
+Why: your answers to test-milestone-7 and log entry 7. Log entry 8 says what changed, and has its
+questions.
+
+How to start it: run
+C:\Users\ldefo\dev\VidFetch\target\release\vidfetch.exe
+
+
+Section 1 - a playlist, overlapping
+-----------------------------------
+
+1.1  Download a playlist of at least four videos, as sound. Press Alt+T or read the Status box now
+     and then. Does it follow the video being downloaded, and read sensibly?
+ANSWER: Yes. Makes complete sense when downloading captions is off, else feels like it jumps around a bit when downloading captions, but not a biggy.
+
+1.2  When it finishes, is every video there, numbered in the playlist's order?
+ANSWER: Yes
+
+1.3  Does it feel quicker than before? A rough impression is enough.
+ANSWER: Yes.
+
+1.4  Play two or three of the files, and wind through them with Left and Right. Is the sound right?
+ANSWER: Yes
+
+1.5  Start another playlist, and press Escape during its third video. Does it say how many were saved?
+     Press Ctrl+U on it. Does it carry on with the rest, and without repeating any?
+ANSWER: Yes
+
+ANYTHING ODD:
+No
+
+Section 2 - a download that has gone, from another site
+-------------------------------------------------------
+
+2.1  Press Ctrl+N and download https://archive.org/details/BigBuckBunny_124 again. It must be a new
+     download for this to work, as records from before this version hold no address. Delete the
+     file in File Explorer, not in VidFetch, and come back to the main list. Is it at the end, as
+     "no longer on this computer"?
+ANSWER: It still appears at the top of the list straight after deleting from explorer, but appears at the bottom appropriately after quitting and restarting VidFetch.
+
+2.2  Press Enter on it, and choose Download again. Does it come back, in the same folder?
+ANSWER: Works well as expected if quitting and restarting the app. Else, while still at the top of the list, the following error message is displayed when pressing enter: "Big Buck Bunny.m4a could not be found.". It may be an idea refreshing the list sometimes, e.g. when the main window gains focus?
+
+ANYTHING ODD:
+No.
+
+Section 3 - things not yet tried in the real window
+---------------------------------------------------
+
+3.1  Press Ctrl+F, search for something, and set Videos uploaded to This week. Are the results from
+     this week, as far as you can tell?
+ANSWER: Yes.
+
+3.2  If you would like to bring in your YouTube channels: follow Tutorial 7 of the guide (F1). Did
+     every step match what Google showed you? Say where it differed.
+ANSWER: Every step was correct. Super! 
+
+3.3  Did File menu, Import channels from a file, take the zip file, and say how many were new?
+ANSWER: Yes. Worked very well.
+
+ANYTHING ODD:
+No.
+
+Section 4 - the guide
+---------------------
+
+4.1  Press F1 and read as much of the guide as you like. Is it friendly enough, and does it move well
+     by headings? What would you change?
+ANSWER: First impressions are very good. I'll go through it in detail for a future release.
+
+ANYTHING ODD:
+No.
+
+Some thoughts:
+How would you rate this app in terms of accessibility on a scale from 1 to 10?
+How would you rate it on useability on a scale from 1 to 10? Useability being understood as easy for a new user to grasp and make use of.
+With the app now conceptualised as a highly functional accessible interface for Youtube, how well does the current layout fit the usecase? Should the downloads window be the main window, or should there be a tabbed interface with a Youtube tab listing channels and a downloads tab listing downloads? Think through it and let me know your thoughts.

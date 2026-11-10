@@ -16,8 +16,10 @@ newest entry at the top.
 
 Split off from a Video Scribe session on 2 November 2026; this repository is now worked on on its own.
 
-- Milestones 1 to 6 are on `main`, tested and pushed. Milestone 7, towards a first beta, is on
-  `m7-beta`, awaiting `test-milestone-7.txt`. Log entry 7 has its questions.
+- Milestones 1 to 7 and the release preparation are on `main`, tested and pushed. The overlap is on
+  `m9-overlap`, awaiting `test-milestone-8.txt`. Log entry 8 has its questions.
+- Going public is agreed by the user but was refused to Claude by a permission check: the repository is
+  still private and no tag exists. Do not retry it, whole or in parts, without new permission.
 - `src/announce.rs` raises UI Automation notifications on a provider of its own, and uses a hidden
   live region when NVDA is running. `hush()` stops JAWS through its COM API for the quiet Play window.
 - Deno is optional, in `tools\deno`, fetched on request; yt-dlp starts it, not VidFetch.

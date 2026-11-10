@@ -34,9 +34,11 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 /// Marks our lines so nothing else yt-dlp prints is mistaken for one.
 const PROGRESS: &str = "VFPROGRESS";
 const FILE: &str = "VFFILE";
-/// The sound to listen to, as Windows can read it.
-const SOUND: &str =
-    "bestaudio[ext=m4a][protocol^=http]/bestaudio[acodec^=mp4a][protocol^=http]/best[ext=mp4][protocol^=http]";
+/// The sound to listen to, as Windows can read it. Stereo AAC first: "m4a"
+/// alone can also be YouTube's Dolby surround, which Windows may not read.
+const SOUND: &str = "bestaudio[acodec^=mp4a][audio_channels<=?2][protocol^=http]\
+     /bestaudio[ext=m4a][protocol^=http]/bestaudio[acodec^=mp4a][protocol^=http]\
+     /best[ext=mp4][protocol^=http]";
 const RELEASE: &str = "/yt-dlp/yt-dlp/releases/latest/download/";
 /// Our own copy is updated with `-U` when it is older than this: YouTube
 /// changes often, and an old yt-dlp is the usual reason a download fails.
@@ -347,19 +349,21 @@ fn parse_progress(line: &str) -> Option<Progress> {
 /// What to ask for. A video: the picture (H.264, which an MP4 holds and
 /// every player plays) and the sound (AAC) apart, at most `lines` high, as
 /// YouTube offers them; else one MP4 with both; else whatever single file
-/// there is. Sound only: AAC first. Always over plain HTTP.
+/// there is. Sound only: AAC first, in stereo, as "m4a" alone can be YouTube's
+/// Dolby surround, which Windows cannot copy into a new file. Always over
+/// plain HTTP.
 fn formats(format: Format, lines: u32) -> String {
     match format {
         Format::Video => format!(
-            "(bv*[vcodec^=avc1][height<={lines}][protocol^=http],ba[ext=m4a][protocol^=http])\
+            "(bv*[vcodec^=avc1][height<={lines}][protocol^=http],\
+             ba[acodec^=mp4a][audio_channels<=?2][protocol^=http]/ba[ext=m4a][protocol^=http])\
              /b[ext=mp4][height<={lines}][protocol^=http]/b[ext=mp4][protocol^=http]\
              /b[protocol^=http]"
         ),
-        Format::M4a | Format::Mp3 => {
-            "ba[ext=m4a][protocol^=http]/ba[protocol^=http]/b[ext=mp4][protocol^=http]\
+        Format::M4a | Format::Mp3 => "ba[acodec^=mp4a][audio_channels<=?2][protocol^=http]\
+             /ba[ext=m4a][protocol^=http]/ba[protocol^=http]/b[ext=mp4][protocol^=http]\
              /b[protocol^=http]"
-                .into()
-        }
+            .into(),
     }
 }
 
@@ -1451,7 +1455,7 @@ mod tests {
     fn formats_follow_the_choice() {
         assert!(formats(Format::Video, 720).contains("[height<=720]"));
         assert!(formats(Format::Video, 720).starts_with("(bv*[vcodec^=avc1]"));
-        assert!(formats(Format::Mp3, 720).starts_with("ba[ext=m4a]"));
+        assert!(formats(Format::Mp3, 720).starts_with("ba[acodec^=mp4a]"));
         assert!(!formats(Format::M4a, 1080).contains("height"));
     }
 

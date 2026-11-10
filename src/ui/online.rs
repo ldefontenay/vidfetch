@@ -1437,7 +1437,8 @@ fn play_row(hwnd: HWND, app: &mut App, i: usize) {
 /// Enter on a download whose file has gone: offers to download it again,
 /// if VidFetch knows where it came from (log entry 5, Q3).
 pub fn download_gone_file(hwnd: HWND, path: &std::path::Path, name: &str) {
-    let Some(id) = library::video_of(Config::past_path().as_deref(), path) else {
+    let source = Config::past_path().and_then(|r| library::source_of(&r, path));
+    let Some(url) = source else {
         say(
             hwnd,
             &format!(
@@ -1468,14 +1469,7 @@ pub fn download_gone_file(hwnd: HWND, path: &std::path::Path, name: &str) {
         .map(PathBuf::from)
         .unwrap_or_else(|| app.cfg.download_folder());
     HUSH.with(|h| h.set(true));
-    submit(
-        main,
-        app,
-        format!("https://www.youtube.com/watch?v={id}"),
-        false,
-        None,
-        folder,
-    );
+    submit(main, app, url, false, None, folder);
     HUSH.with(|h| h.set(false));
     say(hwnd, &get_text(main, IDC_STATUS));
     focus(hwnd, IDC_LIST);

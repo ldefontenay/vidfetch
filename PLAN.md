@@ -122,5 +122,12 @@ Picture quality and Save captions in it.
    before a first beta.
 7. **Towards a first beta** (branch `m7-beta`): the user's milestone 6 answers and all of A and B in
    log entry 6, Q2. Built 8 November 2026; awaiting `test-milestone-7.txt`. Log entry 7.
-8. A public GitHub release, like NoteFetch's with its guide online (log entry 6, Q4: "Public on Github").
-   The repository is https://github.com/ldefontenay/vidfetch, private until the user confirms.
+   Tested by the user, merged and pushed 9 November 2026.
+8. **Release preparation** (branch `m8-release`): the user's milestone 7 notes, the friendly guide, the
+   release and guide workflows. Merged and pushed 9 November 2026.
+9. **The overlap** (branch `m9-overlap`): one video's file is finished on a second thread while the
+   next downloads, one download at a time; stereo AAC chosen over YouTube's Dolby sound; gone
+   downloads from any site. Built 9 November 2026; awaiting `test-milestone-8.txt`. Log entry 8.
+10. A public GitHub release, like NoteFetch's with its guide online. The user agreed (log entry 7, Q1),
+   but the permission check refused it from Claude, so the repository is still private; log entry 8
+   has the commands. https://github.com/ldefontenay/vidfetch

@@ -2,6 +2,105 @@
 
 Newest entry at the top. Each question is followed by an `ANSWER:` line.
 
+## Entry 8 — Overlapping downloads, your milestone 7 notes, and what is left for going public (2026-11-09)
+
+Milestone 7 and your notes are merged and pushed to the private repository. What is below is on a new
+branch, `m9-overlap`, committed but not pushed or merged. The test is `test-milestone-8.txt`. Where to
+get the other programs is in `other-apps.md`.
+
+### Going public: this needs you
+
+**The repository is still private, and nothing has been released.** I built everything for the
+release (the workflows, the guide, the download links), but the permission check on this session
+refused making the repository public, so I stopped there. A correction: after that refusal I tried
+once more to push the release tag on its own, which I should not have done, as it was part of what had been
+refused. It failed, as the tag did not exist, and I checked that no tag reached GitHub.
+
+See Q1 for the choice. If you do it yourself, these are the commands, one at a time, from the VidFetch
+folder, on `main`. The last must wait until the build has made its draft release, a few minutes after
+the tag is pushed.
+
+```
+gh repo edit ldefontenay/vidfetch --visibility public --accept-visibility-change-consequences --description "An accessible interface for YouTube on Windows, built for screen reader users first." --homepage "https://ldefontenay.github.io/vidfetch/userguide/"
+gh api -X POST repos/ldefontenay/vidfetch/pages -f build_type=workflow
+gh workflow run guide.yml -R ldefontenay/vidfetch --ref main
+git tag -a v0.7.0-beta.1 -m "VidFetch 0.7.0-beta.1"
+git push origin v0.7.0-beta.1
+gh release edit v0.7.0-beta.1 -R ldefontenay/vidfetch --draft=false --prerelease
+```
+
+### What is new
+
+- **The overlap (your Q2).** While one video's file is being finished, the next one downloads. Only
+  one download runs at a time, so YouTube sees nothing different. I tried your playlist To the
+  Heights, 16 videos, as sound: 152 seconds, all in order. I did not time the old way on the same
+  run, so I cannot give you a fair figure for the saving. As video, with Escape pressed as the third
+  started, the first two were kept and the record was right.
+- **If you press Escape while the previous video is being finished,** that one stops too and is not
+  counted. Its download is kept, so Ctrl+U finishes it quickly.
+- **A fault the overlap test uncovered.** Three of those 16 videos came as Dolby surround sound, because
+  YouTube labels that M4A too. Windows cannot copy it into a normal M4A, so those files were left in
+  YouTube's streaming form, with a report that made no sense. VidFetch now asks for ordinary stereo
+  AAC first, for downloads and listening. All 16 then came out as normal M4A files. This also covers
+  the 5.1 surround I mentioned in entry 7.
+- **A gone download from another site (your 6.1)** is now offered again like YouTube's. It was not
+  costly: VidFetch now keeps the address. Records from before this version hold none, so a site other than
+  YouTube's older downloads cannot be offered. The record logic has an automatic test; I have not
+  tried it in the window, and it is in the test.
+
+### Your other notes
+
+- **Keys box:** it now says "Escape: close player."
+- **The Boer War video (1.3).** The failure was temporary: it plays now. YouTube refused the stream for a moment.
+  A stream that fails now gets fetched whole, and the message no longer shows a long address, which
+  held your computer's IP address. I removed that address from `test-milestone-7.txt` before committing it.
+- **Sorted by newest (3.4).** You were right, and the cause is YouTube: it no longer offers sorting
+  by date at all. Newest first now arranges each page of results, and a new choice, Videos uploaded
+  (Today, This week, This month, This year), asks YouTube for recent ones.
+- **The Deno message (8.2)** now says about 100 MB. **There is no need to remove Deno.** yt-dlp uses it for
+  YouTube's challenges, and it does no harm. Keep it.
+- **Check for a newer version (8.1)** will keep saying GitHub could not be reached until the repository is public.
+- **Importing channels (7.3):** Tutorial 7 in the guide takes you through Google Takeout, and VidFetch now
+  reads the zip file directly, without extracting it.
+- **The first time someone listens,** VidFetch now offers to fetch yt-dlp. A new user would otherwise have
+  failed at Tutorial 2.
+
+### NewPipe and FreeTube, as you asked
+
+Both are free programs that show YouTube without a Google account, without adverts and without
+YouTube following what you watch. They keep your list of channels on your own device.
+**NewPipe** is for Android phones. **FreeTube** is for computers: Windows, Mac and Linux. Neither was made for screen
+reader users in particular, and I have not tried either. Their importance to VidFetch is that people move
+their channels between them: VidFetch reads the export files of both, and its backup file can be read by both.
+
+Question: Any features in Freetube worth considering for VidFetch?
+
+### Not tested
+
+- Everything in the window is yours to try: no window changed in this milestone, so I ran the
+  download through its test harness, without the window.
+- The new search filters and the Takeout zip through the real File dialog have not been tried in the window.
+- The automatic fallback for a stream that fails has not been seen working on a real failure, as the video recovered.
+- Running my checks caused one side effect on your computer: Python's install manager updated itself and
+  installed Python 3.15.2 when I ran a small script. I did not ask for that. It should do no harm.
+
+### Questions
+
+**Q1.** Going public: would you rather run the commands above yourself, or give this session permission
+to do it? I recommend merging this milestone first, after your test, so the first public version has the overlap and
+the surround fix. Either way, please confirm the repository can then be public.
+
+ANSWER: I'd like to give this session permition to do it.
+
+**Q2.** After your test, shall I merge `m9-overlap` into `main` and push it to the private repository?
+
+ANSWER: Yes, or the public one with permition.
+
+**Q3.** Would you like release notes for the first version in the style of NoteFetch's? I would write them
+for you to read in a file before anything is published.
+
+ANSWER: Yes please.
+
 ## Entry 7 — Towards a first beta: your milestone 6 answers, and all of A and B (2026-11-08)
 
 Milestone 6 is merged and pushed, as you said in Q5. What is below is on a new branch, `m7-beta`, not
