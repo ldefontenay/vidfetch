@@ -84,17 +84,17 @@ not before. See Q2.
 **Q1.** Are the release notes in `release-notes.md` right? When you say yes, I publish the release, marked as a
 beta (a "pre-release" on GitHub), and the download links start working.
 
-ANSWER:
+ANSWER: Yes
 
 **Q2.** The layout: shall I build the home list, opening at start, in the next milestone? Or would you rather
 keep today's arrangement, have tabs after all, or only a setting for which window opens first?
 
-ANSWER:
+ANSWER: Please build the home list, opening at start.
 
 **Q3.** Shall I announce nothing anywhere? I assume you will tell people yourself once it is published, and I
 will not post anywhere on your behalf.
 
-ANSWER:
+ANSWER: I'll announce myself.
 
 ## Entry 8 — Overlapping downloads, your milestone 7 notes, and what is left for going public (2026-11-09)
 
