@@ -16,10 +16,11 @@ newest entry at the top.
 
 Split off from a Video Scribe session on 2 November 2026; this repository is now worked on on its own.
 
-- Milestones 1 to 7 and the release preparation are on `main`, tested and pushed. The overlap is on
-  `m9-overlap`, awaiting `test-milestone-8.txt`. Log entry 8 has its questions.
-- Going public is agreed by the user but was refused to Claude by a permission check: the repository is
-  still private and no tag exists. Do not retry it, whole or in parts, without new permission.
+- Milestones 1 to 9 are on `main`, tested and pushed. Log entry 9 has the open questions.
+- The repository is **public** since 10 November 2026; the guide is at
+  https://ldefontenay.github.io/vidfetch/userguide/. v0.7.0-beta.1 is tagged and built as a **draft**
+  release; publish it (`gh release edit v0.7.0-beta.1 --draft=false --prerelease`) only once the user
+  approves `release-notes.md`. Never put private details in anything committed now.
 - `src/announce.rs` raises UI Automation notifications on a provider of its own, and uses a hidden
   live region when NVDA is running. `hush()` stops JAWS through its COM API for the quiet Play window.
 - Deno is optional, in `tools\deno`, fetched on request; yt-dlp starts it, not VidFetch.
@@ -30,8 +31,7 @@ Split off from a Video Scribe session on 2 November 2026; this repository is now
 - yt-dlp is fetched as the release's folder build, `yt-dlp_win.zip`, into
   `%LOCALAPPDATA%\VidFetch\tools\yt-dlp`, and VidFetch updates it itself by checksum. An older single
   `tools\yt-dlp.exe` is still used until its next update replaces it.
-- The private repository is https://github.com/ldefontenay/vidfetch, created by the user, as the
-  permission check refused it from Claude. Still ask before pushing.
+- The repository is https://github.com/ldefontenay/vidfetch, created by the user. Still ask before pushing.
 - The user now uses VidFetch for real: their settings are in `%APPDATA%\VidFetch` and yt-dlp in
   `%LOCALAPPDATA%\VidFetch\tools`. Test with `APPDATA` and `LOCALAPPDATA` pointed at a temporary
   folder (copy yt-dlp.exe into its `VidFetch\tools`), and never touch theirs.

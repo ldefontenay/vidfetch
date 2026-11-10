@@ -2,6 +2,100 @@
 
 Newest entry at the top. Each question is followed by an `ANSWER:` line.
 
+## Entry 9 — VidFetch is public; the release waits for you (2026-11-10)
+
+### Done, with your permission (entry 8, Q1 and Q2)
+
+- **The repository is public**, at https://github.com/ldefontenay/vidfetch, with its description and a
+  link to the guide. Before that, I checked its whole history for anything private. There are no IP
+  addresses and no passwords or keys. Your email address appears only as the author of each commit, as it does in
+  NoteFetch, which is already public.
+- **The guide is online**, at https://ldefontenay.github.io/vidfetch/userguide/, and says version 0.7.0-beta.1.
+- **Version 0.7.0-beta.1 is built** by GitHub from the tag, with vidfetch.exe and vidfetch.zip, as a
+  **draft release: not published yet**. Nobody can see or download it until you approve the release
+  notes (Q1). The download links in the README and the guide will only work after that.
+- Milestone 9 and the fixes below are merged into `main` and pushed.
+
+### Your milestone 8 notes
+
+- **A file deleted in File Explorer (2.1 and 2.2).** As you suggested, the main list now checks its files
+  each time its window comes back to the front. It fills itself again only if one has gone, as NVDA
+  reads the whole list out again whenever it is refilled. A gone file therefore moves to the end of the list
+  as soon as you come back from File Explorer. If you press Enter on one that has just gone, VidFetch catches up first and
+  offers to download it again, instead of the "could not be found" message. I tried both in a scratch
+  copy of VidFetch.
+- **Status jumping about with captions on (1.1).** The previous video's captions are fetched while the
+  next video downloads, and both wrote to Status. Now only the download does, except for the last video.
+- **Tutorial 7 and the Takeout import** worked at every step. Thank you; that was the part I could not check.
+
+### The release notes (entry 8, Q3)
+
+They are in `release-notes.md`, in NoteFetch's style, and already on the draft release. Change anything
+you like in the file, or tell me what to change.
+
+### Your thoughts: how I rate it
+
+These are my honest views, from building it rather than from using it with a screen reader, so weigh them
+against your own.
+
+**Accessibility: 8 out of 10.** It uses real Windows controls throughout, every control names itself,
+and it has been through seven rounds with JAWS and one with NVDA and Narrator, with nothing left that
+you reported as broken. What keeps it from 9 or 10: only one blind person has tested it, so its wording
+and habits suit you and may not suit others yet; silencing JAWS as the Play window opens is still a workaround; and
+NVDA and Narrator have had only one round.
+
+**Usability for a new user: 6 out of 10.** Everything works, and the guide is now good, but a newcomer
+meets three difficulties:
+
+1. **It opens on the wrong thing.** A new user wants YouTube, and VidFetch starts on an empty list of
+   downloads, with nothing on screen saying what to do next except the welcome message, which they read once.
+2. **Most of what it can do is hidden** behind keys and menus. Ctrl+F, Ctrl+L, Ctrl+Shift+L, Ctrl+H,
+   Ctrl+R, Ctrl+K and Ctrl+T are all worth having, but a new user only finds them by reading the guide or
+   the menus.
+3. **Two windows, one in front of the other,** where Escape sometimes means "stop" and sometimes
+   "leave", takes a little explaining. You have learnt it, but it is the kind of thing a new user trips over.
+
+### Your thoughts: the layout
+
+I thought about the tabs carefully. **I would not use tabs.** A tab control is accessible, but it adds
+a stop to the Tab order and a Ctrl+Tab habit. Every switch would also refill the list, and NVDA reads a
+refilled list out again. And it would split VidFetch into two halves of equal weight, when for most people one half matters far more.
+
+**I would make YouTube the front door instead**, by adding a home list at the top of the YouTube
+window, and opening VidFetch there. Its lines would be, for example:
+
+- Search YouTube
+- New from your channels: 5 new
+- Your channels: 23
+- Recently played
+- Your downloads: 41
+
+Enter opens one, and Backspace always comes back to this list, just as it works now inside a channel. Every
+function would then be on screen, and a new user could find everything with the arrow keys alone,
+with no keys to learn first. The keys would stay as shortcuts. "Your downloads" would open today's main
+window, unchanged, so nothing you know now would be lost. For someone who mainly downloads, an option
+could keep today's start.
+
+This is a sizeable change, with a lot of testing behind it, so I suggest it for the next version after this beta,
+not before. See Q2.
+
+### Questions
+
+**Q1.** Are the release notes in `release-notes.md` right? When you say yes, I publish the release, marked as a
+beta (a "pre-release" on GitHub), and the download links start working.
+
+ANSWER:
+
+**Q2.** The layout: shall I build the home list, opening at start, in the next milestone? Or would you rather
+keep today's arrangement, have tabs after all, or only a setting for which window opens first?
+
+ANSWER:
+
+**Q3.** Shall I announce nothing anywhere? I assume you will tell people yourself once it is published, and I
+will not post anywhere on your behalf.
+
+ANSWER:
+
 ## Entry 8 — Overlapping downloads, your milestone 7 notes, and what is left for going public (2026-11-09)
 
 Milestone 7 and your notes are merged and pushed to the private repository. What is below is on a new

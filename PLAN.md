@@ -128,6 +128,8 @@ Picture quality and Save captions in it.
 9. **The overlap** (branch `m9-overlap`): one video's file is finished on a second thread while the
    next downloads, one download at a time; stereo AAC chosen over YouTube's Dolby sound; gone
    downloads from any site. Built 9 November 2026; awaiting `test-milestone-8.txt`. Log entry 8.
-10. A public GitHub release, like NoteFetch's with its guide online. The user agreed (log entry 7, Q1),
-   but the permission check refused it from Claude, so the repository is still private; log entry 8
-   has the commands. https://github.com/ldefontenay/vidfetch
+   Tested by the user and merged 10 November 2026, with the deletion fix and quieter captions.
+10. **The public release.** The repository was made public on 10 November 2026, with the user's
+   permission (log entry 8, Q1), and its guide is online. Version 0.7.0-beta.1 is built as a draft
+   release, published once the user approves `release-notes.md` (log entry 9, Q1).
+11. Proposed: a home list at the top of the YouTube window, opening at start (log entry 9, Q2).
