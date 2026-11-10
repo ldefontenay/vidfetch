@@ -503,6 +503,12 @@ unsafe extern "system" fn dialog_proc(
         WM_ACTIVATE => {
             if (wparam.0 & 0xFFFF) as u32 != WA_INACTIVE {
                 if let Some(app) = app(hwnd) {
+                    // A file deleted in File Explorer meanwhile (milestone 8
+                    // test, 2.1). Only then, as a list filled again is read
+                    // out again by NVDA.
+                    if app.entries.iter().any(|e| e.is_file() && !e.path.exists()) {
+                        refresh(hwnd, app);
+                    }
                     copied(hwnd, app);
                 }
             }
@@ -1058,6 +1064,26 @@ fn gone_command(hwnd: HWND, app: &mut App, id: i32) -> bool {
     .contains(&id)
     {
         return false;
+    }
+    // Deleted outside VidFetch since the list was filled: the list catches
+    // up, and the command applies to what is really there.
+    if let Some(stale) = downloads::chosen(list(hwnd))
+        .and_then(|i| app.entries.get(i))
+        .filter(|e| e.is_file() && !e.path.exists())
+        .cloned()
+    {
+        app.select = Some(stale.path.clone());
+        refresh(hwnd, app);
+        let found = downloads::chosen(list(hwnd))
+            .and_then(|i| app.entries.get(i))
+            .is_some_and(|e| e.is_gone() && e.path == stale.path);
+        if !found {
+            say(
+                hwnd,
+                &format!("{} is no longer on this computer.", stale.name),
+            );
+            return true;
+        }
     }
     let Some(e) = downloads::chosen(list(hwnd))
         .and_then(|i| app.entries.get(i))
