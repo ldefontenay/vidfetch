@@ -648,10 +648,13 @@ fn playlist(
     let mut in_a_row = 0;
     let mut notes: Vec<String> = Vec::new();
     // Takes in one video's result, in playlist order. False if it was stopped.
+    // `shown`: whether Status may follow its captions, which it may not while
+    // the next video is downloading (milestone 8 test, 1.1).
     let mut settle = |at: usize,
                       item: &ytdlp::Item,
                       before: &str,
-                      result: Result<Option<Fetched>, String>|
+                      result: Result<Option<Fetched>, String>,
+                      shown: bool|
      -> Result<bool, String> {
         match result {
             Ok(Some(f)) => {
@@ -688,7 +691,9 @@ fn playlist(
                     }
                 }
                 if s.captions {
-                    post(Event::Progress(format!("{before}Fetching the captions.")));
+                    if shown {
+                        post(Event::Progress(format!("{before}Fetching the captions.")));
+                    }
                     notes.extend(save_captions(exe, work, &item.url, &to, title, stop));
                 }
                 saved += 1;
@@ -732,7 +737,7 @@ fn playlist(
                 .is_some_and(|(_, i, _, _): &(usize, &ytdlp::Item, String, _)| i.url == item.url)
             {
                 let (a, i, b, h) = pending.take().expect("just looked");
-                if !settle(a, i, &b, wait(h))? {
+                if !settle(a, i, &b, wait(h), false)? {
                     break;
                 }
             }
@@ -741,11 +746,11 @@ fn playlist(
                 Ok(None) => break,
                 Err(why) => {
                     if let Some((a, i, b, h)) = pending.take() {
-                        if !settle(a, i, &b, wait(h))? {
+                        if !settle(a, i, &b, wait(h), false)? {
                             break;
                         }
                     }
-                    settle(*at, item, &before, Err(why))?;
+                    settle(*at, item, &before, Err(why), true)?;
                     continue;
                 }
             };
@@ -753,7 +758,7 @@ fn playlist(
                 post(Event::Progress(format!(
                     "{before}Downloaded; finishing the video before it."
                 )));
-                if !settle(a, i, &b, wait(h))? {
+                if !settle(a, i, &b, wait(h), false)? {
                     break;
                 }
             }
@@ -763,7 +768,7 @@ fn playlist(
             if n + 1 == todo.len() {
                 // Nothing left to overlap with, so Status can follow this one.
                 let done = finish(s, work, &item.url, got, &before, stop, post);
-                settle(*at, item, &before, done)?;
+                settle(*at, item, &before, done, true)?;
             } else {
                 let line = before.clone();
                 let url = item.url.as_str();
@@ -777,7 +782,7 @@ fn playlist(
         }
         if let Some((a, i, b, h)) = pending.take() {
             post(Event::Progress(format!("{b}Finishing.")));
-            settle(a, i, &b, wait(h))?;
+            settle(a, i, &b, wait(h), true)?;
         }
         Ok(())
     })?;
